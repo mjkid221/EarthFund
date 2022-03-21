@@ -1,9 +1,4 @@
-node_modules
-.env
-coverage
-coverage.json
-typechain
+artifacts/
+cache/
 
-#Hardhat files
-cache
-artifacts
+typechain-types/
