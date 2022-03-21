@@ -8,10 +8,34 @@ import "solidity-coverage";
 import "@typechain/hardhat";
 import "@nomiclabs/hardhat-ethers";
 import "@nomiclabs/hardhat-waffle";
+import "@nomiclabs/hardhat-etherscan";
 
-module.exports = {
+const config: HardhatUserConfig = {
   solidity: "0.8.13",
   networks: {
     hardhat: {},
+    localhost: {},
+    goerli: {
+      url: process.env.GOERLI_URL || "",
+      accounts:
+        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+    },
+  },
+  namedAccounts: {
+    deployer: 0,
+    alice: 1,
+    bob: 2,
+    carol: 3,
+    ted: 4,
+  },
+  gasReporter: {
+    enabled: process.env.REPORT_GAS ? true : undefined,
+    currency: "AUD",
+    coinmarketcap: process.env.COINMARKETCAP_KEY || "",
+  },
+  etherscan: {
+    apiKey: process.env.ETHERSCAN_API_KEY,
   },
 };
+
+export default config;

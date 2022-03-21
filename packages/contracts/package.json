@@ -5,10 +5,11 @@
   "license": "MIT",
   "scripts": {
     "compile": "hardhat clean && hardhat compile --force",
-    "test":"hardhat test"
+    "test": "hardhat test"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "npm:hardhat-deploy-ethers",
+    "@nomiclabs/hardhat-etherscan": "^3.0.3",
     "@nomiclabs/hardhat-waffle": "^2.0.3",
     "@typechain/ethers-v5": "^9.0.0",
     "@typechain/hardhat": "^5.0.0",
