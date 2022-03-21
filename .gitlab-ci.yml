@@ -14,8 +14,6 @@ include:
 hardhat-test:
   image: node:16.13.0
   stage: test
-  variables:
-    NODE_OPTIONS: --openssl-legacy-provider
   script:
     - yarn install
     - cd packages/contracts
