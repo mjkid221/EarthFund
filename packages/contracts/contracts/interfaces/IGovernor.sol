@@ -1,30 +1,32 @@
 // SPDX-License-Identifier: MIT
-pragma solidity "0.8.13";
+pragma solidity 0.8.13;
 
 interface IGovernor {
     /// Structs
-    struct ChildDAO {
+    struct Token {
         bytes tokenName;
         bytes tokenSymbol;
-        address[] initialSafeOwners;
-        bytes subdomain;
     }
 
-    struct SnapShot {
-        bytes placeholder;
+    struct Safe {
+        bytes initializer;
+        uint256 salt;
+    }
+
+    struct Subdomain {
+        bytes subdomain;
+        // snapshot stuff here
     }
 
     /// Events
-    event ChildDAOCreated(ChildDAO dao, SnapShot snapshot);
-    event TokenCreated(address indexed token, bytes name, bytes symbol);
-    event ENSCreated(bytes subdomain);
-    event SnapshotSetup();
+    event ChildDaoCreated(address indexed safe, address indexed token);
 
     /// Functions
-    function createChildDAO(
-        ChildDAO calldata childDao,
-        SnapShot calldata snapShot
-    ) external;
 
-    /// Needs admin functions?
+    /// @notice Creates the constituent components of a child dao
+    function createChildDAO(
+        Token calldata _tokenData,
+        Safe calldata _safeData,
+        Subdomain calldata _subdomain
+    ) external;
 }
