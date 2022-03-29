@@ -13,7 +13,12 @@ import "@nomiclabs/hardhat-etherscan";
 const config: HardhatUserConfig = {
   solidity: "0.8.13",
   networks: {
-    hardhat: {},
+    hardhat: {
+      forking: {
+        url: process.env.MAINNET_URL || "",
+        blockNumber: Number(process.env.BLOCK_NUMBER) || 14452169,
+      },
+    },
     localhost: {},
     goerli: {
       url: process.env.GOERLI_URL || "",

@@ -27,4 +27,8 @@ contract ERC20Singleton is
         __Ownable_init();
         transferOwnership(_owner);
     }
+
+    function mint(address account, uint256 amount) external override onlyOwner {
+        _mint(account, amount);
+    }
 }
