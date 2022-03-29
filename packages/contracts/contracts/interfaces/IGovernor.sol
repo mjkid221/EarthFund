@@ -4,13 +4,14 @@ import "@ensdomains/ens-contracts/contracts/resolvers/PublicResolver.sol";
 import "@ensdomains/ens-contracts/contracts/registry/ENSRegistry.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxyFactory.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "../vendors/IENSRegistrar.sol";
 
 interface IGovernor {
     /// Structs
     struct ConstructorParams {
         PublicResolver ensResolver;
         ENSRegistry ensRegistry;
-        IERC721 ensRegistrar;
+        IENSRegistrar ensRegistrar;
         GnosisSafeProxyFactory gnosisFactory;
         address gnosisSafeSingleton;
         address erc20Singleton;
@@ -60,7 +61,7 @@ interface IGovernor {
 
     function ensRegistry() external view returns (ENSRegistry);
 
-    function ensRegistrar() external view returns (IERC721);
+    function ensRegistrar() external view returns (IENSRegistrar);
 
     function gnosisFactory() external view returns (GnosisSafeProxyFactory);
 

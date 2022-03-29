@@ -2,6 +2,8 @@
 pragma solidity 0.8.13;
 
 interface IENSController {
+    event NewOwner(bytes32 indexed node, bytes32 indexed label, address owner);
+
     event NameRegistered(
         string name,
         bytes32 indexed label,

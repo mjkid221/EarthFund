@@ -10,6 +10,8 @@ import {
   IGovernor,
   IERC721,
   IGnosisSafe,
+  IENSRegistry,
+  IENSRegistrar,
 } from "../typechain-types";
 
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
@@ -17,6 +19,8 @@ import ContractAddresses from "../constants/contractAddresses";
 import convertToSeconds from "../helpers/convertToSeconds";
 import { keccak256, toUtf8Bytes } from "ethers/lib/utils";
 import { createGnosisSetupTx } from "../helpers/gnosisInitializer";
+
+import { ContractReceipt } from "ethers";
 
 chai.use(chaiAsPromised);
 const { expect } = chai;
@@ -29,8 +33,8 @@ const setupNetwork = async (domain: string, deployer: SignerWithAddress) => {
     "IENSController",
     ContractAddresses["31337"].ENSController
   );
-  const ensRegistrar = await ethers.getContractAt(
-    "IERC721",
+  const ensRegistrar: IENSRegistrar = await ethers.getContractAt(
+    "IENSRegistrar",
     ContractAddresses["31337"].ENSRegistrar
   );
 
@@ -59,10 +63,17 @@ const setupNetwork = async (domain: string, deployer: SignerWithAddress) => {
     })
   ).wait();
 
-  const tokenId = tx.events?.find((el: any) => el.event === "NameRegistered")
-    ?.args?.label;
+  const tokenId = tx.events?.find(
+    (el: any) =>
+      el.eventSignature ===
+      "NameRegistered(string,bytes32,address,uint256,uint256)"
+  )?.args?.label;
 
-  return [token, governor, ensController, ensRegistrar, tokenId];
+  const parentNode = tx.events?.find(
+    (el: any) => el.eventSignature === "NewOwner(bytes32,bytes32,address)"
+  )?.args?.node;
+
+  return [token, governor, ensController, ensRegistrar, tokenId, parentNode];
 };
 
 describe("Governor", () => {
@@ -75,111 +86,149 @@ describe("Governor", () => {
   before(async () => {
     [deployer, alice] = await ethers.getSigners();
   });
-  describe("Add ENS Domain", () => {
-    beforeEach(async () => {
-      [token, governor, ensController, ensRegistrar, tokenId] =
-        await setupNetwork(domain, deployer);
-    });
-    it("should transfer the ENS nft and set the label", async () => {
-      expect(await ensRegistrar.ownerOf(ethers.BigNumber.from(tokenId))).to.eq(
-        deployer.address
-      );
-      expect(await governor.label()).to.eq(
-        "0x0000000000000000000000000000000000000000000000000000000000000000"
-      );
-      await ensRegistrar.approve(governor.address, tokenId);
-      await governor.addENSDomain(
-        ethers.BigNumber.from(tokenId),
-        keccak256(toUtf8Bytes(domain))
-      );
+  // describe("Add ENS Domain", () => {
+  //   beforeEach(async () => {
+  //     [token, governor, ensController, ensRegistrar, tokenId] =
+  //       await setupNetwork(domain, deployer);
+  //   });
+  //   it("should transfer the ENS nft and set the label", async () => {
+  //     expect(await ensRegistrar.ownerOf(ethers.BigNumber.from(tokenId))).to.eq(
+  //       deployer.address
+  //     );
+  //     expect(await governor.label()).to.eq(
+  //       "0x0000000000000000000000000000000000000000000000000000000000000000"
+  //     );
+  //     await ensRegistrar.approve(governor.address, tokenId);
+  //     await governor.addENSDomain(
+  //       ethers.BigNumber.from(tokenId),
+  //       keccak256(toUtf8Bytes(domain))
+  //     );
 
-      expect(await ensRegistrar.ownerOf(ethers.BigNumber.from(tokenId))).to.eq(
-        governor.address
-      );
-      expect(await governor.label()).to.eq(keccak256(toUtf8Bytes(domain)));
-    });
-    it("should set the label", async () => {
-      expect(await governor.label()).to.eq(
-        "0x0000000000000000000000000000000000000000000000000000000000000000"
-      );
-      await ensRegistrar.approve(governor.address, tokenId);
-      await governor.addENSDomain(
-        ethers.BigNumber.from(tokenId),
-        keccak256(toUtf8Bytes(domain))
-      );
+  //     expect(await ensRegistrar.ownerOf(ethers.BigNumber.from(tokenId))).to.eq(
+  //       governor.address
+  //     );
+  //     expect(await governor.label()).to.eq(keccak256(toUtf8Bytes(domain)));
+  //   });
+  //   it("should set the label", async () => {
+  //     expect(await governor.label()).to.eq(
+  //       "0x0000000000000000000000000000000000000000000000000000000000000000"
+  //     );
+  //     await ensRegistrar.approve(governor.address, tokenId);
+  //     await governor.addENSDomain(
+  //       ethers.BigNumber.from(tokenId),
+  //       keccak256(toUtf8Bytes(domain))
+  //     );
 
-      expect(await governor.label()).to.eq(keccak256(toUtf8Bytes(domain)));
-    });
-    it("should set the ensDomainId", async () => {
-      expect(await governor.ensDomainNFTId()).to.eq(
-        "0x0000000000000000000000000000000000000000000000000000000000000000"
-      );
-      await ensRegistrar.approve(governor.address, tokenId);
-      await governor.addENSDomain(
-        ethers.BigNumber.from(tokenId),
-        keccak256(toUtf8Bytes(domain))
-      );
+  //     expect(await governor.label()).to.eq(keccak256(toUtf8Bytes(domain)));
+  //   });
+  //   it("should set the ensDomainId", async () => {
+  //     expect(await governor.ensDomainNFTId()).to.eq(
+  //       "0x0000000000000000000000000000000000000000000000000000000000000000"
+  //     );
+  //     await ensRegistrar.approve(governor.address, tokenId);
+  //     await governor.addENSDomain(
+  //       ethers.BigNumber.from(tokenId),
+  //       keccak256(toUtf8Bytes(domain))
+  //     );
 
-      expect(await governor.ensDomainNFTId()).to.eq(tokenId);
+  //     expect(await governor.ensDomainNFTId()).to.eq(tokenId);
 
-      it("should revert on child creation if an NFT isn't set", async () => {
-        await expect(
-          governor.createChildDAO(
-            {
-              tokenName: toUtf8Bytes("Test"),
-              tokenSymbol: toUtf8Bytes("TEST"),
-            },
-            { initializer: toUtf8Bytes("test") },
-            {
-              subdomain: toUtf8Bytes("subtest"),
-              snapshotKey: toUtf8Bytes("a"),
-              snapshotValue: toUtf8Bytes("B"),
-            }
-          )
-        ).to.be.revertedWith("ENS domain unavailable");
-      });
-    });
-  });
+  //     it("should revert on child creation if an NFT isn't set", async () => {
+  //       await expect(
+  //         governor.createChildDAO(
+  //           {
+  //             tokenName: toUtf8Bytes("Test"),
+  //             tokenSymbol: toUtf8Bytes("TEST"),
+  //           },
+  //           { initializer: toUtf8Bytes("test") },
+  //           {
+  //             subdomain: toUtf8Bytes("subtest"),
+  //             snapshotKey: toUtf8Bytes("a"),
+  //             snapshotValue: toUtf8Bytes("B"),
+  //           }
+  //         )
+  //       ).to.be.revertedWith("ENS domain unavailable");
+  //     });
+  //   });
+  // });
   describe("Gnosis Safe", () => {
     let safe: IGnosisSafe;
+    let parentNode: string, safeTx: ContractReceipt;
     beforeEach(async () => {
-      [token, governor, ensController, ensRegistrar, tokenId] =
+      [token, governor, ensController, ensRegistrar, tokenId, parentNode] =
         await setupNetwork(domain, deployer);
+
       await ensRegistrar.approve(governor.address, tokenId);
-      await governor.addENSDomain(tokenId, keccak256(toUtf8Bytes(domain)));
+      await governor.addENSDomain(tokenId, parentNode);
+      safeTx = await (
+        await governor.createChildDAO(
+          {
+            tokenName: toUtf8Bytes("Test"),
+            tokenSymbol: toUtf8Bytes("TEST"),
+          },
+          {
+            initializer:
+              (await createGnosisSetupTx(
+                [alice.address],
+                1,
+                ethers.constants.AddressZero,
+                [],
+                ContractAddresses["31337"].GnosisFallbackHandler,
+                ethers.constants.AddressZero,
+                0,
+                ethers.constants.AddressZero
+              )) || [],
+          },
+          {
+            subdomain: toUtf8Bytes("subtest"),
+            snapshotKey: toUtf8Bytes("A"),
+            snapshotValue: toUtf8Bytes("B"),
+          }
+        )
+      ).wait();
     });
     it("should create a gnosis safe", async () => {
-      await governor.createChildDAO(
-        {
-          tokenName: toUtf8Bytes("Test"),
-          tokenSymbol: toUtf8Bytes("TEST"),
-        },
-        {
-          initializer:
-            (await createGnosisSetupTx(
-              [alice.address],
-              1,
-              ethers.constants.AddressZero,
-              [],
-              ContractAddresses["31337"].GnosisFallbackHandler,
-              ethers.constants.AddressZero,
-              0,
-              ethers.constants.AddressZero
-            )) || [],
-        },
-        {
-          subdomain: toUtf8Bytes("subtest"),
-          snapshotKey: toUtf8Bytes("a"),
-          snapshotValue: toUtf8Bytes("B"),
-        }
-      );
-      throw new Error("implement");
+      const safeAddress = safeTx.events?.find(
+        (el) => el.event === "ChildDaoCreated"
+      )?.args?.safe;
+      expect(
+        await (
+          (await ethers.getContractAt(
+            "IGnosisSafe",
+            safeAddress
+          )) as IGnosisSafe
+        ).isOwner(alice.address)
+      ).to.eq(true);
     });
     it("should set the owners of the safe", async () => {
-      throw new Error("implement");
+      const safeAddress = safeTx.events?.find(
+        (el) => el.event === "ChildDaoCreated"
+      )?.args?.safe;
+      expect(
+        (
+          await (
+            (await ethers.getContractAt(
+              "IGnosisSafe",
+              safeAddress
+            )) as IGnosisSafe
+          ).getOwners()
+        ).length
+      ).to.eq(1);
     });
     it("should set the safe threshold", async () => {
-      throw new Error("implement");
+      const safeAddress = safeTx.events?.find(
+        (el) => el.event === "ChildDaoCreated"
+      )?.args?.safe;
+      expect(
+        (
+          await (
+            (await ethers.getContractAt(
+              "IGnosisSafe",
+              safeAddress
+            )) as IGnosisSafe
+          ).getThreshold()
+        ).toNumber()
+      ).to.eq(1);
     });
   });
   // describe("ERC20 Token", () => {

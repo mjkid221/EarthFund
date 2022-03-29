@@ -22,7 +22,7 @@ contract ERC20Singleton is
         bytes calldata _name,
         bytes calldata _symbol,
         address _owner
-    ) external onlyInitializing {
+    ) external initializer {
         __ERC20_init(string(_name), string(_symbol));
         __Ownable_init();
         transferOwnership(_owner);

@@ -8,13 +8,16 @@ import "@ensdomains/ens-contracts/contracts/resolvers/PublicResolver.sol";
 import "@ensdomains/ens-contracts/contracts/registry/ENSRegistry.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxyFactory.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+
 import "../interfaces/IERC20Singleton.sol";
+import "../vendors/IENSRegistrar.sol";
+
+import "hardhat/console.sol";
 
 contract Governor is IGovernor, Ownable, ERC721Holder {
     PublicResolver public override ensResolver;
     ENSRegistry public override ensRegistry;
-    IERC721 public override ensRegistrar;
+    IENSRegistrar public override ensRegistrar;
     GnosisSafeProxyFactory public override gnosisFactory;
     address public override gnosisSafeSingleton;
     address public override erc20Singleton;
@@ -93,15 +96,15 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
             safe
         );
 
-        /// ENS Subdomain + Snapshot text record
-        bytes32 node = createENSSubdomain(
-            safe,
-            _subdomain.subdomain,
-            _subdomain.snapshotKey,
-            _subdomain.snapshotValue
-        );
+        // /// ENS Subdomain + Snapshot text record
+        // bytes32 node = createENSSubdomain(
+        //     safe,
+        //     _subdomain.subdomain,
+        //     _subdomain.snapshotKey,
+        //     _subdomain.snapshotValue
+        // );
 
-        emit ChildDaoCreated(safe, token, node);
+        emit ChildDaoCreated(safe, token, keccak256("test"));
     }
 
     function createGnosisSafe(bytes memory _initializer, uint256 _salt)
@@ -134,8 +137,8 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     ) internal returns (bytes32 node) {
         node = keccak256(_name);
         ensRegistry.setSubnodeRecord(
-            node,
             label,
+            node,
             address(this),
             address(ensResolver),
             3600
