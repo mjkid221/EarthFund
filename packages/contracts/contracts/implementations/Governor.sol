@@ -59,6 +59,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     }
 
     function addENSDomain(uint256 _domainNFTId) external override onlyOwner {
+        require(ensDomainNFTId == 0, "ens domain already set");
         ensDomainNFTId = _domainNFTId;
         ensRegistrar.safeTransferFrom(
             address(msg.sender),
