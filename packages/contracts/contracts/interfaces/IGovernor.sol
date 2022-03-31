@@ -68,7 +68,5 @@ interface IGovernor {
 
     function erc20Singleton() external view returns (address);
 
-    function tokenSalt() external view returns (uint256);
-
     function ensDomainNFTId() external view returns (uint256);
 }

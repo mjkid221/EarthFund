@@ -12,6 +12,7 @@ import {
   IGnosisSafe,
   IENSRegistry,
   IENSRegistrar,
+  PublicResolver,
 } from "../typechain-types";
 
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
@@ -107,15 +108,15 @@ const setupNetwork = async (domain: string, deployer: SignerWithAddress) => {
 
 describe("Governor", () => {
   let deployer: SignerWithAddress, alice: SignerWithAddress;
-  let token: ERC20Singleton, governor: IGovernor, ensController: IENSController;
-  let ensRegistrar: IENSRegistrar;
+  let token: ERC20Singleton, governor: IGovernor;
+  let ensRegistrar: IENSRegistrar, ensController: IENSController;
   let tokenId: string;
   const domain = "earthfundTurboTestDomain31337";
 
   before(async () => {
     [deployer, alice] = await ethers.getSigners();
   });
-  describe("Add ENS Domain", () => {
+  describe("Add ENS Domain to Dao Governor", () => {
     beforeEach(async () => {
       [token, governor, ensController, ensRegistrar, tokenId] =
         await setupNetwork(domain, deployer);
@@ -194,7 +195,7 @@ describe("Governor", () => {
     const tokenName = "Test",
       tokenSymbol = "TEST";
     let childToken: ERC20Singleton, safe: string;
-    let tokenSalt: number;
+
     before(async () => {
       [token, governor, ensController, ensRegistrar, tokenId] =
         await setupNetwork(domain, deployer);
@@ -206,7 +207,7 @@ describe("Governor", () => {
         tokenName,
         tokenSymbol
       );
-      tokenSalt = (await governor.tokenSalt()).toNumber();
+
       const daoTx = await (
         await governor.createChildDAO(_tokenData, _safeData, _subdomain)
       ).wait();
@@ -246,35 +247,43 @@ describe("Governor", () => {
         )
       ).to.be.rejectedWith("Initializable: contract is already initialized");
     });
-    it("should increment the token salt", async () => {
-      expect(await governor.tokenSalt()).to.eq(tokenSalt + 1);
-      const { _tokenData, _safeData, _subdomain } = await childDaoConfig(
-        [alice.address],
-        tokenName,
-        tokenSymbol
-      );
-
-      await (
-        await governor.createChildDAO(
-          { tokenName: toUtf8Bytes("test"), tokenSymbol: toUtf8Bytes("test") },
-          _safeData,
-          _subdomain
-        )
-      ).wait();
-      expect(await governor.tokenSalt()).to.eq(tokenSalt + 2);
-    });
   });
   describe("ENS Subdomain", () => {
-    let childNode: string;
+    let childNode: string, safe: string;
+    let ensRegistry: IENSRegistry, ensResolver: PublicResolver;
     before(async () => {
       [token, governor, ensController, ensRegistrar, tokenId] =
         await setupNetwork(domain, deployer);
+      ensRegistry = await ethers.getContractAt(
+        "IENSRegistry",
+        ContractAddresses["31337"].ENSRegistry
+      );
+
+      ensResolver = await ethers.getContractAt(
+        "PublicResolver",
+        ContractAddresses["31337"].ENSResolver
+      );
 
       await ensRegistrar.approve(governor.address, tokenId);
       await governor.addENSDomain(tokenId);
       const { _tokenData, _safeData, _subdomain } = await childDaoConfig([
         alice.address,
       ]);
+
+      expect(
+        await ensRegistry.owner(
+          ethers.utils.solidityKeccak256(
+            ["bytes32", "bytes32"],
+            [
+              ethers.utils.solidityKeccak256(
+                ["bytes32", "bytes32"],
+                [await ensRegistrar.baseNode(), tokenId]
+              ),
+              keccak256(_subdomain.subdomain),
+            ]
+          )
+        )
+      ).to.eq(ethers.constants.AddressZero);
 
       const daoTx = await (
         await governor.createChildDAO(_tokenData, _safeData, _subdomain)
@@ -283,31 +292,66 @@ describe("Governor", () => {
       childNode = daoTx.events?.find(
         (el) => el.eventSignature === "ChildDaoCreated(address,address,bytes32)"
       )?.args?.node;
+      safe = daoTx.events?.find(
+        (el) => el.eventSignature === "ChildDaoCreated(address,address,bytes32)"
+      )?.args?.safe;
     });
     it("should create an ENS subdomain", async () => {
-      throw new Error("implement");
+      expect(await ensRegistry.owner(childNode)).to.eq(governor.address);
     });
     it("should revert if the subdomain exists", async () => {
-      throw new Error("implement");
+      /// Gnosis will throw first, token name is used as salt
+      const { _tokenData, _safeData, _subdomain } = await childDaoConfig([
+        deployer.address,
+        alice.address,
+      ]);
+      await expect(
+        governor.createChildDAO(_tokenData, _safeData, _subdomain)
+      ).to.be.rejectedWith("ERC1167: create2 failed");
     });
     it("should set the ETH address for the subdomain to the Gnosis safe", async () => {
-      throw new Error("implement");
+      expect(
+        (await ensResolver.functions["addr(bytes32)"](childNode))[0]
+      ).to.eq(safe);
     });
     it("should set a text record for the subdomain", async () => {
       /// ## Use ethers for checking ens text record
-      throw new Error("implement");
+      expect((await ensResolver.functions.text(childNode, "A"))[0]).to.eq("B");
     });
   });
-  // describe("General requirements", () => {
-  //   before(async () => {
-  //     // approve and transfer the NFT
-  //   });
-  //   it("should emit an event", async () => {
-  //     throw new Error("implement");
-  //     expect.emitWithArgs
-  //   });
+  describe("General requirements", () => {
+    before(async () => {
+      [token, governor, ensController, ensRegistrar, tokenId] =
+        await setupNetwork(domain, deployer);
 
-  // });
+      await ensRegistrar.approve(governor.address, tokenId);
+      await governor.addENSDomain(tokenId);
+    });
+    it("should emit an event", async () => {
+      const { _tokenData, _safeData, _subdomain } = await childDaoConfig([
+        alice.address,
+      ]);
+      // await expect(governor.createChildDAO(_tokenData, _safeData, _subdomain))
+      //   .to.emit(governor, "ChildDaoCreated")
+      //   .withArgs(
+      //     ethers.utils.getCreate2Address(
+      //       ContractAddresses["31337"].GnosisFactory,
+      //       keccak256(toUtf8Bytes("Test"))
+      //     ),
+      //     token,
+      //     ethers.utils.solidityKeccak256(
+      //       ["bytes32", "bytes32"],
+      //       [
+      //         ethers.utils.solidityKeccak256(
+      //           ["bytes32", "bytes32"],
+      //           [await ensRegistrar.baseNode(), tokenId]
+      //         ),
+      //         keccak256(_subdomain.subdomain),
+      //       ]
+      //     )
+      //   );
+    });
+  });
 });
 
 // it("should ", async () => {throw new Error("implement");});

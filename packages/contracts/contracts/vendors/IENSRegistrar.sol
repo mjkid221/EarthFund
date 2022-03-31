@@ -5,5 +5,5 @@ interface IENSRegistrar is IERC721 {
 
     function ens() external returns (address ens);
 
-    function baseNode() external returns (bytes32 base);
+    function baseNode() external view returns (bytes32 base);
 }

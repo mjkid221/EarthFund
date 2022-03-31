@@ -12,8 +12,6 @@ import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "../interfaces/IERC20Singleton.sol";
 import "../vendors/IENSRegistrar.sol";
 
-import "hardhat/console.sol";
-
 contract Governor is IGovernor, Ownable, ERC721Holder {
     PublicResolver public override ensResolver;
     ENSRegistry public override ensRegistry;
@@ -21,7 +19,6 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     GnosisSafeProxyFactory public override gnosisFactory;
     address public override gnosisSafeSingleton;
     address public override erc20Singleton;
-    uint256 public override tokenSalt = 1;
     uint256 public override ensDomainNFTId;
 
     constructor(ConstructorParams memory _params) {
@@ -121,7 +118,10 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
         bytes memory _symbol,
         address _safe
     ) internal returns (address token) {
-        token = Clones.cloneDeterministic(erc20Singleton, bytes32(tokenSalt++));
+        token = Clones.cloneDeterministic(
+            erc20Singleton,
+            keccak256(abi.encodePacked(_name, _symbol))
+        );
         IERC20Singleton(token).initialize(_name, _symbol, _safe);
     }
 
@@ -159,7 +159,5 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
         ensResolver.setAddr(childNode, _owner);
 
         ensResolver.setText(childNode, string(_key), string(_value));
-
-        ensRegistry.setSubnodeOwner(parentNode, labelHash, _owner);
     }
 }
