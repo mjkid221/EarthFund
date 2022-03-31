@@ -13,6 +13,7 @@ import {
   IENSRegistry,
   IENSRegistrar,
   PublicResolver,
+  Governor__factory,
 } from "../typechain-types";
 
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
@@ -21,7 +22,6 @@ import convertToSeconds from "../helpers/convertToSeconds";
 import { isAddress, keccak256, toUtf8Bytes } from "ethers/lib/utils";
 import { createGnosisSetupTx } from "../helpers/gnosisInitializer";
 
-import { ContractReceipt } from "ethers";
 import { solidity } from "ethereum-waffle";
 
 chai.use(solidity);
@@ -320,14 +320,13 @@ describe("Governor", () => {
     });
   });
   describe("General requirements", () => {
-    before(async () => {
+    beforeEach(async () => {
       [token, governor, ensController, ensRegistrar, tokenId] =
         await setupNetwork(domain, deployer);
-
-      await ensRegistrar.approve(governor.address, tokenId);
-      await governor.addENSDomain(tokenId);
     });
     it("should emit an event", async () => {
+      await ensRegistrar.approve(governor.address, tokenId);
+      await governor.addENSDomain(tokenId);
       const { _tokenData, _safeData, _subdomain } = await childDaoConfig([
         alice.address,
       ]);
@@ -350,6 +349,101 @@ describe("Governor", () => {
       //       ]
       //     )
       //   );
+    });
+    it("should revert create dao if there isn't an NFT in the contract", async () => {
+      const { _tokenData, _safeData, _subdomain } = await childDaoConfig([
+        alice.address,
+      ]);
+      await expect(
+        governor.createChildDAO(_tokenData, _safeData, _subdomain)
+      ).to.be.rejectedWith("ENS domain unavailable");
+    });
+    it("should revert deployment if parameters are bad", async () => {
+      const factory: Governor__factory = await ethers.getContractFactory(
+        "Governor"
+      );
+
+      await expect(
+        factory.deploy({
+          ensResolver: ethers.constants.AddressZero,
+          ensRegistry: ethers.constants.AddressZero,
+          ensRegistrar: ethers.constants.AddressZero,
+          gnosisFactory: ethers.constants.AddressZero,
+          gnosisSafeSingleton: ethers.constants.AddressZero,
+          erc20Singleton: ethers.constants.AddressZero,
+          parentDao: ethers.constants.AddressZero,
+        })
+      ).to.be.revertedWith("invalid resolver address");
+      await expect(
+        factory.deploy({
+          ensResolver: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          ensRegistry: ethers.constants.AddressZero,
+          ensRegistrar: ethers.constants.AddressZero,
+          gnosisFactory: ethers.constants.AddressZero,
+          gnosisSafeSingleton: ethers.constants.AddressZero,
+          erc20Singleton: ethers.constants.AddressZero,
+          parentDao: ethers.constants.AddressZero,
+        })
+      ).to.be.revertedWith("invalid registry address");
+      await expect(
+        factory.deploy({
+          ensResolver: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          ensRegistry: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          ensRegistrar: ethers.constants.AddressZero,
+          gnosisFactory: ethers.constants.AddressZero,
+          gnosisSafeSingleton: ethers.constants.AddressZero,
+          erc20Singleton: ethers.constants.AddressZero,
+          parentDao: ethers.constants.AddressZero,
+        })
+      ).to.be.revertedWith("invalid registrar address");
+      await expect(
+        factory.deploy({
+          ensResolver: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          ensRegistry: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          ensRegistrar: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          gnosisFactory: ethers.constants.AddressZero,
+          gnosisSafeSingleton: ethers.constants.AddressZero,
+          erc20Singleton: ethers.constants.AddressZero,
+          parentDao: ethers.constants.AddressZero,
+        })
+      ).to.be.revertedWith("invalid factory address");
+      await expect(
+        factory.deploy({
+          ensResolver: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          ensRegistry: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          ensRegistrar: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          gnosisFactory: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          gnosisSafeSingleton: ethers.constants.AddressZero,
+          erc20Singleton: ethers.constants.AddressZero,
+          parentDao: ethers.constants.AddressZero,
+        })
+      ).to.be.revertedWith("invalid safe singleton address");
+      await expect(
+        factory.deploy({
+          ensResolver: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          ensRegistry: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          ensRegistrar: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          gnosisFactory: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          gnosisSafeSingleton: ethers.utils.hexlify(
+            ethers.utils.randomBytes(20)
+          ),
+          erc20Singleton: ethers.constants.AddressZero,
+          parentDao: ethers.constants.AddressZero,
+        })
+      ).to.be.revertedWith("invalid token singleton address");
+      await expect(
+        factory.deploy({
+          ensResolver: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          ensRegistry: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          ensRegistrar: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          gnosisFactory: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          gnosisSafeSingleton: ethers.utils.hexlify(
+            ethers.utils.randomBytes(20)
+          ),
+          erc20Singleton: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          parentDao: ethers.constants.AddressZero,
+        })
+      ).to.be.revertedWith("invalid owner");
     });
   });
 });
