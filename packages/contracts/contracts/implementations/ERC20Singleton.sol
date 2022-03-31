@@ -13,7 +13,7 @@ contract ERC20Singleton is
     OwnableUpgradeable
 {
     constructor() initializer {
-        __ERC20_init("BASE", "BASE");
+        __ERC20_init("Singleton Base", "BASE");
         __Ownable_init();
         transferOwnership(address(1));
     }

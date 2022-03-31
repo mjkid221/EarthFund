@@ -23,7 +23,6 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     address public override erc20Singleton;
     uint256 public override tokenSalt = 1;
     uint256 public override ensDomainNFTId;
-    bytes32 public override label;
 
     constructor(ConstructorParams memory _params) {
         require(
@@ -62,18 +61,15 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
         transferOwnership(_params.parentDao);
     }
 
-    function addENSDomain(uint256 _domainNFTId, bytes32 _label)
-        external
-        override
-        onlyOwner
-    {
-        label = _label;
+    function addENSDomain(uint256 _domainNFTId) external override onlyOwner {
         ensDomainNFTId = _domainNFTId;
         ensRegistrar.safeTransferFrom(
             address(msg.sender),
             address(this),
             _domainNFTId
         );
+
+        ensRegistrar.reclaim(_domainNFTId, address(this));
     }
 
     function createChildDAO(
@@ -84,30 +80,30 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
         require(ensDomainNFTId > 0, "ENS domain unavailable");
 
         /// Gnosis multi sig
-        address safe = createGnosisSafe(
+        address safe = _createGnosisSafe(
             _safeData.initializer,
             uint256(keccak256(bytes(_tokenData.tokenName)))
         );
 
         /// Token
-        address token = createERC20Clone(
+        address token = _createERC20Clone(
             _tokenData.tokenName,
             _tokenData.tokenSymbol,
             safe
         );
 
         // /// ENS Subdomain + Snapshot text record
-        // bytes32 node = createENSSubdomain(
-        //     safe,
-        //     _subdomain.subdomain,
-        //     _subdomain.snapshotKey,
-        //     _subdomain.snapshotValue
-        // );
+        bytes32 node = _createENSSubdomain(
+            safe,
+            _subdomain.subdomain,
+            _subdomain.snapshotKey,
+            _subdomain.snapshotValue
+        );
 
-        emit ChildDaoCreated(safe, token, keccak256("test"));
+        emit ChildDaoCreated(safe, token, node);
     }
 
-    function createGnosisSafe(bytes memory _initializer, uint256 _salt)
+    function _createGnosisSafe(bytes memory _initializer, uint256 _salt)
         internal
         returns (address safe)
     {
@@ -120,7 +116,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
         );
     }
 
-    function createERC20Clone(
+    function _createERC20Clone(
         bytes memory _name,
         bytes memory _symbol,
         address _safe
@@ -129,23 +125,44 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
         IERC20Singleton(token).initialize(_name, _symbol, _safe);
     }
 
-    function createENSSubdomain(
+    function _calculateENSNode(bytes32 baseNode, bytes32 childNode)
+        internal
+        pure
+        returns (bytes32 ensNode)
+    {
+        ensNode = keccak256(abi.encodePacked(baseNode, childNode));
+    }
+
+    function _createENSSubdomain(
         address _owner,
         bytes memory _name,
         bytes memory _key,
         bytes memory _value
     ) internal returns (bytes32 node) {
         node = keccak256(_name);
+
+        bytes32 ensBaseNode = ensRegistrar.baseNode();
+        bytes32 parentNode = _calculateENSNode(
+            ensBaseNode,
+            bytes32(ensDomainNFTId)
+        );
+
         ensRegistry.setSubnodeRecord(
-            label,
+            parentNode,
             node,
             address(this),
             address(ensResolver),
             3600
         );
 
-        ensResolver.setAddr(node, _owner);
-        ensResolver.setText(node, string(_key), string(_value));
-        ensRegistry.setSubnodeOwner(node, label, _owner);
+        ensResolver.setAddr(_calculateENSNode(parentNode, node), _owner);
+
+        ensResolver.setText(
+            _calculateENSNode(parentNode, node),
+            string(_key),
+            string(_value)
+        );
+
+        ensRegistry.setSubnodeOwner(parentNode, node, _owner);
     }
 }
