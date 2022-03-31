@@ -133,6 +133,21 @@ describe("Governor", () => {
         governor.address
       );
     });
+    it("should not allow NFT replacement", async () => {
+      expect(await ensRegistrar.ownerOf(ethers.BigNumber.from(tokenId))).to.eq(
+        deployer.address
+      );
+
+      await ensRegistrar.approve(governor.address, tokenId);
+      await governor.addENSDomain(ethers.BigNumber.from(tokenId));
+
+      expect(await ensRegistrar.ownerOf(ethers.BigNumber.from(tokenId))).to.eq(
+        governor.address
+      );
+      await expect(
+        governor.addENSDomain(ethers.BigNumber.from(tokenId))
+      ).to.be.revertedWith("ens domain already set");
+    });
 
     it("should set the ensDomainId", async () => {
       expect(await governor.ensDomainNFTId()).to.eq(
