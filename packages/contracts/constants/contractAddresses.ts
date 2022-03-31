@@ -13,20 +13,6 @@ interface IContractAddresses {
   ENSRegistrar: string;
   ENSController: string;
 }
-
-export const goerli: IContractAddresses = {
-  GnosisFactory:
-    getProxyFactoryDeployment({ network: "5" })?.defaultAddress || "",
-  GnosisSafeSingleton:
-    getSafeSingletonDeployment({ network: "5" })?.defaultAddress || "",
-  GnosisFallbackHandler:
-    getFallbackHandlerDeployment({ network: "5" })?.defaultAddress || "",
-  ENSRegistry: "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
-  ENSResolver: "0xc1EA41786094D1fBE5aded033B5370d51F7a3F96",
-  ENSRegistrar: "",
-  ENSController: "",
-};
-
 export const mainnet: IContractAddresses = {
   GnosisFactory:
     getProxyFactoryDeployment({ network: "1" })?.defaultAddress || "",
@@ -41,7 +27,6 @@ export const mainnet: IContractAddresses = {
 };
 
 export const ContractAddresses: { [key: string]: IContractAddresses } = {
-  // "5": { ...goerli },
   "1": { ...mainnet },
   "31337": { ...mainnet },
 };
