@@ -324,32 +324,7 @@ describe("Governor", () => {
       [token, governor, ensController, ensRegistrar, tokenId] =
         await setupNetwork(domain, deployer);
     });
-    it("should emit an event", async () => {
-      await ensRegistrar.approve(governor.address, tokenId);
-      await governor.addENSDomain(tokenId);
-      const { _tokenData, _safeData, _subdomain } = await childDaoConfig([
-        alice.address,
-      ]);
-      // await expect(governor.createChildDAO(_tokenData, _safeData, _subdomain))
-      //   .to.emit(governor, "ChildDaoCreated")
-      //   .withArgs(
-      //     ethers.utils.getCreate2Address(
-      //       ContractAddresses["31337"].GnosisFactory,
-      //       keccak256(toUtf8Bytes("Test"))
-      //     ),
-      //     token,
-      //     ethers.utils.solidityKeccak256(
-      //       ["bytes32", "bytes32"],
-      //       [
-      //         ethers.utils.solidityKeccak256(
-      //           ["bytes32", "bytes32"],
-      //           [await ensRegistrar.baseNode(), tokenId]
-      //         ),
-      //         keccak256(_subdomain.subdomain),
-      //       ]
-      //     )
-      //   );
-    });
+
     it("should revert create dao if there isn't an NFT in the contract", async () => {
       const { _tokenData, _safeData, _subdomain } = await childDaoConfig([
         alice.address,
