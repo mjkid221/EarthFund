@@ -138,31 +138,28 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
         bytes memory _name,
         bytes memory _key,
         bytes memory _value
-    ) internal returns (bytes32 node) {
-        node = keccak256(_name);
+    ) internal returns (bytes32 childNode) {
+        bytes32 labelHash = keccak256(_name);
 
         bytes32 ensBaseNode = ensRegistrar.baseNode();
         bytes32 parentNode = _calculateENSNode(
             ensBaseNode,
             bytes32(ensDomainNFTId)
         );
+        childNode = _calculateENSNode(parentNode, labelHash);
 
         ensRegistry.setSubnodeRecord(
             parentNode,
-            node,
+            labelHash,
             address(this),
             address(ensResolver),
             3600
         );
 
-        ensResolver.setAddr(_calculateENSNode(parentNode, node), _owner);
+        ensResolver.setAddr(childNode, _owner);
 
-        ensResolver.setText(
-            _calculateENSNode(parentNode, node),
-            string(_key),
-            string(_value)
-        );
+        ensResolver.setText(childNode, string(_key), string(_value));
 
-        ensRegistry.setSubnodeOwner(parentNode, node, _owner);
+        ensRegistry.setSubnodeOwner(parentNode, labelHash, _owner);
     }
 }
