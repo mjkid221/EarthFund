@@ -10,7 +10,8 @@
         "./hardhat.config.ts",
         "./scripts",
         "./deploy",
-        "./test"
+        "./test",
+        "helpers/gnosisInitializer.ts"
     ],
     "files": [
         "./hardhat.config.ts"
