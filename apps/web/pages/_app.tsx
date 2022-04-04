@@ -1,10 +1,15 @@
 import { ChakraProvider } from "@chakra-ui/react";
+import { MetaMaskProvider } from "metamask-react";
 import theme from "../theme";
 
-export default function App({ Component, pageProps }) {
+const App = ({ Component, pageProps }) => {
   return (
     <ChakraProvider theme={theme}>
-      <Component {...pageProps} />;
+      <MetaMaskProvider>
+        <Component {...pageProps} />
+      </MetaMaskProvider>
     </ChakraProvider>
   );
-}
+};
+
+export default App;
