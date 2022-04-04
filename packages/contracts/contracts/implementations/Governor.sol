@@ -80,7 +80,9 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
         /// Gnosis multi sig
         address safe = _createGnosisSafe(
             _safeData.initializer,
-            uint256(keccak256(bytes(_tokenData.tokenName)))
+            uint256(
+                keccak256(abi.encodePacked(_tokenData.tokenName, address(this)))
+            )
         );
 
         /// Token
