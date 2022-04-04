@@ -4,8 +4,6 @@ import MetaMaskOnboarding from "@metamask/onboarding";
 import Image from "next/image";
 
 import MetaMaskFox from "../assets/icons/metamask-fox.svg";
-import { useEffect } from "react";
-import { useRouter } from "next/router";
 import PageContainer from "../components/PageContainer";
 
 const installMetaMask = () => {
@@ -14,15 +12,7 @@ const installMetaMask = () => {
 };
 
 const Connect = () => {
-  const router = useRouter();
   const { status, connect } = useMetaMask();
-
-  // navigate to form page if wallet is connected
-  useEffect(() => {
-    if (status === "connected") {
-      router.push("/form");
-    }
-  }, [status]);
 
   return (
     <PageContainer>
