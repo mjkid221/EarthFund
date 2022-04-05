@@ -82,11 +82,12 @@ const Form = () => {
   return (
     <PageContainer>
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
-        <Stack align="center">
+        {/* child dao token inputs */}
+        <Stack align="center" my="50px">
           <Heading>Child DAO Token</Heading>
 
           <FormControl isInvalid={errors?.childDaoTokenName !== undefined}>
-            <FormLabel htmlFor="tokenName">DAO token name</FormLabel>
+            <FormLabel>DAO token name</FormLabel>
             <Input
               placeholder="Child DAO Token"
               type="text"
@@ -104,7 +105,7 @@ const Form = () => {
           </FormControl>
 
           <FormControl isInvalid={errors?.childDaoTokenSymbol !== undefined}>
-            <FormLabel htmlFor="tokenSymbol">DAO token symbol</FormLabel>
+            <FormLabel>DAO token symbol</FormLabel>
             <Controller
               control={control}
               name="childDaoTokenSymbol"
@@ -129,16 +130,67 @@ const Form = () => {
               <FormHelperText>The symbol you want for the token</FormHelperText>
             )}
           </FormControl>
-
-          <Button
-            colorScheme="blue"
-            isDisabled={!signer}
-            isLoading={isSubmitting}
-            type="submit"
-          >
-            Create DAO
-          </Button>
         </Stack>
+
+        {/* child dao gnosis safe inputs */}
+        <Stack align="center" my="50px">
+          <Heading>Gnosis Safe settings</Heading>
+
+          <FormControl isInvalid={errors?.gnosisSafeTokenName !== undefined}>
+            <FormLabel>Safe token name</FormLabel>
+            <Input
+              placeholder="Gnosis safe token"
+              type="text"
+              {...register("gnosisSafeTokenName", {
+                required: "Token name is required",
+              })}
+            />
+            {errors?.gnosisSafeTokenName?.message ? (
+              <FormErrorMessage>
+                {errors.gnosisSafeTokenName.message}
+              </FormErrorMessage>
+            ) : (
+              <FormHelperText>The name you want for the token</FormHelperText>
+            )}
+          </FormControl>
+
+          <FormControl isInvalid={errors?.gnosisSafeTokenSymbol !== undefined}>
+            <FormLabel>Safe token symbol</FormLabel>
+            <Controller
+              control={control}
+              name="gnosisSafeTokenSymbol"
+              rules={{ required: "Token symbol is required" }}
+              render={({ field: { onChange, value, ref } }) => (
+                <Input
+                  placeholder="GNOSIS-SAFE"
+                  type="text"
+                  value={value}
+                  onChange={(e: any) =>
+                    onChange((e.target.value as string).toLocaleUpperCase())
+                  }
+                  ref={ref}
+                />
+              )}
+            />
+            {errors?.gnosisSafeTokenSymbol?.message ? (
+              <FormErrorMessage>
+                {errors.gnosisSafeTokenSymbol.message}
+              </FormErrorMessage>
+            ) : (
+              <FormHelperText>The symbol you want for the token</FormHelperText>
+            )}
+          </FormControl>
+        </Stack>
+
+        <Button
+          colorScheme="blue"
+          isDisabled={!signer}
+          isLoading={isSubmitting}
+          type="submit"
+          width="100%"
+        >
+          Create DAO
+        </Button>
       </form>
     </PageContainer>
   );
