@@ -39,8 +39,6 @@ const Connect = () => {
           </Button>
         </Stack>
       )}
-
-      {status === "connected" && <>Connected</>}
     </PageContainer>
   );
 };
