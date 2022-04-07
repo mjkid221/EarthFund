@@ -11,7 +11,8 @@ import {
   FormErrorMessage,
 } from "@chakra-ui/react";
 import detectEthereumProvider from "@metamask/detect-provider";
-import { ethers, providers, Wallet } from "ethers";
+import { BigNumberish, ethers, providers, Wallet } from "ethers";
+import { toUtf8Bytes } from "ethers/lib/utils";
 import React, { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import PageContainer from "../components/PageContainer";
@@ -19,13 +20,79 @@ import {
   IGovernor,
   IENSController,
   IENSRegistrar,
+  IGnosisSafe,
 } from "contracts/typechain-types";
 import GovernorArtifact from "contracts/artifacts/contracts/implementations/Governor.sol/Governor.json";
 import ENSControllerArtifact from "contracts/artifacts/contracts/vendors/IENSController.sol/IENSController.json";
 import ENSRegistrarArtifact from "contracts/artifacts/contracts/vendors/IENSRegistrar.sol/IENSRegistrar.json";
+import GnosisSafeArtifact from "contracts/artifacts/contracts/vendors/IGnosisSafe.sol/IGnosisSafe.json";
 import ContractAddresses from "contracts/constants/contractAddresses";
 import buyEarthFundEns from "../requests/contracts/buyEarthFundEns";
 import governorAddEnsDomain from "../requests/contracts/governorAddEnsDomain";
+import { BytesLike } from "ethers";
+
+// TODO: move this into it's own helper file
+const createGnosisSetupTx = async (
+  owners: string[],
+  threshold: BigNumberish,
+  to: string,
+  data: BytesLike,
+  fallbackHandler: string,
+  paymentToken: string,
+  payment: BigNumberish,
+  paymentReceiver: string
+) => {
+  const gnosisSafe: IGnosisSafe = new ethers.Contract(
+    ContractAddresses["31337"].GnosisSafeSingleton,
+    GnosisSafeArtifact.abi
+  ) as IGnosisSafe;
+
+  return (
+    await gnosisSafe.populateTransaction.setup(
+      owners,
+      threshold,
+      to,
+      data,
+      fallbackHandler,
+      paymentToken,
+      payment,
+      paymentReceiver
+    )
+  ).data;
+};
+
+// TODO: move this into it's own helper file
+const createChildDaoConfig = async (
+  owners: string[],
+  tokenName: string,
+  tokenSymbol: string,
+  subdomain = "to-do-make-this-an-input-field",
+  snapshotKey = "A",
+  snapshotValue = "B"
+) => ({
+  _tokenData: {
+    tokenName: toUtf8Bytes(tokenName),
+    tokenSymbol: toUtf8Bytes(tokenSymbol),
+  },
+  _safeData: {
+    initializer:
+      (await createGnosisSetupTx(
+        owners,
+        owners.length,
+        ethers.constants.AddressZero,
+        [],
+        ContractAddresses["31337"].GnosisFallbackHandler,
+        ethers.constants.AddressZero,
+        0,
+        ethers.constants.AddressZero
+      )) || [],
+  },
+  _subdomain: {
+    subdomain: toUtf8Bytes(subdomain),
+    snapshotKey: toUtf8Bytes(snapshotKey),
+    snapshotValue: toUtf8Bytes(snapshotValue),
+  },
+});
 
 const Form = () => {
   const toast = useToast();
@@ -86,8 +153,6 @@ const Form = () => {
     defaultValues: {
       childDaoTokenName: "",
       childDaoTokenSymbol: "",
-      gnosisSafeTokenName: "",
-      gnosisSafeTokenSymbol: "",
     },
   });
 
@@ -100,9 +165,7 @@ const Form = () => {
       !ensController ||
       !ensRegistrar ||
       !data.childDaoTokenName ||
-      !data.childDaoTokenSymbol ||
-      !data.gnosisSafeTokenName ||
-      !data.gnosisSafeTokenSymbol
+      !data.childDaoTokenSymbol
     )
       return;
 
@@ -115,6 +178,23 @@ const Form = () => {
         await governorAddEnsDomain(ensDomainToken, governor, ensRegistrar);
       }
 
+      // create the child dao config
+      const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig(
+        [wallet.address],
+        data.childDaoTokenName,
+        data.childDaoTokenSymbol
+      );
+
+      const safeTx = await (
+        await governor.createChildDAO(_tokenData, _safeData, _subdomain)
+      ).wait();
+
+      console.log("Child dao created");
+      const dao = safeTx.events?.find((el) => el.event === "ChildDaoCreated")
+        ?.args?.safe;
+
+      console.log({ dao });
+
       toast({
         title: "Success",
         description: "Done",
@@ -124,15 +204,24 @@ const Form = () => {
         position: "top-right",
       });
     } catch (error: any) {
+      let errorMessage: string;
+
+      // check if the error is for creating a dao with the same token name
+      if (
+        error.error.data.message ===
+        "Error: VM Exception while processing transaction: reverted with reason string 'Create2 call failed'"
+      ) {
+        errorMessage = "Child DAO with this token name already exists";
+      }
+
       toast({
         title: "Error",
-        description: error?.message ?? "Unexpected error.",
+        description: errorMessage ?? error?.message ?? "Unexpected error.",
         status: "error",
         duration: 5000,
         isClosable: true,
         position: "top-right",
       });
-
       console.log(error);
     }
   };
@@ -151,7 +240,10 @@ const Form = () => {
         <Stack align="center" my="50px">
           <Heading>Child DAO Token</Heading>
 
-          <FormControl isInvalid={errors?.childDaoTokenName !== undefined}>
+          <FormControl
+            isDisabled={isSubmitting}
+            isInvalid={errors?.childDaoTokenName !== undefined}
+          >
             <FormLabel>DAO token name</FormLabel>
             <Input
               placeholder="Child DAO Token"
@@ -169,7 +261,10 @@ const Form = () => {
             )}
           </FormControl>
 
-          <FormControl isInvalid={errors?.childDaoTokenSymbol !== undefined}>
+          <FormControl
+            isDisabled={isSubmitting}
+            isInvalid={errors?.childDaoTokenSymbol !== undefined}
+          >
             <FormLabel>DAO token symbol</FormLabel>
             <Controller
               control={control}
@@ -200,51 +295,6 @@ const Form = () => {
         {/* child dao gnosis safe inputs */}
         <Stack align="center" my="50px">
           <Heading>Gnosis Safe settings</Heading>
-
-          <FormControl isInvalid={errors?.gnosisSafeTokenName !== undefined}>
-            <FormLabel>Safe token name</FormLabel>
-            <Input
-              placeholder="Gnosis safe token"
-              type="text"
-              {...register("gnosisSafeTokenName", {
-                required: "Token name is required",
-              })}
-            />
-            {errors?.gnosisSafeTokenName?.message ? (
-              <FormErrorMessage>
-                {errors.gnosisSafeTokenName.message}
-              </FormErrorMessage>
-            ) : (
-              <FormHelperText>The name you want for the token</FormHelperText>
-            )}
-          </FormControl>
-
-          <FormControl isInvalid={errors?.gnosisSafeTokenSymbol !== undefined}>
-            <FormLabel>Safe token symbol</FormLabel>
-            <Controller
-              control={control}
-              name="gnosisSafeTokenSymbol"
-              rules={{ required: "Token symbol is required" }}
-              render={({ field: { onChange, value, ref } }) => (
-                <Input
-                  placeholder="GNOSIS-SAFE"
-                  type="text"
-                  value={value}
-                  onChange={(e: any) =>
-                    onChange((e.target.value as string).toLocaleUpperCase())
-                  }
-                  ref={ref}
-                />
-              )}
-            />
-            {errors?.gnosisSafeTokenSymbol?.message ? (
-              <FormErrorMessage>
-                {errors.gnosisSafeTokenSymbol.message}
-              </FormErrorMessage>
-            ) : (
-              <FormHelperText>The symbol you want for the token</FormHelperText>
-            )}
-          </FormControl>
         </Stack>
 
         <Button
