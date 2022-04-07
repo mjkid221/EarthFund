@@ -1,21 +1,13 @@
-import { IENSController } from "contracts/typechain-types/IENSController";
-import ENSControllerArtifact from "contracts/artifacts/contracts/vendors/IENSController.sol/IENSController.json";
-import { ethers } from "ethers";
+import { IENSController } from "contracts/typechain-types";
+import { ethers, Wallet } from "ethers";
 import { keccak256 } from "ethers/lib/utils";
 import convertToSeconds from "contracts/helpers/convertToSeconds";
 
 const buyEarthFundEns = async (
-  signer: ethers.providers.JsonRpcSigner
+  wallet: Wallet,
+  ensController: IENSController
 ): Promise<string> => {
   try {
-    const ENSControllerAddress = "0x283Af0B28c62C092C9727F1Ee09c02CA627EB7F5";
-
-    const ensController: IENSController = new ethers.Contract(
-      ENSControllerAddress,
-      ENSControllerArtifact.abi,
-      signer
-    ) as IENSController;
-
     // append timestamp to the domain name so that it doesn't throw already existing domain error
     const domain = `earthfundtest-${Date.now().toString()}`;
 
@@ -23,7 +15,7 @@ const buyEarthFundEns = async (
     const secret = keccak256(ethers.utils.randomBytes(32));
     const commitment = await ensController.makeCommitment(
       domain,
-      await signer.getAddress(),
+      await wallet.getAddress(),
       secret
     );
 
@@ -38,7 +30,7 @@ const buyEarthFundEns = async (
           const tx = await (
             await ensController.register(
               domain,
-              await signer.getAddress(),
+              await wallet.getAddress(),
               duration,
               secret,
               {

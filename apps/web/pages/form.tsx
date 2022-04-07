@@ -11,28 +11,70 @@ import {
   FormErrorMessage,
 } from "@chakra-ui/react";
 import detectEthereumProvider from "@metamask/detect-provider";
-import { providers } from "ethers";
+import { ethers, providers, Wallet } from "ethers";
 import React, { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import PageContainer from "../components/PageContainer";
+import {
+  IGovernor,
+  IENSController,
+  IENSRegistrar,
+} from "contracts/typechain-types";
+import GovernorArtifact from "contracts/artifacts/contracts/implementations/Governor.sol/Governor.json";
+import ENSControllerArtifact from "contracts/artifacts/contracts/vendors/IENSController.sol/IENSController.json";
+import ENSRegistrarArtifact from "contracts/artifacts/contracts/vendors/IENSRegistrar.sol/IENSRegistrar.json";
+import ContractAddresses from "contracts/constants/contractAddresses";
 import buyEarthFundEns from "../requests/contracts/buyEarthFundEns";
+import governorAddEnsDomain from "../requests/contracts/governorAddEnsDomain";
 
 const Form = () => {
   const toast = useToast();
-  const [signer, setSigner] = useState<providers.JsonRpcSigner | undefined>();
+  const [wallet, setWallet] = useState<Wallet | undefined>();
+  const [governor, setGovernor] = useState<IGovernor | undefined>();
+  const [ensController, setEnsController] = useState<
+    IENSController | undefined
+  >();
+  const [ensRegistrar, setEnsRegistrar] = useState<IENSRegistrar | undefined>();
 
-  // should be safe to do this here, won't be in this page without a connected metamask account anyways
+  // instantiate a wallet for the 0th account (the account used to deploy the contracts) in the hardhat network and get the contracts
   useEffect(() => {
     (async () => {
       const webProvider = (await detectEthereumProvider({
         mustBeMetaMask: true,
       })) as providers.ExternalProvider | providers.JsonRpcFetchFunc;
-
       const ethersProvider = new providers.Web3Provider(webProvider);
 
-      setSigner(ethersProvider.getSigner());
+      const wallet = new ethers.Wallet(
+        process.env.NEXT_PUBLIC_DEPLOYER_ACCOUNT_PRIVATE_KEY,
+        ethersProvider
+      );
+      setWallet(wallet);
+
+      // get the Governor contract
+      const governor: IGovernor = new ethers.Contract(
+        process.env.NEXT_PUBLIC_GOVERNOR_CONTRACT_ADDRESS,
+        GovernorArtifact.abi,
+        wallet
+      ) as IGovernor;
+      setGovernor(governor);
+
+      // get the ENS controller contract
+      const ensController: IENSController = new ethers.Contract(
+        ContractAddresses["31337"].ENSController,
+        ENSControllerArtifact.abi,
+        wallet
+      ) as IENSController;
+      setEnsController(ensController);
+
+      // get the ENS registrar contract
+      const ensRegistrar: IENSRegistrar = new ethers.Contract(
+        ContractAddresses["31337"].ENSRegistrar,
+        ENSRegistrarArtifact.abi,
+        wallet
+      ) as IENSRegistrar;
+      setEnsRegistrar(ensRegistrar);
     })();
-  }, [detectEthereumProvider, providers, setSigner]);
+  }, [detectEthereumProvider, providers, setWallet]);
 
   // hook form
   const {
@@ -40,13 +82,23 @@ const Form = () => {
     handleSubmit,
     register,
     formState: { errors, isSubmitting },
-  } = useForm<DaoCreationForm>();
+  } = useForm<DaoCreationForm>({
+    defaultValues: {
+      childDaoTokenName: "",
+      childDaoTokenSymbol: "",
+      gnosisSafeTokenName: "",
+      gnosisSafeTokenSymbol: "",
+    },
+  });
 
   // submit handler
   const onSubmit = async (data: DaoCreationForm) => {
     // early return if no signer or data assigned
     if (
-      !signer ||
+      !wallet ||
+      !governor ||
+      !ensController ||
+      !ensRegistrar ||
       !data.childDaoTokenName ||
       !data.childDaoTokenSymbol ||
       !data.gnosisSafeTokenName ||
@@ -55,9 +107,22 @@ const Form = () => {
       return;
 
     try {
-      // buy an ens domain for the dao being created
-      const ensDomainToken = await buyEarthFundEns(signer);
-      console.log(ensDomainToken);
+      // setup ENS Domain if it hasn't already been
+      const currentENSDomainNFTId = await governor.ensDomainNFTId();
+      if (currentENSDomainNFTId.eq(ethers.utils.parseEther("0"))) {
+        // buy an ens domain for the dao being created
+        const ensDomainToken = await buyEarthFundEns(wallet, ensController);
+        await governorAddEnsDomain(ensDomainToken, governor, ensRegistrar);
+      }
+
+      toast({
+        title: "Success",
+        description: "Done",
+        status: "success",
+        duration: 5000,
+        isClosable: true,
+        position: "top-right",
+      });
     } catch (error: any) {
       toast({
         title: "Error",
@@ -72,7 +137,7 @@ const Form = () => {
     }
   };
 
-  if (!signer)
+  if (!wallet)
     return (
       <PageContainer>
         <Spinner />
@@ -184,7 +249,7 @@ const Form = () => {
 
         <Button
           colorScheme="blue"
-          isDisabled={!signer}
+          isDisabled={!wallet}
           isLoading={isSubmitting}
           type="submit"
           width="100%"
