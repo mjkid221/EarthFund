@@ -14,90 +14,25 @@ import {
 } from "@chakra-ui/react";
 import { AddIcon, DeleteIcon } from "@chakra-ui/icons";
 import detectEthereumProvider from "@metamask/detect-provider";
-import { BigNumberish, ethers, providers, Wallet } from "ethers";
-import { toUtf8Bytes } from "ethers/lib/utils";
+import { ethers, providers, Wallet } from "ethers";
 import React, { useEffect, useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
-import PageContainer from "../components/PageContainer";
+import validator from "validator";
+
 import {
   IGovernor,
   IENSController,
   IENSRegistrar,
-  IGnosisSafe,
 } from "contracts/typechain-types";
 import GovernorArtifact from "contracts/artifacts/contracts/implementations/Governor.sol/Governor.json";
 import ENSControllerArtifact from "contracts/artifacts/contracts/vendors/IENSController.sol/IENSController.json";
 import ENSRegistrarArtifact from "contracts/artifacts/contracts/vendors/IENSRegistrar.sol/IENSRegistrar.json";
-import GnosisSafeArtifact from "contracts/artifacts/contracts/vendors/IGnosisSafe.sol/IGnosisSafe.json";
 import ContractAddresses from "contracts/constants/contractAddresses";
-import buyEarthFundEns from "../requests/contracts/buyEarthFundEns";
-import governorAddEnsDomain from "../requests/contracts/governorAddEnsDomain";
-import { BytesLike } from "ethers";
-import validator from "validator";
 
-// TODO: move this into it's own helper file
-const createGnosisSetupTx = async (
-  owners: string[],
-  threshold: BigNumberish,
-  to: string,
-  data: BytesLike,
-  fallbackHandler: string,
-  paymentToken: string,
-  payment: BigNumberish,
-  paymentReceiver: string
-) => {
-  const gnosisSafe: IGnosisSafe = new ethers.Contract(
-    ContractAddresses["31337"].GnosisSafeSingleton, // address isn't actually being used here, only for the sake of encoding the function call
-    GnosisSafeArtifact.abi
-  ) as IGnosisSafe;
-
-  return (
-    await gnosisSafe.populateTransaction.setup(
-      owners,
-      threshold,
-      to,
-      data,
-      fallbackHandler,
-      paymentToken,
-      payment,
-      paymentReceiver
-    )
-  ).data;
-};
-
-// TODO: move this into it's own helper file
-const createChildDaoConfig = async (
-  owners: string[],
-  threshold: number,
-  tokenName: string,
-  tokenSymbol: string,
-  subdomain: string,
-  snapshotKey = "A",
-  snapshotValue = "B"
-) => ({
-  _tokenData: {
-    tokenName: toUtf8Bytes(tokenName),
-    tokenSymbol: toUtf8Bytes(tokenSymbol),
-  },
-  _safeData: {
-    initializer:
-      (await createGnosisSetupTx(
-        owners,
-        threshold,
-        ethers.constants.AddressZero,
-        [],
-        ContractAddresses["31337"].GnosisFallbackHandler,
-        ethers.constants.AddressZero,
-        0,
-        ethers.constants.AddressZero
-      )) || [],
-  },
-  _subdomain: {
-    subdomain: toUtf8Bytes(subdomain),
-    snapshotKey: toUtf8Bytes(snapshotKey),
-    snapshotValue: toUtf8Bytes(snapshotValue),
-  },
-});
+import PageContainer from "../components/PageContainer";
+import buyEarthFundEns from "../helpers/buyEarthFundEns";
+import governorAddEnsDomain from "../helpers/governorAddEnsDomain";
+import createChildDaoConfig from "../helpers/createChildDaoConfig";
 
 const Form = () => {
   const toast = useToast();
@@ -236,7 +171,9 @@ const Form = () => {
       // check if the error is for creating a dao with the same token name
       if (
         error?.error?.data?.message ===
-        "Error: VM Exception while processing transaction: reverted with reason string 'Create2 call failed'"
+          "Error: VM Exception while processing transaction: reverted with reason string 'Create2 call failed'" ||
+        error?.error?.data?.message ===
+          "Error: VM Exception while processing transaction: reverted with reason string 'ERC1167: create2 failed'"
       ) {
         errorMessage = "Child DAO with this token name already exists";
       }
@@ -370,7 +307,7 @@ const Form = () => {
                     },
                   })}
                 />
-                {index !== 0 && (
+                {index !== 0 && !isSubmitting && (
                   <IconButton
                     aria-label="Remove address input button"
                     icon={<DeleteIcon />}
