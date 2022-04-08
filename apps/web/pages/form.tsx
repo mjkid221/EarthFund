@@ -9,12 +9,15 @@ import {
   FormLabel,
   Input,
   FormErrorMessage,
+  HStack,
+  IconButton,
 } from "@chakra-ui/react";
+import { AddIcon, DeleteIcon } from "@chakra-ui/icons";
 import detectEthereumProvider from "@metamask/detect-provider";
 import { BigNumberish, ethers, providers, Wallet } from "ethers";
 import { toUtf8Bytes } from "ethers/lib/utils";
 import React, { useEffect, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useFieldArray, useForm } from "react-hook-form";
 import PageContainer from "../components/PageContainer";
 import {
   IGovernor,
@@ -30,6 +33,7 @@ import ContractAddresses from "contracts/constants/contractAddresses";
 import buyEarthFundEns from "../requests/contracts/buyEarthFundEns";
 import governorAddEnsDomain from "../requests/contracts/governorAddEnsDomain";
 import { BytesLike } from "ethers";
+import validator from "validator";
 
 // TODO: move this into it's own helper file
 const createGnosisSetupTx = async (
@@ -103,6 +107,9 @@ const Form = () => {
   >();
   const [ensRegistrar, setEnsRegistrar] = useState<IENSRegistrar | undefined>();
 
+  const buttonsDisabled =
+    !wallet || !governor || !ensController || !ensRegistrar;
+
   // instantiate a wallet for the 0th account (the account used to deploy the contracts) in the hardhat network and get the contracts
   useEffect(() => {
     (async () => {
@@ -153,20 +160,26 @@ const Form = () => {
     defaultValues: {
       childDaoTokenName: "",
       childDaoTokenSymbol: "",
+      childDaoSubDomain: "",
+      gnosisOwners: [{ address: "" }],
+      gnosisThreshold: 1,
     },
+  });
+
+  // owners hook form field array
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "gnosisOwners",
   });
 
   // submit handler
   const onSubmit = async (data: DaoCreationForm) => {
     // early return if no signer or data assigned
     if (
-      !wallet ||
-      !governor ||
-      !ensController ||
-      !ensRegistrar ||
+      buttonsDisabled ||
       !data.childDaoTokenName ||
       !data.childDaoTokenSymbol ||
-      !data.gnosisSubDomain
+      !data.childDaoSubDomain
     )
       return;
 
@@ -184,7 +197,7 @@ const Form = () => {
         [wallet.address],
         data.childDaoTokenName,
         data.childDaoTokenSymbol,
-        data.gnosisSubDomain
+        data.childDaoSubDomain
       );
 
       const safeTx = await (
@@ -291,19 +304,19 @@ const Form = () => {
 
           <FormControl
             isDisabled={isSubmitting}
-            isInvalid={errors?.gnosisSubDomain !== undefined}
+            isInvalid={errors?.childDaoSubDomain !== undefined}
           >
             <FormLabel>DAO subdomain</FormLabel>
             <Input
               placeholder="Child DAO Subdomain"
               type="text"
-              {...register("gnosisSubDomain", {
+              {...register("childDaoSubDomain", {
                 required: "Subdomain is required",
               })}
             />
-            {errors?.gnosisSubDomain?.message ? (
+            {errors?.childDaoSubDomain?.message ? (
               <FormErrorMessage>
-                {errors.gnosisSubDomain.message}
+                {errors.childDaoSubDomain.message}
               </FormErrorMessage>
             ) : (
               <FormHelperText>The subdomain for this child DAO</FormHelperText>
@@ -314,12 +327,63 @@ const Form = () => {
         {/* child dao gnosis safe inputs */}
         <Stack align="center" my="50px">
           <Heading>Gnosis Safe Settings</Heading>
+
+          {fields.map((field, index) => (
+            <FormControl
+              key={field.id}
+              isDisabled={isSubmitting}
+              isInvalid={errors["gnosisOwners"]?.[index].address !== undefined}
+            >
+              {index === 0 && <FormLabel>DAO subdomain</FormLabel>}
+              <HStack>
+                <Input
+                  placeholder="Ethereum address"
+                  type="text"
+                  {...register(`gnosisOwners.${index}.address`, {
+                    required: "Address is required",
+                    validate: (value) =>
+                      validator.isEthereumAddress(value) ||
+                      "Invalid ethereum address",
+                  })}
+                />
+                {index !== 0 && (
+                  <IconButton
+                    aria-label="Remove address input button"
+                    icon={<DeleteIcon />}
+                    variant="ghost"
+                    onClick={() => remove(index)}
+                  />
+                )}
+              </HStack>
+              {errors["gnosisOwners"]?.[index].address ? (
+                <FormErrorMessage>
+                  {errors["gnosisOwners"][index].address.message}
+                </FormErrorMessage>
+              ) : (
+                <FormHelperText>
+                  Ethereum address for an owner of the child DAO gnosis safe
+                </FormHelperText>
+              )}
+            </FormControl>
+          ))}
+          {!isSubmitting && (
+            <Button
+              isDisabled={buttonsDisabled}
+              isLoading={isSubmitting}
+              rightIcon={<AddIcon />}
+              onClick={() => append({ address: "" })}
+              size="sm"
+              variant="ghost"
+            >
+              Add
+            </Button>
+          )}
         </Stack>
 
         <FormControl>
           <Button
             colorScheme="blue"
-            isDisabled={!wallet}
+            isDisabled={buttonsDisabled}
             isLoading={isSubmitting}
             type="submit"
             width="100%"

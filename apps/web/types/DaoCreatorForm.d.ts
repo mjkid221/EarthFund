@@ -1,5 +1,7 @@
 interface DaoCreationForm {
   childDaoTokenName: string;
   childDaoTokenSymbol: string;
-  gnosisSubDomain: string;
+  childDaoSubDomain: string;
+  gnosisOwners: { address: string }[];
+  gnosisThreshold: number;
 }
