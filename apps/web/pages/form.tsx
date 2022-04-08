@@ -43,7 +43,7 @@ const createGnosisSetupTx = async (
   paymentReceiver: string
 ) => {
   const gnosisSafe: IGnosisSafe = new ethers.Contract(
-    ContractAddresses["31337"].GnosisSafeSingleton,
+    ContractAddresses["31337"].GnosisSafeSingleton, // address isn't actually being used here, only for the sake of encoding the function call
     GnosisSafeArtifact.abi
   ) as IGnosisSafe;
 
@@ -66,7 +66,7 @@ const createChildDaoConfig = async (
   owners: string[],
   tokenName: string,
   tokenSymbol: string,
-  subdomain = "to-do-make-this-an-input-field",
+  subdomain: string,
   snapshotKey = "A",
   snapshotValue = "B"
 ) => ({
@@ -165,7 +165,8 @@ const Form = () => {
       !ensController ||
       !ensRegistrar ||
       !data.childDaoTokenName ||
-      !data.childDaoTokenSymbol
+      !data.childDaoTokenSymbol ||
+      !data.gnosisSubDomain
     )
       return;
 
@@ -182,22 +183,20 @@ const Form = () => {
       const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig(
         [wallet.address],
         data.childDaoTokenName,
-        data.childDaoTokenSymbol
+        data.childDaoTokenSymbol,
+        data.gnosisSubDomain
       );
 
       const safeTx = await (
         await governor.createChildDAO(_tokenData, _safeData, _subdomain)
       ).wait();
 
-      console.log("Child dao created");
       const dao = safeTx.events?.find((el) => el.event === "ChildDaoCreated")
         ?.args?.safe;
 
-      console.log({ dao });
-
       toast({
-        title: "Success",
-        description: "Done",
+        title: "Child DAO Created",
+        description: `Deployed at: ${dao}`,
         status: "success",
         duration: 5000,
         isClosable: true,
@@ -222,7 +221,6 @@ const Form = () => {
         isClosable: true,
         position: "top-right",
       });
-      console.log(error);
     }
   };
 
@@ -290,22 +288,49 @@ const Form = () => {
               <FormHelperText>The symbol you want for the token</FormHelperText>
             )}
           </FormControl>
+
+          <FormControl
+            isDisabled={isSubmitting}
+            isInvalid={errors?.gnosisSubDomain !== undefined}
+          >
+            <FormLabel>DAO subdomain</FormLabel>
+            <Input
+              placeholder="Child DAO Subdomain"
+              type="text"
+              {...register("gnosisSubDomain", {
+                required: "Subdomain is required",
+              })}
+            />
+            {errors?.gnosisSubDomain?.message ? (
+              <FormErrorMessage>
+                {errors.gnosisSubDomain.message}
+              </FormErrorMessage>
+            ) : (
+              <FormHelperText>The subdomain for this child DAO</FormHelperText>
+            )}
+          </FormControl>
         </Stack>
 
         {/* child dao gnosis safe inputs */}
         <Stack align="center" my="50px">
-          <Heading>Gnosis Safe settings</Heading>
+          <Heading>Gnosis Safe Settings</Heading>
         </Stack>
 
-        <Button
-          colorScheme="blue"
-          isDisabled={!wallet}
-          isLoading={isSubmitting}
-          type="submit"
-          width="100%"
-        >
-          Create DAO
-        </Button>
+        <FormControl>
+          <Button
+            colorScheme="blue"
+            isDisabled={!wallet}
+            isLoading={isSubmitting}
+            type="submit"
+            width="100%"
+          >
+            Create DAO
+          </Button>
+          <FormHelperText>
+            (Creating the first child DAO may take a moment, subsequent
+            creations will not take as long)
+          </FormHelperText>
+        </FormControl>
       </form>
     </PageContainer>
   );
