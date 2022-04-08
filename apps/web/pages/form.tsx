@@ -68,6 +68,7 @@ const createGnosisSetupTx = async (
 // TODO: move this into it's own helper file
 const createChildDaoConfig = async (
   owners: string[],
+  threshold: number,
   tokenName: string,
   tokenSymbol: string,
   subdomain: string,
@@ -82,7 +83,7 @@ const createChildDaoConfig = async (
     initializer:
       (await createGnosisSetupTx(
         owners,
-        owners.length,
+        threshold,
         ethers.constants.AddressZero,
         [],
         ContractAddresses["31337"].GnosisFallbackHandler,
@@ -156,6 +157,8 @@ const Form = () => {
     handleSubmit,
     register,
     formState: { errors, isSubmitting },
+    getValues,
+    reset,
   } = useForm<DaoCreationForm>({
     defaultValues: {
       childDaoTokenName: "",
@@ -179,7 +182,10 @@ const Form = () => {
       buttonsDisabled ||
       !data.childDaoTokenName ||
       !data.childDaoTokenSymbol ||
-      !data.childDaoSubDomain
+      !data.childDaoSubDomain ||
+      !data.gnosisOwners.length ||
+      !data.gnosisThreshold ||
+      data.gnosisOwners.length < data.gnosisThreshold
     )
       return;
 
@@ -194,7 +200,8 @@ const Form = () => {
 
       // create the child dao config
       const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig(
-        [wallet.address],
+        data.gnosisOwners.map((owner) => owner.address),
+        data.gnosisThreshold,
         data.childDaoTokenName,
         data.childDaoTokenSymbol,
         data.childDaoSubDomain
@@ -215,12 +222,20 @@ const Form = () => {
         isClosable: true,
         position: "top-right",
       });
+
+      reset({
+        childDaoTokenName: "",
+        childDaoTokenSymbol: "",
+        childDaoSubDomain: "",
+        gnosisOwners: [{ address: "" }],
+        gnosisThreshold: 1,
+      });
     } catch (error: any) {
       let errorMessage: string;
 
       // check if the error is for creating a dao with the same token name
       if (
-        error.error.data.message ===
+        error?.error?.data?.message ===
         "Error: VM Exception while processing transaction: reverted with reason string 'Create2 call failed'"
       ) {
         errorMessage = "Child DAO with this token name already exists";
@@ -332,18 +347,27 @@ const Form = () => {
             <FormControl
               key={field.id}
               isDisabled={isSubmitting}
-              isInvalid={errors["gnosisOwners"]?.[index].address !== undefined}
+              isInvalid={errors["gnosisOwners"]?.[index]?.address !== undefined}
             >
-              {index === 0 && <FormLabel>DAO subdomain</FormLabel>}
+              {index === 0 && <FormLabel>Safe owners</FormLabel>}
               <HStack>
                 <Input
                   placeholder="Ethereum address"
                   type="text"
                   {...register(`gnosisOwners.${index}.address`, {
                     required: "Address is required",
-                    validate: (value) =>
-                      validator.isEthereumAddress(value) ||
-                      "Invalid ethereum address",
+                    validate: (value) => {
+                      if (!validator.isEthereumAddress(value))
+                        return "Invalid ethereum address";
+                      if (
+                        getValues("gnosisOwners")
+                          .map((addresses) => addresses.address)
+                          .filter((address) => address === value).length > 1
+                      )
+                        // checks if this address has already been inputted
+                        return "Address already inputted";
+                      return true;
+                    },
                   })}
                 />
                 {index !== 0 && (
@@ -355,7 +379,7 @@ const Form = () => {
                   />
                 )}
               </HStack>
-              {errors["gnosisOwners"]?.[index].address ? (
+              {errors["gnosisOwners"]?.[index]?.address ? (
                 <FormErrorMessage>
                   {errors["gnosisOwners"][index].address.message}
                 </FormErrorMessage>
@@ -378,6 +402,33 @@ const Form = () => {
               Add
             </Button>
           )}
+
+          <FormControl
+            isDisabled={isSubmitting}
+            isInvalid={errors?.gnosisThreshold !== undefined}
+          >
+            <FormLabel>Safe threshold</FormLabel>
+            <Input
+              placeholder="Gnosis safe threshold"
+              type="number"
+              {...register("gnosisThreshold", {
+                required: "Threshold is required",
+                validate: (value) => {
+                  if (value < 1) return "Threshold must be at least 1";
+                  if (value > fields.length)
+                    return "Threshold must be less than or equal to the amount of owners";
+                  return true;
+                },
+              })}
+            />
+            {errors?.gnosisThreshold?.message ? (
+              <FormErrorMessage>
+                {errors.gnosisThreshold.message}
+              </FormErrorMessage>
+            ) : (
+              <FormHelperText>The threshold for the gnosis safe</FormHelperText>
+            )}
+          </FormControl>
         </Stack>
 
         <FormControl>
