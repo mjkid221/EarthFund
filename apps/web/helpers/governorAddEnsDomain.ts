@@ -10,11 +10,16 @@ const governorAddEnsDomain = async (
   await (
     await ensRegistrar.approve(
       governor.address,
-      ethers.BigNumber.from(ensDomainToken)
+      ethers.BigNumber.from(ensDomainToken),
+      {
+        gasLimit: 60000,
+      }
     )
   ).wait();
   await (
-    await governor.addENSDomain(ethers.BigNumber.from(ensDomainToken))
+    await governor.addENSDomain(ethers.BigNumber.from(ensDomainToken), {
+      gasLimit: 130000,
+    })
   ).wait();
 };
 

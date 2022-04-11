@@ -21,7 +21,7 @@ const buyEnsDomain = async (
 
     // rent the domain for 45 days
     const duration = convertToSeconds({ days: 45 });
-    await ensController.commit(commitment);
+    await ensController.commit(commitment, { gasLimit: 50000 });
 
     // register after sixty seconds, need to wait for some blocks to be mined
     return await new Promise((resolve, reject) =>
@@ -34,6 +34,7 @@ const buyEnsDomain = async (
               duration,
               secret,
               {
+                gasLimit: 300000,
                 value: ethers.utils.parseEther("1"),
               }
             )

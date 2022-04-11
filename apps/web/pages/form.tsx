@@ -70,7 +70,7 @@ const Form = () => {
 
       // get the ENS controller contract
       const ensController: IENSController = new ethers.Contract(
-        ContractAddresses["31337"].ENSController,
+        ContractAddresses["5"].ENSController,
         ENSControllerArtifact.abi,
         wallet
       ) as IENSController;
@@ -78,7 +78,7 @@ const Form = () => {
 
       // get the ENS registrar contract
       const ensRegistrar: IENSRegistrar = new ethers.Contract(
-        ContractAddresses["31337"].ENSRegistrar,
+        ContractAddresses["5"].ENSRegistrar,
         ENSRegistrarArtifact.abi,
         wallet
       ) as IENSRegistrar;
@@ -143,7 +143,9 @@ const Form = () => {
       );
 
       const safeTx = await (
-        await governor.createChildDAO(_tokenData, _safeData, _subdomain)
+        await governor.createChildDAO(_tokenData, _safeData, _subdomain, {
+          gasLimit: 600000,
+        })
       ).wait();
 
       const dao = safeTx.events?.find((el) => el.event === "ChildDaoCreated")
