@@ -30,7 +30,7 @@ import ENSRegistrarArtifact from "contracts/artifacts/contracts/vendors/IENSRegi
 import ContractAddresses from "contracts/constants/contractAddresses";
 
 import PageContainer from "../components/PageContainer";
-import buyEarthFundEns from "../helpers/buyEarthFundEns";
+import buyEnsDomain from "../helpers/buyEnsDomain";
 import governorAddEnsDomain from "../helpers/governorAddEnsDomain";
 import createChildDaoConfig from "../helpers/createChildDaoConfig";
 
@@ -129,7 +129,7 @@ const Form = () => {
       const currentENSDomainNFTId = await governor.ensDomainNFTId();
       if (currentENSDomainNFTId.eq(ethers.utils.parseEther("0"))) {
         // buy an ens domain for the dao being created
-        const ensDomainToken = await buyEarthFundEns(wallet, ensController);
+        const ensDomainToken = await buyEnsDomain(wallet, ensController);
         await governorAddEnsDomain(ensDomainToken, governor, ensRegistrar);
       }
 

@@ -3,13 +3,13 @@ import { ethers, Wallet } from "ethers";
 import { keccak256 } from "ethers/lib/utils";
 import convertToSeconds from "contracts/helpers/convertToSeconds";
 
-const buyEarthFundEns = async (
+const buyEnsDomain = async (
   wallet: Wallet,
   ensController: IENSController
 ): Promise<string> => {
   try {
     // append timestamp to the domain name so that it doesn't throw already existing domain error
-    const domain = `earthfundtest-${Date.now().toString()}`;
+    const domain = `labrysturbotestdomain-${Date.now().toString()}`;
 
     // fat salt
     const secret = keccak256(ethers.utils.randomBytes(32));
@@ -56,4 +56,4 @@ const buyEarthFundEns = async (
   }
 };
 
-export default buyEarthFundEns;
+export default buyEnsDomain;
