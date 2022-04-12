@@ -12,13 +12,13 @@ const governorAddEnsDomain = async (
       governor.address,
       ethers.BigNumber.from(ensDomainToken),
       {
-        gasLimit: 60000,
+        gasLimit: 60000, // gas limit was estimated by reading the hardhat logs
       }
     )
   ).wait();
   await (
     await governor.addENSDomain(ethers.BigNumber.from(ensDomainToken), {
-      gasLimit: 130000,
+      gasLimit: 130000, // gas limit was estimated by reading the hardhat logs
     })
   ).wait();
 };
