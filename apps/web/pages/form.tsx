@@ -25,6 +25,7 @@ import {
   IENSController,
   IENSRegistrar,
 } from "contracts/typechain-types";
+import DeployedGovernor from "contracts/deployments/goerli/Governor.json";
 import GovernorArtifact from "contracts/artifacts/contracts/implementations/Governor.sol/Governor.json";
 import ENSControllerArtifact from "contracts/artifacts/contracts/vendors/IENSController.sol/IENSController.json";
 import ENSRegistrarArtifact from "contracts/artifacts/contracts/vendors/IENSRegistrar.sol/IENSRegistrar.json";
@@ -72,7 +73,7 @@ const Form = () => {
 
       // get the Governor contract
       const governor: IGovernor = new ethers.Contract(
-        process.env.NEXT_PUBLIC_GOVERNOR_CONTRACT_ADDRESS,
+        DeployedGovernor.address,
         GovernorArtifact.abi,
         wallet
       ) as IGovernor;
@@ -258,7 +259,7 @@ const Form = () => {
             colorScheme="blue"
             onClick={() =>
               window.open(
-                "https://app.ens.domains/name/labrysturbotestdomain-1649659043683.eth/subdomains"
+                "https://app.ens.domains/name/labrysturbotestdomain-1649727988790.eth/subdomains"
               )
             }
             variant="link"
