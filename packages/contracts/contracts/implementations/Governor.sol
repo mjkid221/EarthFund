@@ -81,7 +81,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
         address safe = _createGnosisSafe(
             _safeData.initializer,
             uint256(
-                keccak256(abi.encodePacked(_tokenData.tokenName, address(this)))
+                keccak256(abi.encodePacked(_subdomain.subdomain, address(this)))
             )
         );
 
