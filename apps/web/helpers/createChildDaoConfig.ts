@@ -25,7 +25,7 @@ const createChildDaoConfig = async (
         threshold,
         ethers.constants.AddressZero,
         [],
-        ContractAddresses["31337"].GnosisFallbackHandler,
+        ContractAddresses["5"].GnosisFallbackHandler,
         ethers.constants.AddressZero,
         0,
         ethers.constants.AddressZero

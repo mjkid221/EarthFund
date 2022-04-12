@@ -2,6 +2,7 @@ import {
   Button,
   Stack,
   Spinner,
+  Text,
   useToast,
   Heading,
   FormControl,
@@ -24,13 +25,14 @@ import {
   IENSController,
   IENSRegistrar,
 } from "contracts/typechain-types";
+import DeployedGovernor from "contracts/deployments/goerli/Governor.json";
 import GovernorArtifact from "contracts/artifacts/contracts/implementations/Governor.sol/Governor.json";
 import ENSControllerArtifact from "contracts/artifacts/contracts/vendors/IENSController.sol/IENSController.json";
 import ENSRegistrarArtifact from "contracts/artifacts/contracts/vendors/IENSRegistrar.sol/IENSRegistrar.json";
 import ContractAddresses from "contracts/constants/contractAddresses";
 
 import PageContainer from "../components/PageContainer";
-import buyEarthFundEns from "../helpers/buyEarthFundEns";
+import buyEnsDomain from "../helpers/buyEnsDomain";
 import governorAddEnsDomain from "../helpers/governorAddEnsDomain";
 import createChildDaoConfig from "../helpers/createChildDaoConfig";
 
@@ -42,9 +44,18 @@ const Form = () => {
     IENSController | undefined
   >();
   const [ensRegistrar, setEnsRegistrar] = useState<IENSRegistrar | undefined>();
+  const [daoGnosisSafeAddress, setDaoGnosisSafeAddress] = useState<
+    string | undefined
+  >();
+  const [daoTokenAddress, setDaoTokenAddress] = useState<string | undefined>();
 
   const buttonsDisabled =
     !wallet || !governor || !ensController || !ensRegistrar;
+
+  const createAnotherDao = () => {
+    setDaoGnosisSafeAddress(undefined);
+    setDaoTokenAddress(undefined);
+  };
 
   // instantiate a wallet for the 0th account (the account used to deploy the contracts) in the hardhat network and get the contracts
   useEffect(() => {
@@ -62,7 +73,7 @@ const Form = () => {
 
       // get the Governor contract
       const governor: IGovernor = new ethers.Contract(
-        process.env.NEXT_PUBLIC_GOVERNOR_CONTRACT_ADDRESS,
+        DeployedGovernor.address,
         GovernorArtifact.abi,
         wallet
       ) as IGovernor;
@@ -70,7 +81,7 @@ const Form = () => {
 
       // get the ENS controller contract
       const ensController: IENSController = new ethers.Contract(
-        ContractAddresses["31337"].ENSController,
+        ContractAddresses["5"].ENSController,
         ENSControllerArtifact.abi,
         wallet
       ) as IENSController;
@@ -78,7 +89,7 @@ const Form = () => {
 
       // get the ENS registrar contract
       const ensRegistrar: IENSRegistrar = new ethers.Contract(
-        ContractAddresses["31337"].ENSRegistrar,
+        ContractAddresses["5"].ENSRegistrar,
         ENSRegistrarArtifact.abi,
         wallet
       ) as IENSRegistrar;
@@ -129,7 +140,7 @@ const Form = () => {
       const currentENSDomainNFTId = await governor.ensDomainNFTId();
       if (currentENSDomainNFTId.eq(ethers.utils.parseEther("0"))) {
         // buy an ens domain for the dao being created
-        const ensDomainToken = await buyEarthFundEns(wallet, ensController);
+        const ensDomainToken = await buyEnsDomain(wallet, ensController);
         await governorAddEnsDomain(ensDomainToken, governor, ensRegistrar);
       }
 
@@ -143,15 +154,22 @@ const Form = () => {
       );
 
       const safeTx = await (
-        await governor.createChildDAO(_tokenData, _safeData, _subdomain)
+        await governor.createChildDAO(_tokenData, _safeData, _subdomain, {
+          gasLimit: 600000, // gas limit was estimated by reading the hardhat logs
+        })
       ).wait();
 
-      const dao = safeTx.events?.find((el) => el.event === "ChildDaoCreated")
-        ?.args?.safe;
+      setDaoGnosisSafeAddress(
+        safeTx.events?.find((el) => el.event === "ChildDaoCreated")?.args?.safe
+      );
+
+      setDaoTokenAddress(
+        safeTx.events?.find((el) => el.event === "ChildDaoCreated")?.args?.token
+      );
 
       toast({
         title: "Child DAO Created",
-        description: `Deployed at: ${dao}`,
+        description: "Successfully created Child DAO",
         status: "success",
         duration: 5000,
         isClosable: true,
@@ -168,7 +186,7 @@ const Form = () => {
     } catch (error: any) {
       let errorMessage: string;
 
-      // check if the error is for creating a dao with the same token name
+      // check if the error is for creating a dao with the same token name (only works with local hardhat node)
       if (
         error?.error?.data?.message ===
           "Error: VM Exception while processing transaction: reverted with reason string 'Create2 call failed'" ||
@@ -189,6 +207,9 @@ const Form = () => {
     }
   };
 
+  /**********************************
+              LOADING
+  ***********************************/
   if (!wallet)
     return (
       <PageContainer>
@@ -196,6 +217,66 @@ const Form = () => {
       </PageContainer>
     );
 
+  /**********************************
+              CREATED
+  ***********************************/
+  if (daoTokenAddress && daoGnosisSafeAddress)
+    return (
+      <PageContainer>
+        <Stack align="center" my="50px">
+          <Heading>Child DAO Created</Heading>
+
+          <HStack>
+            <Text fontWeight="bold">Safe:</Text>
+            <Button
+              colorScheme="blue"
+              onClick={() =>
+                window.open(
+                  `https://goerli.etherscan.io/address/${daoGnosisSafeAddress}`
+                )
+              }
+              variant="link"
+            >
+              {daoGnosisSafeAddress}
+            </Button>
+          </HStack>
+          <HStack>
+            <Text fontWeight="bold">Token:</Text>
+            <Button
+              colorScheme="blue"
+              onClick={() =>
+                window.open(
+                  `https://goerli.etherscan.io/address/${daoTokenAddress}`
+                )
+              }
+              variant="link"
+            >
+              {daoTokenAddress}
+            </Button>
+          </HStack>
+
+          <Button
+            colorScheme="blue"
+            onClick={() =>
+              window.open(
+                "https://app.ens.domains/name/labrysturbotestdomain-1649727988790.eth/subdomains"
+              )
+            }
+            variant="link"
+          >
+            View ENS subdomain
+          </Button>
+          <Text>or</Text>
+          <Button colorScheme="blue" onClick={createAnotherDao} variant="link">
+            Create another Child DAO
+          </Button>
+        </Stack>
+      </PageContainer>
+    );
+
+  /**********************************
+                FORM
+  ***********************************/
   return (
     <PageContainer>
       <form onSubmit={handleSubmit(onSubmit)} noValidate>

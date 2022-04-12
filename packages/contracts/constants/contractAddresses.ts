@@ -26,9 +26,23 @@ export const mainnet: IContractAddresses = {
   ENSController: "0x283Af0B28c62C092C9727F1Ee09c02CA627EB7F5",
 };
 
+export const goerli: IContractAddresses = {
+  GnosisFactory:
+    getProxyFactoryDeployment({ network: "5" })?.defaultAddress || "",
+  GnosisSafeSingleton:
+    getSafeSingletonDeployment({ network: "5" })?.defaultAddress || "",
+  GnosisFallbackHandler:
+    getFallbackHandlerDeployment({ network: "5" })?.defaultAddress || "",
+  ENSRegistry: "0x00000000000c2e074ec69a0dfb2997ba6c7d2e1e",
+  ENSResolver: "0x4B1488B7a6B320d2D721406204aBc3eeAa9AD329",
+  ENSRegistrar: "0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85",
+  ENSController: "0x283Af0B28c62C092C9727F1Ee09c02CA627EB7F5",
+};
+
 export const ContractAddresses: { [key: string]: IContractAddresses } = {
   "1": { ...mainnet },
   "31337": { ...mainnet },
+  "5": { ...goerli },
 };
 
 export default ContractAddresses;

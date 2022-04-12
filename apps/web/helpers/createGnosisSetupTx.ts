@@ -15,7 +15,7 @@ const createGnosisSetupTx = async (
   paymentReceiver: string
 ) => {
   const gnosisSafe: IGnosisSafe = new ethers.Contract(
-    ContractAddresses["31337"].GnosisSafeSingleton, // address isn't actually being used here, only for the sake of encoding the function call
+    ContractAddresses["5"].GnosisSafeSingleton, // address isn't actually being used here, only for the sake of encoding the function call
     GnosisSafeArtifact.abi
   ) as IGnosisSafe;
 

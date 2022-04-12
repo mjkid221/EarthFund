@@ -3,13 +3,13 @@ import { ethers, Wallet } from "ethers";
 import { keccak256 } from "ethers/lib/utils";
 import convertToSeconds from "contracts/helpers/convertToSeconds";
 
-const buyEarthFundEns = async (
+const buyEnsDomain = async (
   wallet: Wallet,
   ensController: IENSController
 ): Promise<string> => {
   try {
     // append timestamp to the domain name so that it doesn't throw already existing domain error
-    const domain = `earthfundtest-${Date.now().toString()}`;
+    const domain = `labrysturbotestdomain-${Date.now().toString()}`;
 
     // fat salt
     const secret = keccak256(ethers.utils.randomBytes(32));
@@ -21,7 +21,7 @@ const buyEarthFundEns = async (
 
     // rent the domain for 45 days
     const duration = convertToSeconds({ days: 45 });
-    await ensController.commit(commitment);
+    await ensController.commit(commitment, { gasLimit: 50000 }); // gas limit was estimated by reading the hardhat logs
 
     // register after sixty seconds, need to wait for some blocks to be mined
     return await new Promise((resolve, reject) =>
@@ -34,6 +34,7 @@ const buyEarthFundEns = async (
               duration,
               secret,
               {
+                gasLimit: 300000, // gas limit was estimated by reading the hardhat logs
                 value: ethers.utils.parseEther("1"),
               }
             )
@@ -56,4 +57,4 @@ const buyEarthFundEns = async (
   }
 };
 
-export default buyEarthFundEns;
+export default buyEnsDomain;
