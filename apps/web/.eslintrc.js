@@ -1,1 +1,4 @@
-module.exports = require("config/eslint-preset");
+module.exports = {
+  extends: "eslint-config-labrys",
+  parser: "@typescript-eslint/parser",
+};
