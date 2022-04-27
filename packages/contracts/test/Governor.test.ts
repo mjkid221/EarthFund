@@ -8,7 +8,6 @@ import {
   IENSController,
   ERC20Singleton,
   IGovernor,
-  IERC721,
   IGnosisSafe,
   IENSRegistry,
   IENSRegistrar,
@@ -362,6 +361,7 @@ describe("Governor", () => {
           gnosisSafeSingleton: ethers.constants.AddressZero,
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
+          clearingHouse: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid resolver address");
       await expect(
@@ -373,6 +373,7 @@ describe("Governor", () => {
           gnosisSafeSingleton: ethers.constants.AddressZero,
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
+          clearingHouse: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid registry address");
       await expect(
@@ -384,6 +385,7 @@ describe("Governor", () => {
           gnosisSafeSingleton: ethers.constants.AddressZero,
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
+          clearingHouse: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid registrar address");
       await expect(
@@ -395,6 +397,7 @@ describe("Governor", () => {
           gnosisSafeSingleton: ethers.constants.AddressZero,
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
+          clearingHouse: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid factory address");
       await expect(
@@ -406,6 +409,7 @@ describe("Governor", () => {
           gnosisSafeSingleton: ethers.constants.AddressZero,
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
+          clearingHouse: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid safe singleton address");
       await expect(
@@ -419,6 +423,7 @@ describe("Governor", () => {
           ),
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
+          clearingHouse: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid token singleton address");
       await expect(
@@ -432,8 +437,23 @@ describe("Governor", () => {
           ),
           erc20Singleton: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
           parentDao: ethers.constants.AddressZero,
+          clearingHouse: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid owner");
+      await expect(
+        factory.deploy({
+          ensResolver: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          ensRegistry: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          ensRegistrar: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          gnosisFactory: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          gnosisSafeSingleton: ethers.utils.hexlify(
+            ethers.utils.randomBytes(20)
+          ),
+          erc20Singleton: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          parentDao: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          clearingHouse: ethers.constants.AddressZero,
+        })
+      ).to.be.revertedWith("invalid clearing house address");
     });
   });
 });

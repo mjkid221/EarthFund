@@ -26,6 +26,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         ensResolver: ContractAddresses[chainId].ENSResolver,
         ensRegistrar: ContractAddresses[chainId].ENSRegistrar,
         gnosisFactory: ContractAddresses[chainId].GnosisFactory,
+        clearingHouse: (await ethers.getContract("ClearingHouse")).address,
         gnosisSafeSingleton: ContractAddresses[chainId].GnosisSafeSingleton,
         erc20Singleton: (await ethers.getContract("ERC20Singleton")).address,
         parentDao: parentDao,
@@ -34,5 +35,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     log: true,
   });
 };
+
 export default func;
 func.tags = ["testbed", "_Governor"];
