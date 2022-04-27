@@ -13,6 +13,7 @@ import {
   IENSRegistrar,
   PublicResolver,
   Governor__factory,
+  IClearingHouse,
 } from "../typechain-types";
 
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
@@ -208,7 +209,7 @@ describe("Governor", () => {
   describe("ERC20 Token", () => {
     const tokenName = "Test",
       tokenSymbol = "TEST";
-    let childToken: ERC20Singleton, safe: string;
+    let childToken: ERC20Singleton, clearingHouse: IClearingHouse;
 
     before(async () => {
       [token, governor, ensController, ensRegistrar, tokenId] =
@@ -234,9 +235,7 @@ describe("Governor", () => {
           )?.args?.token
         )
       ).to.eq(true);
-      safe = daoTx.events?.find(
-        (el) => el.eventSignature === "ChildDaoCreated(address,address,bytes32)"
-      )?.args?.safe;
+      clearingHouse = await ethers.getContract("ClearingHouse");
       childToken = await ethers.getContractAt(
         "ERC20Singleton",
         daoTx.events?.find(
@@ -250,7 +249,7 @@ describe("Governor", () => {
       expect(await childToken.symbol()).to.eq(tokenSymbol);
     });
     it("should set the safe as the owner of the ERC20 token", async () => {
-      expect(await childToken.owner()).to.eq(safe);
+      expect(await childToken.owner()).to.eq(clearingHouse.address);
     });
     it("should initialize the ERC20 token proxy", async () => {
       await expect(
