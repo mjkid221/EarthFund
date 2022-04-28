@@ -16,7 +16,7 @@ interface IClearingHouse {
    * @notice Adds a child dao token to the register of swappable tokens
    * @param _childDaoToken The address of the child dao's ERC20 token contract
    */
-  function registerChildDao(address _childDaoToken) external;
+  function registerChildDao(address _childDaoToken) external returns (bool);
 
   /**
    * @notice Swaps a user's 1Earth tokens for a specific child dao's tokens

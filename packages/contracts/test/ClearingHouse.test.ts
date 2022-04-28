@@ -72,7 +72,16 @@ describe("Clearing House", function () {
     });
 
     it("should be able to register the child dao token contract into the clearing house register", async () => {
-      // TODO...
+      expect(await clearingHouse.registerChildDao(childDaoToken.address)).to.eq(
+        true
+      );
+    });
+
+    it("should revert when trying to register an already registered child dao token contract", async () => {
+      await clearingHouse.registerChildDao(childDaoToken.address);
+      expect(
+        await clearingHouse.registerChildDao(childDaoToken.address)
+      ).to.be.revertedWith("ALREADY REGISTERED THIS CONTRACT!!!");
     });
   });
 
@@ -127,8 +136,13 @@ describe("Clearing House", function () {
     };
 
     it("should transfer one 1Earth token to the clearing house contract and mint one child dao token to the user", async () => {
+      const swapAmount = 1;
       await checkBalances(0);
-      // TODO...
+      await clearingHouse.swapEarthForChildDao(
+        childDaoToken.address,
+        ethers.utils.parseEther(swapAmount.toString())
+      );
+      await checkBalances(swapAmount);
     });
   });
 
@@ -144,6 +158,8 @@ describe("Clearing House", function () {
       throw new Error("implement");
     });
   });
+
+  // TODO test swap dao tokens for dao tokens...
 
   // it("should ", async () => {
   //   throw new Error("implement");
