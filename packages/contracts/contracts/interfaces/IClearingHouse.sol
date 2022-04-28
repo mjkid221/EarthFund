@@ -40,7 +40,7 @@ interface IClearingHouse {
    * @param _toChildDaoToken The address of the child dao's ERC20 token contract whose tokens are being minted
    * @param _amount The amount of child dao tokens being swapped
    */
-  function swapChildDaoForEarth(
+  function swapChildDaoForChildDao(
     address _fromChildDaoToken,
     address _toChildDaoToken,
     uint256 _amount
