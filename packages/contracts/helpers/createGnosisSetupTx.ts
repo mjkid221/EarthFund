@@ -2,7 +2,7 @@ import { BigNumberish, BytesLike } from "ethers";
 import { ethers } from "hardhat";
 import { IGnosisSafe } from "../typechain-types";
 
-export const createGnosisSetupTx = async (
+const createGnosisSetupTx = async (
   owners: string[],
   threshold: BigNumberish,
   to: string,
@@ -29,3 +29,5 @@ export const createGnosisSetupTx = async (
     )
   ).data;
 };
+
+export default createGnosisSetupTx;

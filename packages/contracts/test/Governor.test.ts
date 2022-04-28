@@ -1,8 +1,11 @@
 /// Generating bytes initializer: https://github.com/gnosis/gnosis-py/blob/8dd7647da56c015486e3b7a5272a63a152cfeba3/gnosis/safe/safe.py#L132
 
-import { ethers, deployments, network } from "hardhat";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
+import { ethers, deployments, network } from "hardhat";
+import { isAddress, keccak256, toUtf8Bytes } from "ethers/lib/utils";
+import { solidity } from "ethereum-waffle";
 
 import {
   IENSController,
@@ -16,49 +19,15 @@ import {
   IClearingHouse,
 } from "../typechain-types";
 
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import ContractAddresses from "../constants/contractAddresses";
-import convertToSeconds from "../helpers/convertToSeconds";
-import { isAddress, keccak256, toUtf8Bytes } from "ethers/lib/utils";
-import { createGnosisSetupTx } from "../helpers/gnosisInitializer";
 
-import { solidity } from "ethereum-waffle";
+import convertToSeconds from "../helpers/convertToSeconds";
+import createChildDaoConfig from "../helpers/createChildDaoConfig";
 
 chai.use(solidity);
 chai.use(chaiAsPromised);
 const { expect } = chai;
 
-const childDaoConfig = async (
-  owners: string[],
-  tokenName = "Test",
-  tokenSymbol = "TEST",
-  subdomain = "subtest",
-  snapshotKey = "A",
-  snapshotValue = "B"
-) => ({
-  _tokenData: {
-    tokenName: toUtf8Bytes(tokenName),
-    tokenSymbol: toUtf8Bytes(tokenSymbol),
-  },
-  _safeData: {
-    initializer:
-      (await createGnosisSetupTx(
-        owners,
-        1,
-        ethers.constants.AddressZero,
-        [],
-        ContractAddresses["31337"].GnosisFallbackHandler,
-        ethers.constants.AddressZero,
-        0,
-        ethers.constants.AddressZero
-      )) || [],
-  },
-  _subdomain: {
-    subdomain: toUtf8Bytes(subdomain),
-    snapshotKey: toUtf8Bytes(snapshotKey),
-    snapshotValue: toUtf8Bytes(snapshotValue),
-  },
-});
 const setupNetwork = async (domain: string, deployer: SignerWithAddress) => {
   await deployments.fixture(["testbed"]);
   const token = await ethers.getContract("ERC20Singleton");
@@ -185,7 +154,7 @@ describe("Governor", () => {
 
       await ensRegistrar.approve(governor.address, tokenId);
       await governor.addENSDomain(tokenId);
-      const { _tokenData, _safeData, _subdomain } = await childDaoConfig([
+      const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig([
         alice.address,
       ]);
       const safeTx = await (
@@ -217,7 +186,7 @@ describe("Governor", () => {
 
       await ensRegistrar.approve(governor.address, tokenId);
       await governor.addENSDomain(tokenId);
-      const { _tokenData, _safeData, _subdomain } = await childDaoConfig(
+      const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig(
         [alice.address],
         tokenName,
         tokenSymbol
@@ -279,7 +248,7 @@ describe("Governor", () => {
 
       await ensRegistrar.approve(governor.address, tokenId);
       await governor.addENSDomain(tokenId);
-      const { _tokenData, _safeData, _subdomain } = await childDaoConfig([
+      const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig([
         alice.address,
       ]);
 
@@ -314,7 +283,7 @@ describe("Governor", () => {
     });
     it("should revert if the subdomain exists", async () => {
       /// Gnosis will throw first, token name is used as salt
-      const { _tokenData, _safeData, _subdomain } = await childDaoConfig([
+      const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig([
         deployer.address,
         alice.address,
       ]);
@@ -339,7 +308,7 @@ describe("Governor", () => {
     });
 
     it("should revert create dao if there isn't an NFT in the contract", async () => {
-      const { _tokenData, _safeData, _subdomain } = await childDaoConfig([
+      const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig([
         alice.address,
       ]);
       await expect(
