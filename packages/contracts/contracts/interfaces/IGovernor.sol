@@ -4,7 +4,7 @@ import "@ensdomains/ens-contracts/contracts/resolvers/PublicResolver.sol";
 import "@ensdomains/ens-contracts/contracts/registry/ENSRegistry.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxyFactory.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import "../vendors/IENSRegistrar.sol";
+import "../vendors/interfaces/IENSRegistrar.sol";
 import "./IClearingHouse.sol";
 
 interface IGovernor {
