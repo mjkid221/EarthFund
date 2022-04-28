@@ -21,24 +21,28 @@ interface IClearingHouse {
   /**
    * @notice Swaps a user's 1Earth tokens for a specific child dao's tokens
    * @param _childDaoToken The address of the child dao's ERC20 token contract
-   * @param _account The address of the user whose tokens are being swapped
    * @param _amount The amount of 1Earth tokens being swapped
    */
-  function swapForChildDaoTokens(
-    address _childDaoToken,
-    address _account,
-    uint256 _amount
-  ) external;
+  function swapEarthForChildDao(address _childDaoToken, uint256 _amount)
+    external;
 
   /**
    * @notice Swaps a user's tokens for a specific child dao for 1Earth tokens
    * @param _childDaoToken The address of the child dao's ERC20 token contract
-   * @param _account The address of the user whose tokens are being swapped
    * @param _amount The amount of child dao tokens being swapped
    */
-  function swapForEarthTokens(
-    address _childDaoToken,
-    address _account,
+  function swapChildDaoForEarth(address _childDaoToken, uint256 _amount)
+    external;
+
+  /**
+   * @notice Swaps a user's tokens for a specific child dao for another specific child dao's tokens
+   * @param _fromChildDaoToken The address of the child dao's ERC20 token contract whose tokens are being burnt
+   * @param _toChildDaoToken The address of the child dao's ERC20 token contract whose tokens are being minted
+   * @param _amount The amount of child dao tokens being swapped
+   */
+  function swapChildDaoForEarth(
+    address _fromChildDaoToken,
+    address _toChildDaoToken,
     uint256 _amount
   ) external;
 }
