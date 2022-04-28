@@ -3,10 +3,13 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
-import { ethers, deployments, network } from "hardhat";
+import { ethers } from "hardhat";
 import { isAddress, keccak256, toUtf8Bytes } from "ethers/lib/utils";
 import { solidity } from "ethereum-waffle";
 
+import ContractAddresses from "../constants/contractAddresses";
+import createChildDaoConfig from "../helpers/createChildDaoConfig";
+import setupNetwork from "../helpers/setupNetwork";
 import {
   IENSController,
   ERC20Singleton,
@@ -19,61 +22,9 @@ import {
   IClearingHouse,
 } from "../typechain-types";
 
-import ContractAddresses from "../constants/contractAddresses";
-
-import convertToSeconds from "../helpers/convertToSeconds";
-import createChildDaoConfig from "../helpers/createChildDaoConfig";
-
 chai.use(solidity);
 chai.use(chaiAsPromised);
 const { expect } = chai;
-
-const setupNetwork = async (domain: string, deployer: SignerWithAddress) => {
-  await deployments.fixture(["testbed"]);
-  const token = await ethers.getContract("ERC20Singleton");
-  const governor = await ethers.getContract("Governor");
-  const ensController = await ethers.getContractAt(
-    "IENSController",
-    ContractAddresses["31337"].ENSController
-  );
-  const ensRegistrar: IENSRegistrar = await ethers.getContractAt(
-    "IENSRegistrar",
-    ContractAddresses["31337"].ENSRegistrar
-  );
-
-  /// Create an ENS subdomain
-  //    Call Controller, make commitment
-  const secret = keccak256(ethers.utils.randomBytes(32));
-
-  const commitment = await ensController.makeCommitment(
-    domain,
-    deployer.address,
-    secret
-  );
-  const duration = convertToSeconds({ days: 45 });
-
-  await ensController.commit(commitment);
-
-  //    Fast forward chain time >= 1 minute
-  await network.provider.send("evm_increaseTime", [
-    convertToSeconds({ minutes: 2 }),
-  ]);
-
-  //    Register name
-  const tx = await (
-    await ensController.register(domain, deployer.address, duration, secret, {
-      value: ethers.utils.parseEther("1"),
-    })
-  ).wait();
-
-  const tokenId = tx.events?.find(
-    (el: any) =>
-      el.eventSignature ===
-      "NameRegistered(string,bytes32,address,uint256,uint256)"
-  )?.args?.label;
-
-  return [token, governor, ensController, ensRegistrar, tokenId];
-};
 
 describe("Governor", () => {
   let deployer: SignerWithAddress, alice: SignerWithAddress;
