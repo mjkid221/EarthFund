@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import "../interfaces/IClearingHouse.sol";
 import "../interfaces/IERC20Singleton.sol";
 import "../interfaces/IGovernor.sol";
-import "../vendors/interfaces/IENSRegistrar.sol";
+import "../vendors/IENSRegistrar.sol";
 
 contract Governor is IGovernor, Ownable, ERC721Holder {
   PublicResolver public override ensResolver;
