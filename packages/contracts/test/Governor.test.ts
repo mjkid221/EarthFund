@@ -31,6 +31,7 @@ describe("Governor", () => {
   let token: ERC20Singleton, governor: IGovernor;
   let ensRegistrar: IENSRegistrar, ensController: IENSController;
   let tokenId: string;
+  let clearingHouse: IClearingHouse;
   const domain = "earthfundTurboTestDomain31337";
 
   before(async () => {
@@ -163,6 +164,8 @@ describe("Governor", () => {
             el.eventSignature === "ChildDaoCreated(address,address,bytes32)"
         )?.args?.token
       );
+
+      clearingHouse = await ethers.getContract("ClearingHouse");
     });
     it("should create an ERC20 token", async () => {
       expect(await childToken.name()).to.eq(tokenName);
@@ -170,6 +173,11 @@ describe("Governor", () => {
     });
     it("should set the safe as the owner of the ERC20 token", async () => {
       expect(await childToken.owner()).to.eq(clearingHouse.address);
+    });
+    it("should register the ERC20 token in the clearing house contract", async () => {
+      expect(await clearingHouse.childDaoRegistry(childToken.address)).to.eq(
+        true
+      );
     });
     it("should initialize the ERC20 token proxy", async () => {
       await expect(

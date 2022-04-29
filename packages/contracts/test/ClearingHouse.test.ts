@@ -74,22 +74,13 @@ describe("Clearing House", function () {
       expect(await childDaoToken.owner()).to.not.eq(alice.address);
     });
 
-    it("should be able to register the child dao token contract into the clearing house register", async () => {
-      expect(await clearingHouse.childDaoRegistry(childDaoToken.address)).to.eq(
-        false
-      );
-      await clearingHouse
-        .connect(deployer)
-        .registerChildDao(childDaoToken.address);
+    it("should register the child dao token contract into the clearing house when create dao is called on the governor contract", async () => {
       expect(await clearingHouse.childDaoRegistry(childDaoToken.address)).to.eq(
         true
       );
     });
 
     it("should revert when trying to register an already registered child dao token contract", async () => {
-      await clearingHouse
-        .connect(deployer)
-        .registerChildDao(childDaoToken.address);
       await expect(
         clearingHouse.connect(deployer).registerChildDao(childDaoToken.address)
       ).to.be.revertedWith("already registered this child dao token");
