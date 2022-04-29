@@ -137,13 +137,19 @@ describe("Clearing House", function () {
       );
     };
 
+    it("should initialise 1Earth tokens and child dao token balances properly", async () => {
+      await checkBalancesAfterDaoTokenSwap(0);
+    });
+
     it("should transfer one 1Earth token to the clearing house contract and mint one child dao token to the user", async () => {
       const swapAmount = 1;
       await checkBalancesAfterDaoTokenSwap(0);
-      await clearingHouse.swapEarthForChildDao(
-        childDaoToken.address,
-        ethers.utils.parseEther(swapAmount.toString())
-      );
+      await clearingHouse
+        .connect(alice)
+        .swapEarthForChildDao(
+          childDaoToken.address,
+          ethers.utils.parseEther(swapAmount.toString())
+        );
       await checkBalancesAfterDaoTokenSwap(swapAmount);
     });
 
@@ -156,10 +162,54 @@ describe("Clearing House", function () {
   describe("Swap for 1Earth tokens", () => {
     beforeEach(async () => {
       await setupTestEnv();
+
+      // swap 100 1Earth tokens for alice
+      await clearingHouse
+        .connect(alice)
+        .swapEarthForChildDao(
+          childDaoToken.address,
+          ethers.utils.parseEther("100")
+        );
     });
 
-    it("should...", async () => {
-      throw new Error("implement");
+    // little helper to make sure all the balances are correct after the swap
+    const checkBalancesAfter1EarthTokenSwap = async (
+      amountTransferred: number
+    ) => {
+      const aliceEarthBalance = await earthToken.balanceOf(alice.address);
+      expect(aliceEarthBalance).to.be.eq(
+        ethers.utils
+          .parseEther("400")
+          .sub(ethers.BigNumber.from(amountTransferred))
+      );
+
+      const chEarthBalance = await earthToken.balanceOf(clearingHouse.address);
+      expect(chEarthBalance).to.be.eq(
+        ethers.utils
+          .parseEther("600")
+          .add(ethers.BigNumber.from(amountTransferred))
+      );
+
+      const aliceChildDaoBalance = await childDaoToken.balanceOf(alice.address);
+      expect(aliceChildDaoBalance).to.be.eq(
+        ethers.utils
+          .parseEther("100")
+          .add(ethers.BigNumber.from(amountTransferred))
+      );
+
+      const chChildDaoBalance = await childDaoToken.balanceOf(
+        clearingHouse.address
+      );
+      expect(chChildDaoBalance).to.be.eq(ethers.utils.parseEther("0"));
+
+      const childDaoTotalSupply = await childDaoToken.totalSupply();
+      expect(childDaoTotalSupply).to.be.eq(
+        aliceChildDaoBalance.sub(ethers.BigNumber.from(amountTransferred))
+      );
+    };
+
+    it("should initialise 1Earth tokens and child dao token balances properly", async () => {
+      await checkBalancesAfter1EarthTokenSwap(0);
     });
 
     // TODO implement more swap for 1Earth token tests...
