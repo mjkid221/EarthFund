@@ -63,6 +63,9 @@ describe("Clearing House", function () {
   describe("Creating Child DAO", () => {
     beforeEach(async () => {
       await setupTestEnv();
+
+      // make the deployer account in the clearing house contract the deployer for testing purposes
+      await clearingHouse.connect(deployer).addGovernor(deployer.address);
     });
 
     it("should make the clearing house contract the owner of the child dao token contract", async () => {
@@ -72,16 +75,24 @@ describe("Clearing House", function () {
     });
 
     it("should be able to register the child dao token contract into the clearing house register", async () => {
-      expect(await clearingHouse.registerChildDao(childDaoToken.address)).to.eq(
+      expect(await clearingHouse.childDaoRegistry(childDaoToken.address)).to.eq(
+        false
+      );
+      await clearingHouse
+        .connect(deployer)
+        .registerChildDao(childDaoToken.address);
+      expect(await clearingHouse.childDaoRegistry(childDaoToken.address)).to.eq(
         true
       );
     });
 
     it("should revert when trying to register an already registered child dao token contract", async () => {
-      await clearingHouse.registerChildDao(childDaoToken.address);
-      expect(
-        await clearingHouse.registerChildDao(childDaoToken.address)
-      ).to.be.revertedWith("ALREADY REGISTERED THIS CONTRACT!!!");
+      await clearingHouse
+        .connect(deployer)
+        .registerChildDao(childDaoToken.address);
+      await expect(
+        clearingHouse.connect(deployer).registerChildDao(childDaoToken.address)
+      ).to.be.revertedWith("already registered this child dao token");
     });
   });
 
