@@ -102,7 +102,9 @@ describe("Clearing House", function () {
     });
 
     // little helper to make sure all the balances are correct after the swap
-    const checkBalances = async (amountTransferred: number) => {
+    const checkBalancesAfterDaoTokenSwap = async (
+      amountTransferred: number
+    ) => {
       const aliceEarthBalance = await earthToken.balanceOf(alice.address);
       expect(aliceEarthBalance).to.be.eq(
         ethers.utils
@@ -137,13 +139,15 @@ describe("Clearing House", function () {
 
     it("should transfer one 1Earth token to the clearing house contract and mint one child dao token to the user", async () => {
       const swapAmount = 1;
-      await checkBalances(0);
+      await checkBalancesAfterDaoTokenSwap(0);
       await clearingHouse.swapEarthForChildDao(
         childDaoToken.address,
         ethers.utils.parseEther(swapAmount.toString())
       );
-      await checkBalances(swapAmount);
+      await checkBalancesAfterDaoTokenSwap(swapAmount);
     });
+
+    // TODO implement more swap for dao token tests...
   });
 
   /*//////////////////////////////////////////////////////
@@ -157,6 +161,8 @@ describe("Clearing House", function () {
     it("should...", async () => {
       throw new Error("implement");
     });
+
+    // TODO implement more swap for 1Earth token tests...
   });
 
   // TODO test swap dao tokens for dao tokens...
