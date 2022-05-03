@@ -131,7 +131,7 @@ contract ClearingHouse is IClearingHouse, Ownable {
       "child dao token burn error"
     );
 
-    emit TokensSwapped(address(childDaoToken), address(this), _amount);
+    emit TokensSwapped(address(childDaoToken), address(earthToken), _amount);
   }
 
   function swapChildDaoForChildDao(
