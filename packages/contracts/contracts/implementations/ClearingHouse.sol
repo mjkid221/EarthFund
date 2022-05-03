@@ -5,8 +5,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "hardhat/console.sol";
 
+import "./ERC20Singleton.sol";
 import "../interfaces/IClearingHouse.sol";
-import "../interfaces/IERC20Singleton.sol";
 import "../interfaces/IGovernor.sol";
 
 contract ClearingHouse is IClearingHouse, Ownable {
@@ -14,7 +14,7 @@ contract ClearingHouse is IClearingHouse, Ownable {
                             IMMUTABLES
     //////////////////////////////////////////////////////////////*/
 
-  mapping(IERC20Singleton => bool) public override childDaoRegistry;
+  mapping(ERC20Singleton => bool) public childDaoRegistry;
 
   IERC20 public immutable earthToken;
 
@@ -35,6 +35,14 @@ contract ClearingHouse is IClearingHouse, Ownable {
     _;
   }
 
+  modifier childDaoRegistered(address _childDaoToken) {
+    require(
+      childDaoRegistry[ERC20Singleton(_childDaoToken)],
+      "invalid child dao address"
+    );
+    _;
+  }
+
   /*///////////////////////////////////////////////////////////////
                             REGISTER LOGIC
     //////////////////////////////////////////////////////////////*/
@@ -45,10 +53,13 @@ contract ClearingHouse is IClearingHouse, Ownable {
 
   function registerChildDao(address _childDaoToken) external isGovernor {
     require(
-      childDaoRegistry[IERC20Singleton(_childDaoToken)] == false,
+      childDaoRegistry[ERC20Singleton(_childDaoToken)] == false,
       "already registered this child dao token"
     );
-    childDaoRegistry[IERC20Singleton(_childDaoToken)] = true;
+
+    childDaoRegistry[ERC20Singleton(_childDaoToken)] = true;
+
+    emit ChildDaoRegistered(_childDaoToken);
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -57,7 +68,35 @@ contract ClearingHouse is IClearingHouse, Ownable {
 
   function swapEarthForChildDao(address _childDaoToken, uint256 _amount)
     external
-  {}
+    childDaoRegistered(_childDaoToken)
+  {
+    require(
+      earthToken.balanceOf(msg.sender) >= _amount,
+      "not enough 1Earth tokens"
+    );
+
+    // transfer 1Earth from msg sender to this contract
+    uint256 earthBalanceBefore = earthToken.balanceOf(msg.sender);
+
+    earthToken.transferFrom(msg.sender, address(this), _amount);
+
+    require(
+      earthBalanceBefore - _amount == earthToken.balanceOf(msg.sender),
+      "1Earth token transfer failed"
+    );
+
+    // mint child dao tokens to the msg sender
+    ERC20Singleton childDaoToken = ERC20Singleton(_childDaoToken);
+
+    uint256 childDaoTotalSupplyBefore = childDaoToken.totalSupply();
+
+    childDaoToken.mint(msg.sender, _amount);
+
+    require(
+      childDaoTotalSupplyBefore + _amount == childDaoToken.totalSupply(),
+      "child dao token mint error"
+    );
+  }
 
   function swapChildDaoForEarth(address _childDaoToken, uint256 _amount)
     external
