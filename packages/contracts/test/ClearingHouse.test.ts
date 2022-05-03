@@ -94,13 +94,10 @@ describe("Clearing House", function () {
     beforeEach(async () => {
       await setupTestEnv();
 
-      // transfer alice and the clearing house contract 500 1Earth tokens each
+      // transfer alice five hundred 1Earth tokens
       await earthToken
         .connect(deployer)
         .transfer(alice.address, ethers.utils.parseEther("500"));
-      await earthToken
-        .connect(deployer)
-        .transfer(clearingHouse.address, ethers.utils.parseEther("500"));
 
       // approve the clearing house contract in the earth token contract for alice
       await earthToken
@@ -122,7 +119,7 @@ describe("Clearing House", function () {
       const chEarthBalance = await earthToken.balanceOf(clearingHouse.address);
       expect(chEarthBalance).to.be.eq(
         ethers.utils
-          .parseEther("500")
+          .parseEther("0")
           .add(ethers.utils.parseEther(amountTransferred.toString()))
       );
 
@@ -139,9 +136,7 @@ describe("Clearing House", function () {
       expect(chChildDaoBalance).to.be.eq(ethers.utils.parseEther("0"));
 
       const childDaoTotalSupply = await childDaoToken.totalSupply();
-      expect(childDaoTotalSupply).to.be.eq(
-        ethers.utils.parseEther(amountTransferred.toString())
-      );
+      expect(childDaoTotalSupply).to.be.eq(chEarthBalance);
     };
 
     it("should initialise 1Earth tokens and child dao token balances properly", async () => {
@@ -228,25 +223,22 @@ describe("Clearing House", function () {
     beforeEach(async () => {
       await setupTestEnv();
 
-      // transfer alice and the clearing house contract 500 1Earth tokens each
+      // transfer alice five hundred 1Earth tokens
       await earthToken
         .connect(deployer)
         .transfer(alice.address, ethers.utils.parseEther("500"));
-      await earthToken
-        .connect(deployer)
-        .transfer(clearingHouse.address, ethers.utils.parseEther("500"));
 
       // approve the clearing house contract in the earth token contract for alice
       await earthToken
         .connect(alice)
         .approve(clearingHouse.address, ethers.constants.MaxUint256);
 
-      // swap 100 1Earth tokens for alice
+      // swap 500 1Earth tokens for alice
       await clearingHouse
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther("100")
+          ethers.utils.parseEther("500")
         );
     });
 
@@ -257,21 +249,21 @@ describe("Clearing House", function () {
       const aliceEarthBalance = await earthToken.balanceOf(alice.address);
       expect(aliceEarthBalance).to.be.eq(
         ethers.utils
-          .parseEther("400")
+          .parseEther("0")
           .add(ethers.utils.parseEther(amountTransferred.toString()))
       );
 
       const chEarthBalance = await earthToken.balanceOf(clearingHouse.address);
       expect(chEarthBalance).to.be.eq(
         ethers.utils
-          .parseEther("600")
+          .parseEther("500")
           .sub(ethers.utils.parseEther(amountTransferred.toString()))
       );
 
       const aliceChildDaoBalance = await childDaoToken.balanceOf(alice.address);
       expect(aliceChildDaoBalance).to.be.eq(
         ethers.utils
-          .parseEther("100")
+          .parseEther("500")
           .sub(ethers.utils.parseEther(amountTransferred.toString()))
       );
 
@@ -281,7 +273,7 @@ describe("Clearing House", function () {
       expect(chChildDaoBalance).to.be.eq(ethers.utils.parseEther("0"));
 
       const childDaoTotalSupply = await childDaoToken.totalSupply();
-      expect(childDaoTotalSupply).to.be.eq(aliceChildDaoBalance);
+      expect(childDaoTotalSupply).to.be.eq(chEarthBalance);
     };
 
     it("should initialise 1Earth tokens and child dao token balances properly", async () => {
@@ -349,7 +341,7 @@ describe("Clearing House", function () {
     });
 
     it("should revert when user does not have enough child dao tokens", async () => {
-      const swapAmount = 101; // alice should have 100 child dao tokens to start
+      const swapAmount = 501; // alice should have 500 child dao tokens to start
       await expect(
         clearingHouse
           .connect(alice)
