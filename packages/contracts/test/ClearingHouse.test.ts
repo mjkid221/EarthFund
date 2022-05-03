@@ -24,6 +24,7 @@ describe("Clearing House", function () {
     ensRegistrar: IENSRegistrar,
     ensController: IENSController,
     childDaoToken: ERC20Singleton,
+    childDaoToken2: ERC20Singleton,
     earthToken: ERC20,
     clearingHouse: IClearingHouse;
 
@@ -35,7 +36,7 @@ describe("Clearing House", function () {
   });
 
   // helper function that deploys and gets all the contracts and creates a test child dao
-  const setupTestEnv = async () => {
+  const setupTestEnv = async (secondChildDao?: boolean) => {
     [token, governor, ensController, ensRegistrar, tokenId] =
       await setupNetwork(domain, deployer); // contract deployments are done here
 
@@ -52,6 +53,30 @@ describe("Clearing House", function () {
       createChildDaoTx.events?.find((el) => el.event === "ChildDaoCreated")
         ?.args?.token
     );
+
+    if (secondChildDao) {
+      const {
+        _tokenData: _tokenData2,
+        _safeData: _safeData2,
+        _subdomain: _subdomain2,
+      } = await createChildDaoConfig(
+        [alice.address],
+        "Test2",
+        "TEST2",
+        "subtest2",
+        "C",
+        "D"
+      );
+
+      const createChildDaoTx2 = await (
+        await governor.createChildDAO(_tokenData2, _safeData2, _subdomain2)
+      ).wait();
+      childDaoToken2 = await ethers.getContractAt(
+        "ERC20Singleton",
+        createChildDaoTx2.events?.find((el) => el.event === "ChildDaoCreated")
+          ?.args?.token
+      );
+    }
 
     earthToken = await ethers.getContract("EarthToken");
     clearingHouse = await ethers.getContract("ClearingHouse");
@@ -139,7 +164,7 @@ describe("Clearing House", function () {
       expect(childDaoTotalSupply).to.be.eq(chEarthBalance);
     };
 
-    it("should initialise 1Earth tokens and child dao token balances properly", async () => {
+    it("should initialise 1Earth token and child dao token balances properly", async () => {
       await checkBalancesAfterDaoTokenSwap(0);
     });
 
@@ -276,7 +301,7 @@ describe("Clearing House", function () {
       expect(childDaoTotalSupply).to.be.eq(chEarthBalance);
     };
 
-    it("should initialise 1Earth tokens and child dao token balances properly", async () => {
+    it("should initialise 1Earth token and child dao token balances properly", async () => {
       await checkBalancesAfter1EarthTokenSwap(0);
     });
 
@@ -350,6 +375,67 @@ describe("Clearing House", function () {
             ethers.utils.parseEther(swapAmount.toString())
           )
       ).to.be.revertedWith("not enough child dao tokens");
+    });
+  });
+
+  /*//////////////////////////////////////////////////////
+            SWAP DAO TOKENS FOR DAO TOKENS TESTS
+  //////////////////////////////////////////////////////*/
+  describe("Swap child dao tokens for child dao tokens", () => {
+    beforeEach(async () => {
+      await setupTestEnv(true); // will create a second child dao
+
+      // transfer alice one thousand 1Earth tokens
+      await earthToken
+        .connect(deployer)
+        .transfer(alice.address, ethers.utils.parseEther("1000"));
+
+      // approve the clearing house contract in the earth token contract for alice
+      await earthToken
+        .connect(alice)
+        .approve(clearingHouse.address, ethers.constants.MaxUint256);
+
+      // swap five hundred 1Earth tokens to child dao 1 tokens for alice
+      await clearingHouse
+        .connect(alice)
+        .swapEarthForChildDao(
+          childDaoToken.address,
+          ethers.utils.parseEther("500")
+        );
+
+      // swap five hundred 1Earth tokens to child dao 2 tokens for alice
+      await clearingHouse
+        .connect(alice)
+        .swapEarthForChildDao(
+          childDaoToken2.address,
+          ethers.utils.parseEther("500")
+        );
+    });
+
+    const checkBalancesAfterChildDaoTokenToChildDaoTokenSwap = async () => {
+      const aliceEarthBalance = await earthToken.balanceOf(alice.address);
+      expect(aliceEarthBalance).to.be.eq(ethers.utils.parseEther("0"));
+
+      const chEarthBalance = await earthToken.balanceOf(clearingHouse.address);
+      expect(chEarthBalance).to.be.eq(ethers.utils.parseEther("1000"));
+
+      const aliceChildDaoBalance = await childDaoToken.balanceOf(alice.address);
+      expect(aliceChildDaoBalance).to.be.eq(ethers.utils.parseEther("500"));
+
+      const aliceChildDao2Balance = await childDaoToken2.balanceOf(
+        alice.address
+      );
+      expect(aliceChildDao2Balance).to.be.eq(ethers.utils.parseEther("500"));
+
+      const childDaoTotalSupply = await childDaoToken.totalSupply();
+      const childDao2TotalSupply = await childDaoToken2.totalSupply();
+      expect(chEarthBalance).to.be.eq(
+        childDaoTotalSupply.add(childDao2TotalSupply)
+      );
+    };
+
+    it("should initialise 1Earth token, child dao token and child dao token 2 balances properly", async () => {
+      await checkBalancesAfterChildDaoTokenToChildDaoTokenSwap();
     });
   });
 
