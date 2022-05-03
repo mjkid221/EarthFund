@@ -412,7 +412,9 @@ describe("Clearing House", function () {
         );
     });
 
-    const checkBalancesAfterChildDaoTokenToChildDaoTokenSwap = async () => {
+    const checkBalancesAfterChildDaoTokenToChildDaoTokenSwap = async (
+      amountTransferred: number
+    ) => {
       const aliceEarthBalance = await earthToken.balanceOf(alice.address);
       expect(aliceEarthBalance).to.be.eq(ethers.utils.parseEther("0"));
 
@@ -420,12 +422,20 @@ describe("Clearing House", function () {
       expect(chEarthBalance).to.be.eq(ethers.utils.parseEther("1000"));
 
       const aliceChildDaoBalance = await childDaoToken.balanceOf(alice.address);
-      expect(aliceChildDaoBalance).to.be.eq(ethers.utils.parseEther("500"));
+      expect(aliceChildDaoBalance).to.be.eq(
+        ethers.utils
+          .parseEther("500")
+          .sub(ethers.utils.parseEther(amountTransferred.toString()))
+      );
 
       const aliceChildDao2Balance = await childDaoToken2.balanceOf(
         alice.address
       );
-      expect(aliceChildDao2Balance).to.be.eq(ethers.utils.parseEther("500"));
+      expect(aliceChildDao2Balance).to.be.eq(
+        ethers.utils
+          .parseEther("500")
+          .add(ethers.utils.parseEther(amountTransferred.toString()))
+      );
 
       const childDaoTotalSupply = await childDaoToken.totalSupply();
       const childDao2TotalSupply = await childDaoToken2.totalSupply();
@@ -435,7 +445,138 @@ describe("Clearing House", function () {
     };
 
     it("should initialise 1Earth token, child dao token and child dao token 2 balances properly", async () => {
-      await checkBalancesAfterChildDaoTokenToChildDaoTokenSwap();
+      await checkBalancesAfterChildDaoTokenToChildDaoTokenSwap(0);
+    });
+
+    it("should burn one child dao token and mint one child dao 2 token", async () => {
+      const swapAmount = 1;
+      await checkBalancesAfterChildDaoTokenToChildDaoTokenSwap(0);
+      await clearingHouse
+        .connect(alice)
+        .swapChildDaoForChildDao(
+          childDaoToken.address,
+          childDaoToken2.address,
+          ethers.utils.parseEther(swapAmount.toString())
+        );
+      await checkBalancesAfterChildDaoTokenToChildDaoTokenSwap(swapAmount);
+    });
+
+    it("should burn half a child dao token and mint half a child dao 2 token", async () => {
+      const swapAmount = 0.5;
+      await checkBalancesAfterChildDaoTokenToChildDaoTokenSwap(0);
+      await clearingHouse
+        .connect(alice)
+        .swapChildDaoForChildDao(
+          childDaoToken.address,
+          childDaoToken2.address,
+          ethers.utils.parseEther(swapAmount.toString())
+        );
+      await checkBalancesAfterChildDaoTokenToChildDaoTokenSwap(swapAmount);
+    });
+
+    it("should burn one hundred child dao tokens and mint one hundred child dao 2 tokens", async () => {
+      const swapAmount = 100;
+      await checkBalancesAfterChildDaoTokenToChildDaoTokenSwap(0);
+      await clearingHouse
+        .connect(alice)
+        .swapChildDaoForChildDao(
+          childDaoToken.address,
+          childDaoToken2.address,
+          ethers.utils.parseEther(swapAmount.toString())
+        );
+      await checkBalancesAfterChildDaoTokenToChildDaoTokenSwap(swapAmount);
+    });
+
+    it("should burn five hundred child dao tokens and mint five hundred child dao 2 tokens", async () => {
+      const swapAmount = 500;
+      await checkBalancesAfterChildDaoTokenToChildDaoTokenSwap(0);
+      await clearingHouse
+        .connect(alice)
+        .swapChildDaoForChildDao(
+          childDaoToken.address,
+          childDaoToken2.address,
+          ethers.utils.parseEther(swapAmount.toString())
+        );
+      await checkBalancesAfterChildDaoTokenToChildDaoTokenSwap(swapAmount);
+    });
+
+    it("should revert when trying to swap the same child dao tokens", async () => {
+      const swapAmount = 1;
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapChildDaoForChildDao(
+            childDaoToken.address,
+            childDaoToken.address,
+            ethers.utils.parseEther(swapAmount.toString())
+          )
+      ).to.be.revertedWith("cannot swap the same child dao tokens");
+
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapChildDaoForChildDao(
+            childDaoToken2.address,
+            childDaoToken2.address,
+            ethers.utils.parseEther(swapAmount.toString())
+          )
+      ).to.be.revertedWith("cannot swap the same child dao tokens");
+    });
+
+    it("should revert when trying to swap an invalid child dao token", async () => {
+      const swapAmount = 1;
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapChildDaoForChildDao(
+            deployer.address,
+            deployer.address,
+            ethers.utils.parseEther(swapAmount.toString())
+          )
+      ).to.be.revertedWith("invalid child dao address");
+
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapChildDaoForChildDao(
+            deployer.address,
+            childDaoToken.address,
+            ethers.utils.parseEther(swapAmount.toString())
+          )
+      ).to.be.revertedWith("invalid child dao address");
+
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapChildDaoForChildDao(
+            childDaoToken.address,
+            deployer.address,
+            ethers.utils.parseEther(swapAmount.toString())
+          )
+      ).to.be.revertedWith("invalid child dao address");
+    });
+
+    it("should revert when user does not have enough child dao tokens", async () => {
+      const swapAmount = 501; // alice should have 500 child dao and child dao 2 tokens to start
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapChildDaoForChildDao(
+            childDaoToken.address,
+            childDaoToken2.address,
+            ethers.utils.parseEther(swapAmount.toString())
+          )
+      ).to.be.revertedWith("not enough child dao tokens");
+
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapChildDaoForChildDao(
+            childDaoToken2.address,
+            childDaoToken.address,
+            ethers.utils.parseEther(swapAmount.toString())
+          )
+      ).to.be.revertedWith("not enough child dao tokens");
     });
   });
 

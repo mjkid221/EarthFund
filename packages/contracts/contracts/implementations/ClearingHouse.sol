@@ -138,5 +138,51 @@ contract ClearingHouse is IClearingHouse, Ownable {
     address _fromChildDaoToken,
     address _toChildDaoToken,
     uint256 _amount
-  ) external {}
+  )
+    external
+    isChildDaoRegistered(_fromChildDaoToken)
+    isChildDaoRegistered(_toChildDaoToken)
+  {
+    require(
+      _fromChildDaoToken != _toChildDaoToken,
+      "cannot swap the same child dao tokens"
+    );
+
+    ERC20Singleton fromChildDaoToken = ERC20Singleton(_fromChildDaoToken);
+
+    ERC20Singleton toChildDaoToken = ERC20Singleton(_toChildDaoToken);
+
+    require(
+      fromChildDaoToken.balanceOf(msg.sender) >= _amount,
+      "not enough child dao tokens"
+    );
+
+    // burn msg sender's from child dao tokens
+    uint256 fromChildDaoBalanceBefore = fromChildDaoToken.balanceOf(msg.sender);
+
+    fromChildDaoToken.burn(msg.sender, _amount);
+
+    require(
+      fromChildDaoBalanceBefore - _amount ==
+        fromChildDaoToken.balanceOf(msg.sender),
+      "child dao token burn error"
+    );
+
+    // mint to child dao tokens to the msg sender
+    uint256 toChildDaoBalanceBefore = toChildDaoToken.balanceOf(msg.sender);
+
+    toChildDaoToken.mint(msg.sender, _amount);
+
+    require(
+      toChildDaoBalanceBefore + _amount ==
+        toChildDaoToken.balanceOf(msg.sender),
+      "child dao token mint error"
+    );
+
+    emit TokensSwapped(
+      address(fromChildDaoToken),
+      address(toChildDaoToken),
+      _amount
+    );
+  }
 }
