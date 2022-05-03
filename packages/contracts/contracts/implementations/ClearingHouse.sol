@@ -35,7 +35,7 @@ contract ClearingHouse is IClearingHouse, Ownable {
     _;
   }
 
-  modifier childDaoRegistered(address _childDaoToken) {
+  modifier isChildDaoRegistered(address _childDaoToken) {
     require(
       childDaoRegistry[ERC20Singleton(_childDaoToken)],
       "invalid child dao address"
@@ -68,7 +68,7 @@ contract ClearingHouse is IClearingHouse, Ownable {
 
   function swapEarthForChildDao(address _childDaoToken, uint256 _amount)
     external
-    childDaoRegistered(_childDaoToken)
+    isChildDaoRegistered(_childDaoToken)
   {
     require(
       earthToken.balanceOf(msg.sender) >= _amount,
@@ -102,7 +102,37 @@ contract ClearingHouse is IClearingHouse, Ownable {
 
   function swapChildDaoForEarth(address _childDaoToken, uint256 _amount)
     external
-  {}
+    isChildDaoRegistered(_childDaoToken)
+  {
+    ERC20Singleton childDaoToken = ERC20Singleton(_childDaoToken);
+
+    require(
+      childDaoToken.balanceOf(msg.sender) >= _amount,
+      "not enough child dao tokens"
+    );
+
+    // transfer 1Earth from this contract to the msg sender
+    uint256 earthBalanceBefore = earthToken.balanceOf(address(this));
+
+    earthToken.transfer(msg.sender, _amount);
+
+    require(
+      earthBalanceBefore - _amount == earthToken.balanceOf(address(this)),
+      "1Earth token transfer failed"
+    );
+
+    // burn msg sender's child dao tokens
+    uint256 childDaoTotalSupplyBefore = childDaoToken.totalSupply();
+
+    childDaoToken.burn(msg.sender, _amount);
+
+    require(
+      childDaoTotalSupplyBefore - _amount == childDaoToken.totalSupply(),
+      "child dao token burn error"
+    );
+
+    emit TokensSwapped(address(childDaoToken), address(this), _amount);
+  }
 
   function swapChildDaoForChildDao(
     address _fromChildDaoToken,

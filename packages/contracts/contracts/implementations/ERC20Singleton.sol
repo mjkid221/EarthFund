@@ -7,28 +7,32 @@ import "../interfaces/IERC20Singleton.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 contract ERC20Singleton is
-    IERC20Singleton,
-    Initializable,
-    ERC20Upgradeable,
-    OwnableUpgradeable
+  IERC20Singleton,
+  Initializable,
+  ERC20Upgradeable,
+  OwnableUpgradeable
 {
-    constructor() initializer {
-        __ERC20_init("Singleton Base", "BASE");
-        __Ownable_init();
-        transferOwnership(address(1));
-    }
+  constructor() initializer {
+    __ERC20_init("Singleton Base", "BASE");
+    __Ownable_init();
+    transferOwnership(address(1));
+  }
 
-    function initialize(
-        bytes calldata _name,
-        bytes calldata _symbol,
-        address _owner
-    ) external initializer {
-        __ERC20_init(string(_name), string(_symbol));
-        __Ownable_init();
-        transferOwnership(_owner);
-    }
+  function initialize(
+    bytes calldata _name,
+    bytes calldata _symbol,
+    address _owner
+  ) external initializer {
+    __ERC20_init(string(_name), string(_symbol));
+    __Ownable_init();
+    transferOwnership(_owner);
+  }
 
-    function mint(address account, uint256 amount) external override onlyOwner {
-        _mint(account, amount);
-    }
+  function mint(address account, uint256 amount) external override onlyOwner {
+    _mint(account, amount);
+  }
+
+  function burn(address account, uint256 amount) external override onlyOwner {
+    _burn(account, amount);
+  }
 }
