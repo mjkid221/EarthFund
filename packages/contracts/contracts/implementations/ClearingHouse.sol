@@ -96,6 +96,8 @@ contract ClearingHouse is IClearingHouse, Ownable {
       childDaoTotalSupplyBefore + _amount == childDaoToken.totalSupply(),
       "child dao token mint error"
     );
+
+    emit TokensSwapped(address(earthToken), address(childDaoToken), _amount);
   }
 
   function swapChildDaoForEarth(address _childDaoToken, uint256 _amount)

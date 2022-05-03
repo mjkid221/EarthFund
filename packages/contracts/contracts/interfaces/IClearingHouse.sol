@@ -7,7 +7,9 @@ interface IClearingHouse {
   /*///////////////////////////////////////////////////////////////
                             EVENTS
     //////////////////////////////////////////////////////////////*/
-  event ChildDaoRegistered(address _childDaoToken);
+  event ChildDaoRegistered(address childDaoToken);
+
+  event TokensSwapped(address from, address to, uint256 amount);
 
   /*///////////////////////////////////////////////////////////////
                             FUNCTIONS
