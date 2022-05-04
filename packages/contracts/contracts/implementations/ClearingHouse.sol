@@ -85,12 +85,12 @@ contract ClearingHouse is IClearingHouse, Ownable {
     );
 
     // transfer 1Earth from msg sender to this contract
-    uint256 earthBalanceBefore = earthToken.balanceOf(msg.sender);
+    uint256 earthBalanceBefore = earthToken.balanceOf(address(this));
 
     earthToken.transferFrom(msg.sender, address(this), _amount);
 
     require(
-      earthBalanceBefore - _amount == earthToken.balanceOf(msg.sender),
+      earthBalanceBefore + _amount == earthToken.balanceOf(address(this)),
       "1Earth token transfer failed"
     );
 
