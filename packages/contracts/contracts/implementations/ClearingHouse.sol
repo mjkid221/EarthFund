@@ -66,6 +66,11 @@ contract ClearingHouse is IClearingHouse, Ownable {
       "already registered this child dao token"
     );
 
+    require(
+      _childDaoToken != address(earthToken),
+      "cannot register the 1Earth token contract"
+    );
+
     childDaoRegistry[ERC20Singleton(_childDaoToken)] = true;
 
     emit ChildDaoRegistered(_childDaoToken);

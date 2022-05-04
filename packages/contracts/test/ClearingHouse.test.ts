@@ -1,6 +1,6 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import { deployments, ethers } from "hardhat";
 import createChildDaoConfig from "../helpers/createChildDaoConfig";
 
 import setupNetwork from "../helpers/setupNetwork";
@@ -11,6 +11,7 @@ import {
   IENSController,
   IClearingHouse,
   ERC20,
+  ReflectiveToken,
 } from "../typechain-types";
 
 describe("Clearing House", function () {
@@ -126,6 +127,12 @@ describe("Clearing House", function () {
       await expect(
         clearingHouse.connect(deployer).registerChildDao(childDaoToken.address)
       ).to.be.revertedWith("already registered this child dao token");
+    });
+
+    it("should revert when trying to register the 1Earth token contract", async () => {
+      await expect(
+        clearingHouse.connect(deployer).registerChildDao(earthToken.address)
+      ).to.be.revertedWith("cannot register the 1Earth token contract");
     });
   });
 
@@ -594,6 +601,206 @@ describe("Clearing House", function () {
             ethers.utils.parseEther(swapAmount.toString())
           )
       ).to.be.revertedWith("not enough child dao tokens");
+    });
+  });
+
+  /*//////////////////////////////////////////////////////
+                REFLECTIVE TOKENS TESTS
+  //////////////////////////////////////////////////////*/
+  describe("Swap with reflective tokens", () => {
+    let reflectiveTokenOne: ReflectiveToken,
+      reflectiveTokenTwo: ReflectiveToken,
+      reflectiveTokenThree: ReflectiveToken;
+
+    beforeEach(async () => {
+      await setupTestEnv();
+
+      // transfer alice five hundred 1Earth tokens
+      await earthToken
+        .connect(deployer)
+        .transfer(alice.address, ethers.utils.parseEther("500"));
+
+      // approve the clearing house contract in the earth token contract for alice
+      await earthToken
+        .connect(alice)
+        .approve(clearingHouse.address, ethers.constants.MaxUint256);
+
+      // deploy three reflective tokens for testing
+      const { deploy } = deployments;
+      const refOneDeployResult = await deploy("ReflectiveToken", {
+        from: deployer.address,
+        args: ["Reflective One", "REF1"],
+        log: true,
+      });
+      const refTwoDeployResult = await deploy("ReflectiveToken", {
+        from: deployer.address,
+        args: ["Reflective Two", "REF2"],
+        log: true,
+      });
+      const refThreeDeployResult = await deploy("ReflectiveToken", {
+        from: deployer.address,
+        args: ["Reflective Three", "REF3"],
+        log: true,
+      });
+
+      reflectiveTokenOne = await ethers.getContractAt(
+        refOneDeployResult.abi,
+        refOneDeployResult.address
+      );
+      reflectiveTokenTwo = await ethers.getContractAt(
+        refTwoDeployResult.abi,
+        refTwoDeployResult.address
+      );
+      reflectiveTokenThree = await ethers.getContractAt(
+        refThreeDeployResult.abi,
+        refThreeDeployResult.address
+      );
+
+      // make the deployer account the governor in the clearing house contract for testing purposes
+      await clearingHouse.connect(deployer).addGovernor(deployer.address);
+
+      // register the two ref tokens in the clearing house contract
+      await clearingHouse
+        .connect(deployer)
+        .registerChildDao(reflectiveTokenOne.address);
+      await clearingHouse
+        .connect(deployer)
+        .registerChildDao(reflectiveTokenTwo.address);
+    });
+
+    it("should revert with '1Earth token transfer failed'", async () => {
+      // need to redeploy the the clearing house contract with reflective token three as the earth token
+      const { deploy } = deployments;
+      const clearingHouseDeployResult = await deploy("ClearingHouse", {
+        from: deployer.address,
+        args: [reflectiveTokenThree.address],
+        log: true,
+      });
+
+      clearingHouse = await ethers.getContractAt(
+        clearingHouseDeployResult.abi,
+        clearingHouseDeployResult.address
+      );
+
+      // make the deployer account the governor in this new clearing house contract for testing purposes
+      await clearingHouse.connect(deployer).addGovernor(deployer.address);
+
+      // need to register the reflective tokens again in this newly deployed clearing house contract
+      await clearingHouse
+        .connect(deployer)
+        .registerChildDao(reflectiveTokenOne.address);
+      await clearingHouse
+        .connect(deployer)
+        .registerChildDao(reflectiveTokenTwo.address);
+
+      // mint alice five hundred REF3 tokens
+      await reflectiveTokenThree
+        .connect(deployer)
+        .mint(alice.address, ethers.utils.parseEther("500"));
+
+      // approve the clearing house contract in the reflective token three contract for alice
+      await reflectiveTokenThree
+        .connect(alice)
+        .approve(clearingHouse.address, ethers.constants.MaxUint256);
+
+      // call the swaps
+      const swapAmount = 1;
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapEarthForChildDao(
+            reflectiveTokenOne.address,
+            ethers.utils.parseEther(swapAmount.toString())
+          )
+      ).to.be.revertedWith("1Earth token transfer failed");
+
+      // mint the new clearing house contract some reflective token three tokens and mint alice some reflective token one tokens
+      await reflectiveTokenThree
+        .connect(deployer)
+        .mint(clearingHouse.address, ethers.utils.parseEther("100"));
+
+      await reflectiveTokenOne
+        .connect(deployer)
+        .mint(alice.address, ethers.utils.parseEther("100"));
+
+      // try to let alice redeem some REF1 tokens
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapChildDaoForEarth(
+            reflectiveTokenOne.address,
+            ethers.utils.parseEther(swapAmount.toString())
+          )
+      ).to.be.revertedWith("1Earth token transfer failed");
+    });
+
+    it("should revert with 'child dao token mint error'", async () => {
+      const swapAmount = 1;
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapEarthForChildDao(
+            reflectiveTokenOne.address,
+            ethers.utils.parseEther(swapAmount.toString())
+          )
+      ).to.be.revertedWith("child dao token mint error");
+
+      // swap 1Earth tokens for child dao tokens for alice
+      await clearingHouse
+        .connect(alice)
+        .swapEarthForChildDao(
+          childDaoToken.address,
+          ethers.utils.parseEther(swapAmount.toString())
+        );
+
+      // try to swap child dao tokens for reflective token one tokens
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapChildDaoForChildDao(
+            childDaoToken.address,
+            reflectiveTokenOne.address,
+            ethers.utils.parseEther(swapAmount.toString())
+          )
+      ).to.be.revertedWith("child dao token mint error");
+    });
+
+    it("should revert with 'child dao token burn error'", async () => {
+      const swapAmount = 1;
+
+      // swap some 1Earth tokens for child dao tokens so that the clearing house contract has some 1Earth tokens and mint alice some reflective token one tokens
+      await clearingHouse
+        .connect(alice)
+        .swapEarthForChildDao(
+          childDaoToken.address,
+          ethers.utils.parseEther(swapAmount.toString())
+        );
+
+      await reflectiveTokenOne.mint(
+        alice.address,
+        ethers.utils.parseEther("100")
+      );
+
+      // try to swap reflective token one tokens for 1Earth tokens
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapChildDaoForEarth(
+            reflectiveTokenOne.address,
+            ethers.utils.parseEther(swapAmount.toString())
+          )
+      ).to.be.revertedWith("child dao token burn error");
+
+      // try to swap reflective token one tokens for child dao tokens
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapChildDaoForChildDao(
+            reflectiveTokenOne.address,
+            childDaoToken.address,
+            ethers.utils.parseEther(swapAmount.toString())
+          )
+      ).to.be.revertedWith("child dao token burn error");
     });
   });
 
