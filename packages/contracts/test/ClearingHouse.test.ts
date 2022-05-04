@@ -804,6 +804,201 @@ describe("Clearing House", function () {
     });
   });
 
+  /*//////////////////////////////////////////////////////
+                    PAUSABLE TESTS
+  //////////////////////////////////////////////////////*/
+  describe("Paused contract", () => {
+    beforeEach(async () => {
+      await setupTestEnv(true);
+      await clearingHouse.connect(deployer).pause();
+    });
+
+    it("should not be able to add governor when paused", async () => {
+      await expect(
+        clearingHouse.connect(deployer).addGovernor(deployer.address)
+      ).to.be.revertedWith("Pausable: paused");
+
+      // unpause and try to finish action
+      await clearingHouse.connect(deployer).unpause();
+      await clearingHouse.connect(deployer).addGovernor(deployer.address);
+      expect(await (clearingHouse as any).governor()).to.be.eq(
+        deployer.address
+      );
+    });
+
+    it("should not be able to register a token contract when paused", async () => {
+      await expect(
+        clearingHouse.connect(deployer).registerChildDao(childDaoToken.address)
+      ).to.be.revertedWith("Pausable: paused");
+
+      // unpause and try to finish action
+      await clearingHouse.connect(deployer).unpause();
+      await clearingHouse.connect(deployer).addGovernor(deployer.address);
+      await expect(
+        clearingHouse.connect(deployer).registerChildDao(childDaoToken.address)
+      ).to.be.revertedWith("already registered this child dao token");
+    });
+
+    it("should not be able to swap 1Earth tokens for child dao tokens when paused", async () => {
+      const swapAmount = 1;
+      await expect(
+        clearingHouse
+          .connect(deployer)
+          .swapEarthForChildDao(
+            childDaoToken.address,
+            ethers.utils.parseEther(swapAmount.toString())
+          )
+      ).to.be.revertedWith("Pausable: paused");
+
+      // unpause and try to finish action
+      await clearingHouse.connect(deployer).unpause();
+
+      // transfer alice five hundred 1Earth tokens
+      await earthToken
+        .connect(deployer)
+        .transfer(alice.address, ethers.utils.parseEther("500"));
+
+      // approve the clearing house contract in the earth token contract for alice
+      await earthToken
+        .connect(alice)
+        .approve(clearingHouse.address, ethers.constants.MaxUint256);
+
+      await clearingHouse
+        .connect(alice)
+        .swapEarthForChildDao(
+          childDaoToken.address,
+          ethers.utils.parseEther(swapAmount.toString())
+        );
+
+      expect(await earthToken.balanceOf(alice.address)).to.be.eq(
+        ethers.utils
+          .parseEther("500")
+          .sub(ethers.utils.parseEther(swapAmount.toString()))
+      );
+
+      expect(await childDaoToken.balanceOf(alice.address)).to.be.eq(
+        ethers.utils.parseEther(swapAmount.toString())
+      );
+    });
+
+    it("should not be able to swap child dao tokens for 1Earth tokens when paused", async () => {
+      const swapAmount = 1;
+      await expect(
+        clearingHouse
+          .connect(deployer)
+          .swapChildDaoForEarth(
+            childDaoToken.address,
+            ethers.utils.parseEther(swapAmount.toString())
+          )
+      ).to.be.revertedWith("Pausable: paused");
+
+      // unpause and try to finish action
+      await clearingHouse.connect(deployer).unpause();
+
+      // transfer alice five hundred 1Earth tokens
+      await earthToken
+        .connect(deployer)
+        .transfer(alice.address, ethers.utils.parseEther("500"));
+
+      // approve the clearing house contract in the earth token contract for alice
+      await earthToken
+        .connect(alice)
+        .approve(clearingHouse.address, ethers.constants.MaxUint256);
+
+      await clearingHouse
+        .connect(alice)
+        .swapEarthForChildDao(
+          childDaoToken.address,
+          ethers.utils.parseEther(swapAmount.toString())
+        );
+
+      expect(await earthToken.balanceOf(alice.address)).to.be.eq(
+        ethers.utils
+          .parseEther("500")
+          .sub(ethers.utils.parseEther(swapAmount.toString()))
+      );
+
+      expect(await childDaoToken.balanceOf(alice.address)).to.be.eq(
+        ethers.utils.parseEther(swapAmount.toString())
+      );
+
+      await clearingHouse
+        .connect(alice)
+        .swapChildDaoForEarth(
+          childDaoToken.address,
+          ethers.utils.parseEther(swapAmount.toString())
+        );
+
+      expect(await earthToken.balanceOf(alice.address)).to.be.eq(
+        ethers.utils.parseEther("500")
+      );
+
+      expect(await childDaoToken.balanceOf(alice.address)).to.be.eq(
+        ethers.utils.parseEther("0")
+      );
+    });
+
+    it("should not be able to swap child dao tokens for another child dao token when paused", async () => {
+      const swapAmount = 1;
+      await expect(
+        clearingHouse
+          .connect(deployer)
+          .swapChildDaoForChildDao(
+            childDaoToken.address,
+            childDaoToken2.address,
+            ethers.utils.parseEther(swapAmount.toString())
+          )
+      ).to.be.revertedWith("Pausable: paused");
+
+      // unpause and try to finish action
+      await clearingHouse.connect(deployer).unpause();
+      await clearingHouse.connect(deployer).addGovernor(deployer.address);
+
+      // transfer alice five hundred 1Earth tokens
+      await earthToken
+        .connect(deployer)
+        .transfer(alice.address, ethers.utils.parseEther("500"));
+
+      // approve the clearing house contract in the earth token contract for alice
+      await earthToken
+        .connect(alice)
+        .approve(clearingHouse.address, ethers.constants.MaxUint256);
+
+      await clearingHouse
+        .connect(alice)
+        .swapEarthForChildDao(
+          childDaoToken.address,
+          ethers.utils.parseEther(swapAmount.toString())
+        );
+
+      expect(await earthToken.balanceOf(alice.address)).to.be.eq(
+        ethers.utils
+          .parseEther("500")
+          .sub(ethers.utils.parseEther(swapAmount.toString()))
+      );
+
+      expect(await childDaoToken.balanceOf(alice.address)).to.be.eq(
+        ethers.utils.parseEther(swapAmount.toString())
+      );
+
+      await clearingHouse
+        .connect(alice)
+        .swapChildDaoForChildDao(
+          childDaoToken.address,
+          childDaoToken2.address,
+          ethers.utils.parseEther(swapAmount.toString())
+        );
+
+      expect(await childDaoToken.balanceOf(alice.address)).to.be.eq(
+        ethers.utils.parseEther("0")
+      );
+
+      expect(await childDaoToken2.balanceOf(alice.address)).to.be.eq(
+        ethers.utils.parseEther(swapAmount.toString())
+      );
+    });
+  });
+
   // it("should ", async () => {
   //   throw new Error("implement");
   // });
