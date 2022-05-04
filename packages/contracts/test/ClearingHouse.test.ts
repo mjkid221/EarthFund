@@ -89,7 +89,7 @@ describe("Clearing House", function () {
     beforeEach(async () => {
       await setupTestEnv();
 
-      // make the deployer account in the clearing house contract the deployer for testing purposes
+      // make the deployer account the governor in the clearing house contract for testing purposes
       await clearingHouse.connect(deployer).addGovernor(deployer.address);
     });
 
@@ -103,6 +103,23 @@ describe("Clearing House", function () {
       expect(await clearingHouse.childDaoRegistry(childDaoToken.address)).to.eq(
         true
       );
+    });
+
+    it("should revert when trying to register a child dao token contract and no governor is set", async () => {
+      // set the governor in the clearing house to the zero address
+      await clearingHouse
+        .connect(deployer)
+        .addGovernor(ethers.constants.AddressZero);
+
+      await expect(
+        clearingHouse.connect(deployer).registerChildDao(childDaoToken.address)
+      ).to.be.revertedWith("governor not set");
+    });
+
+    it("should revert when trying to register child dao token contract as an account that is not the governor", async () => {
+      await expect(
+        clearingHouse.connect(alice).registerChildDao(childDaoToken.address)
+      ).to.be.revertedWith("caller is not the governor contract");
     });
 
     it("should revert when trying to register an already registered child dao token contract", async () => {

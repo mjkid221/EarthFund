@@ -27,6 +27,11 @@ contract ClearingHouse is IClearingHouse, Ownable {
   /*///////////////////////////////////////////////////////////////
                             MODIFIERS
     //////////////////////////////////////////////////////////////*/
+  modifier isGovernorSet() {
+    require(address(governor) != address(0), "governor not set");
+    _;
+  }
+
   modifier isGovernor() {
     require(
       msg.sender == address(governor),
@@ -51,7 +56,11 @@ contract ClearingHouse is IClearingHouse, Ownable {
     governor = IGovernor(_governor);
   }
 
-  function registerChildDao(address _childDaoToken) external isGovernor {
+  function registerChildDao(address _childDaoToken)
+    external
+    isGovernorSet
+    isGovernor
+  {
     require(
       childDaoRegistry[ERC20Singleton(_childDaoToken)] == false,
       "already registered this child dao token"
