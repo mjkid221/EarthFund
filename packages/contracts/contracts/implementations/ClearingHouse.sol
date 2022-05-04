@@ -2,6 +2,7 @@
 pragma solidity 0.8.13;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "hardhat/console.sol";
 
@@ -9,7 +10,7 @@ import "./ERC20Singleton.sol";
 import "../interfaces/IClearingHouse.sol";
 import "../interfaces/IGovernor.sol";
 
-contract ClearingHouse is IClearingHouse, Ownable {
+contract ClearingHouse is IClearingHouse, Ownable, Pausable {
   /*///////////////////////////////////////////////////////////////
                             IMMUTABLES
     //////////////////////////////////////////////////////////////*/
@@ -52,12 +53,13 @@ contract ClearingHouse is IClearingHouse, Ownable {
                             REGISTER LOGIC
     //////////////////////////////////////////////////////////////*/
 
-  function addGovernor(address _governor) external onlyOwner {
+  function addGovernor(address _governor) external whenNotPaused onlyOwner {
     governor = IGovernor(_governor);
   }
 
   function registerChildDao(address _childDaoToken)
     external
+    whenNotPaused
     isGovernorSet
     isGovernor
   {
@@ -82,6 +84,7 @@ contract ClearingHouse is IClearingHouse, Ownable {
 
   function swapEarthForChildDao(address _childDaoToken, uint256 _amount)
     external
+    whenNotPaused
     isChildDaoRegistered(_childDaoToken)
   {
     require(
@@ -116,6 +119,7 @@ contract ClearingHouse is IClearingHouse, Ownable {
 
   function swapChildDaoForEarth(address _childDaoToken, uint256 _amount)
     external
+    whenNotPaused
     isChildDaoRegistered(_childDaoToken)
   {
     ERC20Singleton childDaoToken = ERC20Singleton(_childDaoToken);
@@ -154,6 +158,7 @@ contract ClearingHouse is IClearingHouse, Ownable {
     uint256 _amount
   )
     external
+    whenNotPaused
     isChildDaoRegistered(_fromChildDaoToken)
     isChildDaoRegistered(_toChildDaoToken)
   {
@@ -198,5 +203,16 @@ contract ClearingHouse is IClearingHouse, Ownable {
       address(toChildDaoToken),
       _amount
     );
+  }
+
+  /*///////////////////////////////////////////////////////////////
+                            PAUSE LOGIC
+    //////////////////////////////////////////////////////////////*/
+  function pause() external onlyOwner {
+    _pause();
+  }
+
+  function unpause() external onlyOwner {
+    _unpause();
   }
 }
