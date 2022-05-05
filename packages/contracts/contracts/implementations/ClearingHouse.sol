@@ -34,10 +34,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
   }
 
   modifier isGovernor() {
-    require(
-      msg.sender == address(governor),
-      "caller is not the governor contract"
-    );
+    require(msg.sender == address(governor), "caller is not the governor");
     _;
   }
 
@@ -65,12 +62,12 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
   {
     require(
       childDaoRegistry[ERC20Singleton(_childDaoToken)] == false,
-      "already registered this child dao token"
+      "child dao already registered"
     );
 
     require(
       _childDaoToken != address(earthToken),
-      "cannot register the 1Earth token contract"
+      "cannot register 1Earth token"
     );
 
     childDaoRegistry[ERC20Singleton(_childDaoToken)] = true;
@@ -164,7 +161,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
   {
     require(
       _fromChildDaoToken != _toChildDaoToken,
-      "cannot swap the same child dao tokens"
+      "cannot swap the same token"
     );
 
     ERC20Singleton fromChildDaoToken = ERC20Singleton(_fromChildDaoToken);

@@ -120,19 +120,19 @@ describe("Clearing House", function () {
     it("should revert when trying to register child dao token contract as an account that is not the governor", async () => {
       await expect(
         clearingHouse.connect(alice).registerChildDao(childDaoToken.address)
-      ).to.be.revertedWith("caller is not the governor contract");
+      ).to.be.revertedWith("caller is not the governor");
     });
 
     it("should revert when trying to register an already registered child dao token contract", async () => {
       await expect(
         clearingHouse.connect(deployer).registerChildDao(childDaoToken.address)
-      ).to.be.revertedWith("already registered this child dao token");
+      ).to.be.revertedWith("child dao already registered");
     });
 
     it("should revert when trying to register the 1Earth token contract", async () => {
       await expect(
         clearingHouse.connect(deployer).registerChildDao(earthToken.address)
-      ).to.be.revertedWith("cannot register the 1Earth token contract");
+      ).to.be.revertedWith("cannot register 1Earth token");
     });
   });
 
@@ -534,7 +534,7 @@ describe("Clearing House", function () {
             childDaoToken.address,
             ethers.utils.parseEther(swapAmount.toString())
           )
-      ).to.be.revertedWith("cannot swap the same child dao tokens");
+      ).to.be.revertedWith("cannot swap the same token");
 
       await expect(
         clearingHouse
@@ -544,7 +544,7 @@ describe("Clearing House", function () {
             childDaoToken2.address,
             ethers.utils.parseEther(swapAmount.toString())
           )
-      ).to.be.revertedWith("cannot swap the same child dao tokens");
+      ).to.be.revertedWith("cannot swap the same token");
     });
 
     it("should revert when trying to swap an invalid child dao token", async () => {
@@ -836,7 +836,7 @@ describe("Clearing House", function () {
       await clearingHouse.connect(deployer).addGovernor(deployer.address);
       await expect(
         clearingHouse.connect(deployer).registerChildDao(childDaoToken.address)
-      ).to.be.revertedWith("already registered this child dao token");
+      ).to.be.revertedWith("child dao already registered");
     });
 
     it("should not be able to swap 1Earth tokens for child dao tokens when paused", async () => {
