@@ -2,6 +2,7 @@
 pragma solidity 0.8.13;
 
 import "../implementations/ERC20Singleton.sol";
+import "../implementations/Governor.sol";
 
 interface IClearingHouse {
   /*///////////////////////////////////////////////////////////////
@@ -18,20 +19,20 @@ interface IClearingHouse {
    * @notice Updates the governor contract in state, an only owner function
    * @param _governor The address of the new governor contract
    */
-  function addGovernor(address _governor) external;
+  function addGovernor(Governor _governor) external;
 
   /**
    * @notice Adds a child dao token to the register of swappable tokens
    * @param _childDaoToken The address of the child dao's ERC20 token contract
    */
-  function registerChildDao(address _childDaoToken) external;
+  function registerChildDao(ERC20Singleton _childDaoToken) external;
 
   /**
    * @notice Swaps a user's 1Earth tokens for a specific child dao's tokens
    * @param _childDaoToken The address of the child dao's ERC20 token contract
    * @param _amount The amount of 1Earth tokens being swapped
    */
-  function swapEarthForChildDao(address _childDaoToken, uint256 _amount)
+  function swapEarthForChildDao(ERC20Singleton _childDaoToken, uint256 _amount)
     external;
 
   /**
@@ -39,7 +40,7 @@ interface IClearingHouse {
    * @param _childDaoToken The address of the child dao's ERC20 token contract
    * @param _amount The amount of child dao tokens being swapped
    */
-  function swapChildDaoForEarth(address _childDaoToken, uint256 _amount)
+  function swapChildDaoForEarth(ERC20Singleton _childDaoToken, uint256 _amount)
     external;
 
   /**
@@ -49,8 +50,8 @@ interface IClearingHouse {
    * @param _amount The amount of child dao tokens being swapped
    */
   function swapChildDaoForChildDao(
-    address _fromChildDaoToken,
-    address _toChildDaoToken,
+    ERC20Singleton _fromChildDaoToken,
+    ERC20Singleton _toChildDaoToken,
     uint256 _amount
   ) external;
 

@@ -3,12 +3,11 @@ pragma solidity 0.8.13;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "hardhat/console.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import "./ERC20Singleton.sol";
+import "./Governor.sol";
 import "../interfaces/IClearingHouse.sol";
-import "../interfaces/IGovernor.sol";
 
 contract ClearingHouse is IClearingHouse, Ownable, Pausable {
   /*///////////////////////////////////////////////////////////////
@@ -17,12 +16,12 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
 
   mapping(ERC20Singleton => bool) public childDaoRegistry;
 
-  IERC20 public immutable earthToken;
+  ERC20 public immutable earthToken;
 
-  IGovernor public governor; // this one is not actually immutable
+  Governor public governor; // this one is not actually immutable
 
-  constructor(address _earthToken) {
-    earthToken = IERC20(_earthToken);
+  constructor(ERC20 _earthToken) {
+    earthToken = _earthToken;
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -38,11 +37,8 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     _;
   }
 
-  modifier isChildDaoRegistered(address _childDaoToken) {
-    require(
-      childDaoRegistry[ERC20Singleton(_childDaoToken)],
-      "invalid child dao address"
-    );
+  modifier isChildDaoRegistered(ERC20Singleton _childDaoToken) {
+    require(childDaoRegistry[_childDaoToken], "invalid child dao address");
     _;
   }
 
@@ -50,36 +46,36 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
                             REGISTER LOGIC
     //////////////////////////////////////////////////////////////*/
 
-  function addGovernor(address _governor) external whenNotPaused onlyOwner {
-    governor = IGovernor(_governor);
+  function addGovernor(Governor _governor) external whenNotPaused onlyOwner {
+    governor = _governor;
   }
 
-  function registerChildDao(address _childDaoToken)
+  function registerChildDao(ERC20Singleton _childDaoToken)
     external
     whenNotPaused
     isGovernorSet
     isGovernor
   {
     require(
-      childDaoRegistry[ERC20Singleton(_childDaoToken)] == false,
+      childDaoRegistry[_childDaoToken] == false,
       "child dao already registered"
     );
 
     require(
-      _childDaoToken != address(earthToken),
+      address(_childDaoToken) != address(earthToken),
       "cannot register 1Earth token"
     );
 
-    childDaoRegistry[ERC20Singleton(_childDaoToken)] = true;
+    childDaoRegistry[_childDaoToken] = true;
 
-    emit ChildDaoRegistered(_childDaoToken);
+    emit ChildDaoRegistered(address(_childDaoToken));
   }
 
   /*///////////////////////////////////////////////////////////////
                             SWAP LOGIC
     //////////////////////////////////////////////////////////////*/
 
-  function swapEarthForChildDao(address _childDaoToken, uint256 _amount)
+  function swapEarthForChildDao(ERC20Singleton _childDaoToken, uint256 _amount)
     external
     whenNotPaused
     isChildDaoRegistered(_childDaoToken)
@@ -100,7 +96,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     );
 
     // mint child dao tokens to the msg sender
-    ERC20Singleton childDaoToken = ERC20Singleton(_childDaoToken);
+    ERC20Singleton childDaoToken = _childDaoToken;
 
     uint256 childDaoTotalSupplyBefore = childDaoToken.totalSupply();
 
@@ -114,12 +110,12 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     emit TokensSwapped(address(earthToken), address(childDaoToken), _amount);
   }
 
-  function swapChildDaoForEarth(address _childDaoToken, uint256 _amount)
+  function swapChildDaoForEarth(ERC20Singleton _childDaoToken, uint256 _amount)
     external
     whenNotPaused
     isChildDaoRegistered(_childDaoToken)
   {
-    ERC20Singleton childDaoToken = ERC20Singleton(_childDaoToken);
+    ERC20Singleton childDaoToken = _childDaoToken;
 
     require(
       childDaoToken.balanceOf(msg.sender) >= _amount,
@@ -150,8 +146,8 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
   }
 
   function swapChildDaoForChildDao(
-    address _fromChildDaoToken,
-    address _toChildDaoToken,
+    ERC20Singleton _fromChildDaoToken,
+    ERC20Singleton _toChildDaoToken,
     uint256 _amount
   )
     external
@@ -164,9 +160,9 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
       "cannot swap the same token"
     );
 
-    ERC20Singleton fromChildDaoToken = ERC20Singleton(_fromChildDaoToken);
+    ERC20Singleton fromChildDaoToken = _fromChildDaoToken;
 
-    ERC20Singleton toChildDaoToken = ERC20Singleton(_toChildDaoToken);
+    ERC20Singleton toChildDaoToken = _toChildDaoToken;
 
     require(
       fromChildDaoToken.balanceOf(msg.sender) >= _amount,

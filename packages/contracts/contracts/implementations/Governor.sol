@@ -8,8 +8,8 @@ import "@ensdomains/ens-contracts/contracts/registry/ENSRegistry.sol";
 import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxyFactory.sol";
 import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
+import "./ERC20Singleton.sol";
 import "../interfaces/IClearingHouse.sol";
-import "../interfaces/IERC20Singleton.sol";
 import "../interfaces/IGovernor.sol";
 import "../vendors/IENSRegistrar.sol";
 
@@ -97,7 +97,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     );
 
     /// Register the token in the clearing house contract
-    clearingHouse.registerChildDao(token);
+    clearingHouse.registerChildDao(ERC20Singleton(token));
 
     // /// ENS Subdomain + Snapshot text record
     bytes32 node = _createENSSubdomain(
@@ -131,7 +131,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
       erc20Singleton,
       keccak256(abi.encodePacked(_name, _symbol))
     );
-    IERC20Singleton(token).initialize(_name, _symbol, address(clearingHouse));
+    ERC20Singleton(token).initialize(_name, _symbol, address(clearingHouse));
   }
 
   function _calculateENSNode(bytes32 baseNode, bytes32 childNode)
