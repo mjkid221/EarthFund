@@ -57,13 +57,18 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     isGovernor
   {
     require(
-      childDaoRegistry[_childDaoToken] == false,
-      "child dao already registered"
+      address(_childDaoToken) != address(earthToken),
+      "cannot register 1Earth token"
     );
 
     require(
-      address(_childDaoToken) != address(earthToken),
-      "cannot register 1Earth token"
+      _childDaoToken.owner() == address(this),
+      "token not owned by contract"
+    );
+
+    require(
+      childDaoRegistry[_childDaoToken] == false,
+      "child dao already registered"
     );
 
     childDaoRegistry[_childDaoToken] = true;

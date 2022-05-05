@@ -2,8 +2,9 @@
 pragma solidity 0.8.13;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract ReflectiveToken is ERC20 {
+contract ReflectiveToken is ERC20, Ownable {
   constructor(string memory _tokenName, string memory _tokenSymbol)
     ERC20(_tokenName, _tokenSymbol)
   {}

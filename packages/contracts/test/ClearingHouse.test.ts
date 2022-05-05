@@ -123,16 +123,39 @@ describe("Clearing House", function () {
       ).to.be.revertedWith("caller is not the governor");
     });
 
-    it("should revert when trying to register an already registered child dao token contract", async () => {
-      await expect(
-        clearingHouse.connect(deployer).registerChildDao(childDaoToken.address)
-      ).to.be.revertedWith("child dao already registered");
-    });
-
     it("should revert when trying to register the 1Earth token contract", async () => {
       await expect(
         clearingHouse.connect(deployer).registerChildDao(earthToken.address)
       ).to.be.revertedWith("cannot register 1Earth token");
+    });
+
+    it("should revert when trying to register child dao token contract that is not owned by the clearing house", async () => {
+      let reflectiveToken: ReflectiveToken;
+
+      // deploy reflective token for testing
+      const { deploy } = deployments;
+      const refDeployResult = await deploy("ReflectiveToken", {
+        from: deployer.address,
+        args: ["Reflective", "REF"],
+        log: true,
+      });
+
+      reflectiveToken = await ethers.getContractAt(
+        refDeployResult.abi,
+        refDeployResult.address
+      );
+
+      await expect(
+        clearingHouse
+          .connect(deployer)
+          .registerChildDao(reflectiveToken.address)
+      ).to.be.revertedWith("token not owned by contract");
+    });
+
+    it("should revert when trying to register an already registered child dao token contract", async () => {
+      await expect(
+        clearingHouse.connect(deployer).registerChildDao(childDaoToken.address)
+      ).to.be.revertedWith("child dao already registered");
     });
   });
 
@@ -658,14 +681,6 @@ describe("Clearing House", function () {
 
       // make the deployer account the governor in the clearing house contract for testing purposes
       await clearingHouse.connect(deployer).addGovernor(deployer.address);
-
-      // register the two ref tokens in the clearing house contract
-      await clearingHouse
-        .connect(deployer)
-        .registerChildDao(reflectiveTokenOne.address);
-      await clearingHouse
-        .connect(deployer)
-        .registerChildDao(reflectiveTokenTwo.address);
     });
 
     it("should revert with '1Earth token transfer failed'", async () => {
@@ -684,6 +699,17 @@ describe("Clearing House", function () {
 
       // make the deployer account the governor in this new clearing house contract for testing purposes
       await clearingHouse.connect(deployer).addGovernor(deployer.address);
+
+      // transfer ownership of the reflective token contracts to the newly deployed clearing house contract
+      await reflectiveTokenOne
+        .connect(deployer)
+        .transferOwnership(clearingHouse.address);
+      await reflectiveTokenTwo
+        .connect(deployer)
+        .transferOwnership(clearingHouse.address);
+      await reflectiveTokenThree
+        .connect(deployer)
+        .transferOwnership(clearingHouse.address);
 
       // need to register the reflective tokens again in this newly deployed clearing house contract
       await clearingHouse
@@ -735,6 +761,25 @@ describe("Clearing House", function () {
     });
 
     it("should revert with 'child dao token mint error'", async () => {
+      // transfer ownership of the reflective token contracts to the clearing house contract
+      await reflectiveTokenOne
+        .connect(deployer)
+        .transferOwnership(clearingHouse.address);
+      await reflectiveTokenTwo
+        .connect(deployer)
+        .transferOwnership(clearingHouse.address);
+      await reflectiveTokenThree
+        .connect(deployer)
+        .transferOwnership(clearingHouse.address);
+
+      // register the two ref tokens in the clearing house contract
+      await clearingHouse
+        .connect(deployer)
+        .registerChildDao(reflectiveTokenOne.address);
+      await clearingHouse
+        .connect(deployer)
+        .registerChildDao(reflectiveTokenTwo.address);
+
       const swapAmount = 1;
       await expect(
         clearingHouse
@@ -766,6 +811,25 @@ describe("Clearing House", function () {
     });
 
     it("should revert with 'child dao token burn error'", async () => {
+      // transfer ownership of the reflective token contracts to the clearing house contract
+      await reflectiveTokenOne
+        .connect(deployer)
+        .transferOwnership(clearingHouse.address);
+      await reflectiveTokenTwo
+        .connect(deployer)
+        .transferOwnership(clearingHouse.address);
+      await reflectiveTokenThree
+        .connect(deployer)
+        .transferOwnership(clearingHouse.address);
+
+      // register the two ref tokens in the clearing house contract
+      await clearingHouse
+        .connect(deployer)
+        .registerChildDao(reflectiveTokenOne.address);
+      await clearingHouse
+        .connect(deployer)
+        .registerChildDao(reflectiveTokenTwo.address);
+
       const swapAmount = 1;
 
       // swap some 1Earth tokens for child dao tokens so that the clearing house contract has some 1Earth tokens and mint alice some reflective token one tokens
