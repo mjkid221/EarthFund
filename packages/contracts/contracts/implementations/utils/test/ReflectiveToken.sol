@@ -2,7 +2,6 @@
 pragma solidity 0.8.13;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "hardhat/console.sol";
 
 contract ReflectiveToken is ERC20 {
   constructor(string memory _tokenName, string memory _tokenSymbol)
