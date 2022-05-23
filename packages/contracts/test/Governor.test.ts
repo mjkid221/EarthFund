@@ -1,116 +1,37 @@
 /// Generating bytes initializer: https://github.com/gnosis/gnosis-py/blob/8dd7647da56c015486e3b7a5272a63a152cfeba3/gnosis/safe/safe.py#L132
 
-import { ethers, deployments, network } from "hardhat";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
+import { ethers } from "hardhat";
+import { isAddress, keccak256, toUtf8Bytes } from "ethers/lib/utils";
+import { solidity } from "ethereum-waffle";
 
+import ContractAddresses from "../constants/contractAddresses";
+import createChildDaoConfig from "../helpers/createChildDaoConfig";
+import setupNetwork from "../helpers/setupNetwork";
 import {
   IENSController,
   ERC20Singleton,
   IGovernor,
-  IERC721,
   IGnosisSafe,
   IENSRegistry,
   IENSRegistrar,
   PublicResolver,
   Governor__factory,
+  IClearingHouse,
 } from "../typechain-types";
-
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import ContractAddresses from "../constants/contractAddresses";
-import convertToSeconds from "../helpers/convertToSeconds";
-import { isAddress, keccak256, toUtf8Bytes } from "ethers/lib/utils";
-import { createGnosisSetupTx } from "../helpers/gnosisInitializer";
-
-import { solidity } from "ethereum-waffle";
 
 chai.use(solidity);
 chai.use(chaiAsPromised);
 const { expect } = chai;
-
-const childDaoConfig = async (
-  owners: string[],
-  tokenName = "Test",
-  tokenSymbol = "TEST",
-  subdomain = "subtest",
-  snapshotKey = "A",
-  snapshotValue = "B"
-) => ({
-  _tokenData: {
-    tokenName: toUtf8Bytes(tokenName),
-    tokenSymbol: toUtf8Bytes(tokenSymbol),
-  },
-  _safeData: {
-    initializer:
-      (await createGnosisSetupTx(
-        owners,
-        1,
-        ethers.constants.AddressZero,
-        [],
-        ContractAddresses["31337"].GnosisFallbackHandler,
-        ethers.constants.AddressZero,
-        0,
-        ethers.constants.AddressZero
-      )) || [],
-  },
-  _subdomain: {
-    subdomain: toUtf8Bytes(subdomain),
-    snapshotKey: toUtf8Bytes(snapshotKey),
-    snapshotValue: toUtf8Bytes(snapshotValue),
-  },
-});
-const setupNetwork = async (domain: string, deployer: SignerWithAddress) => {
-  await deployments.fixture(["testbed"]);
-  const token = await ethers.getContract("ERC20Singleton");
-  const governor = await ethers.getContract("Governor");
-  const ensController = await ethers.getContractAt(
-    "IENSController",
-    ContractAddresses["31337"].ENSController
-  );
-  const ensRegistrar: IENSRegistrar = await ethers.getContractAt(
-    "IENSRegistrar",
-    ContractAddresses["31337"].ENSRegistrar
-  );
-
-  /// Create an ENS subdomain
-  //    Call Controller, make commitment
-  const secret = keccak256(ethers.utils.randomBytes(32));
-
-  const commitment = await ensController.makeCommitment(
-    domain,
-    deployer.address,
-    secret
-  );
-  const duration = convertToSeconds({ days: 45 });
-
-  await ensController.commit(commitment);
-
-  //    Fast forward chain time >= 1 minute
-  await network.provider.send("evm_increaseTime", [
-    convertToSeconds({ minutes: 2 }),
-  ]);
-
-  //    Register name
-  const tx = await (
-    await ensController.register(domain, deployer.address, duration, secret, {
-      value: ethers.utils.parseEther("1"),
-    })
-  ).wait();
-
-  const tokenId = tx.events?.find(
-    (el: any) =>
-      el.eventSignature ===
-      "NameRegistered(string,bytes32,address,uint256,uint256)"
-  )?.args?.label;
-
-  return [token, governor, ensController, ensRegistrar, tokenId];
-};
 
 describe("Governor", () => {
   let deployer: SignerWithAddress, alice: SignerWithAddress;
   let token: ERC20Singleton, governor: IGovernor;
   let ensRegistrar: IENSRegistrar, ensController: IENSController;
   let tokenId: string;
+  let clearingHouse: IClearingHouse;
   const domain = "earthfundTurboTestDomain31337";
 
   before(async () => {
@@ -185,7 +106,7 @@ describe("Governor", () => {
 
       await ensRegistrar.approve(governor.address, tokenId);
       await governor.addENSDomain(tokenId);
-      const { _tokenData, _safeData, _subdomain } = await childDaoConfig([
+      const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig([
         alice.address,
       ]);
       const safeTx = await (
@@ -209,7 +130,7 @@ describe("Governor", () => {
   describe("ERC20 Token", () => {
     const tokenName = "Test",
       tokenSymbol = "TEST";
-    let childToken: ERC20Singleton, safe: string;
+    let childToken: ERC20Singleton, clearingHouse: IClearingHouse;
 
     before(async () => {
       [token, governor, ensController, ensRegistrar, tokenId] =
@@ -217,7 +138,7 @@ describe("Governor", () => {
 
       await ensRegistrar.approve(governor.address, tokenId);
       await governor.addENSDomain(tokenId);
-      const { _tokenData, _safeData, _subdomain } = await childDaoConfig(
+      const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig(
         [alice.address],
         tokenName,
         tokenSymbol
@@ -235,9 +156,7 @@ describe("Governor", () => {
           )?.args?.token
         )
       ).to.eq(true);
-      safe = daoTx.events?.find(
-        (el) => el.eventSignature === "ChildDaoCreated(address,address,bytes32)"
-      )?.args?.safe;
+      clearingHouse = await ethers.getContract("ClearingHouse");
       childToken = await ethers.getContractAt(
         "ERC20Singleton",
         daoTx.events?.find(
@@ -245,13 +164,20 @@ describe("Governor", () => {
             el.eventSignature === "ChildDaoCreated(address,address,bytes32)"
         )?.args?.token
       );
+
+      clearingHouse = await ethers.getContract("ClearingHouse");
     });
     it("should create an ERC20 token", async () => {
       expect(await childToken.name()).to.eq(tokenName);
       expect(await childToken.symbol()).to.eq(tokenSymbol);
     });
     it("should set the safe as the owner of the ERC20 token", async () => {
-      expect(await childToken.owner()).to.eq(safe);
+      expect(await childToken.owner()).to.eq(clearingHouse.address);
+    });
+    it("should register the ERC20 token in the clearing house contract", async () => {
+      expect(await clearingHouse.childDaoRegistry(childToken.address)).to.eq(
+        true
+      );
     });
     it("should initialize the ERC20 token proxy", async () => {
       await expect(
@@ -281,7 +207,7 @@ describe("Governor", () => {
 
       await ensRegistrar.approve(governor.address, tokenId);
       await governor.addENSDomain(tokenId);
-      const { _tokenData, _safeData, _subdomain } = await childDaoConfig([
+      const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig([
         alice.address,
       ]);
 
@@ -316,7 +242,7 @@ describe("Governor", () => {
     });
     it("should revert if the subdomain exists", async () => {
       /// Gnosis will throw first, token name is used as salt
-      const { _tokenData, _safeData, _subdomain } = await childDaoConfig([
+      const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig([
         deployer.address,
         alice.address,
       ]);
@@ -341,7 +267,7 @@ describe("Governor", () => {
     });
 
     it("should revert create dao if there isn't an NFT in the contract", async () => {
-      const { _tokenData, _safeData, _subdomain } = await childDaoConfig([
+      const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig([
         alice.address,
       ]);
       await expect(
@@ -362,6 +288,7 @@ describe("Governor", () => {
           gnosisSafeSingleton: ethers.constants.AddressZero,
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
+          clearingHouse: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid resolver address");
       await expect(
@@ -373,6 +300,7 @@ describe("Governor", () => {
           gnosisSafeSingleton: ethers.constants.AddressZero,
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
+          clearingHouse: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid registry address");
       await expect(
@@ -384,6 +312,7 @@ describe("Governor", () => {
           gnosisSafeSingleton: ethers.constants.AddressZero,
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
+          clearingHouse: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid registrar address");
       await expect(
@@ -395,6 +324,7 @@ describe("Governor", () => {
           gnosisSafeSingleton: ethers.constants.AddressZero,
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
+          clearingHouse: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid factory address");
       await expect(
@@ -406,6 +336,7 @@ describe("Governor", () => {
           gnosisSafeSingleton: ethers.constants.AddressZero,
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
+          clearingHouse: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid safe singleton address");
       await expect(
@@ -419,6 +350,7 @@ describe("Governor", () => {
           ),
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
+          clearingHouse: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid token singleton address");
       await expect(
@@ -432,8 +364,23 @@ describe("Governor", () => {
           ),
           erc20Singleton: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
           parentDao: ethers.constants.AddressZero,
+          clearingHouse: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid owner");
+      await expect(
+        factory.deploy({
+          ensResolver: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          ensRegistry: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          ensRegistrar: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          gnosisFactory: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          gnosisSafeSingleton: ethers.utils.hexlify(
+            ethers.utils.randomBytes(20)
+          ),
+          erc20Singleton: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          parentDao: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          clearingHouse: ethers.constants.AddressZero,
+        })
+      ).to.be.revertedWith("invalid clearing house address");
     });
   });
 });
