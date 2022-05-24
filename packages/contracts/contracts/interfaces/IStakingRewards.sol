@@ -8,7 +8,7 @@ interface IStakingRewards {
         uint256 rewardPerToken;
     }
     struct UserStake {
-        uint256 staked_Amount;
+        uint256 stakedAmount;
         uint256 rewardsClaimed;
     }
 
@@ -28,7 +28,6 @@ interface IStakingRewards {
 
     /// ### Functions
     /// @notice Stakes amount of dao token into the contract
-    /// @dev
     /// @param _daoToken The governance token of the dao to be staked.
     /// @param _amount The amount of governance token to be staked
     function stake(address _daoToken, uint256 _amount) external;
@@ -58,6 +57,7 @@ interface IStakingRewards {
     /// @notice Updates the dao distribution to include an additional amount
     /// @dev For gas reasons, this shouldn't pull reward tokens into itself. It should track an expected balance, and verify that _amount is >= the difference between the two. It should consume the entire difference, not just the _amount param
     /// @dev This should be coded in such a way as to not require any kind of authorization other than providing an amount of reward tokens.
+    /// @dev This should handle cases where there aren't any tokens staked: first staker gets everything.
     /// @param _daoToken The dao to distribute rewards to
     /// @param _amount The amount of reward token to distribute
     function distributeRewards(address _daoToken, uint256 _amount) external;
