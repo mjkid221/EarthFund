@@ -31,7 +31,7 @@ describe("Governor", () => {
   let token: ERC20Singleton, governor: IGovernor;
   let ensRegistrar: IENSRegistrar, ensController: IENSController;
   let tokenId: string;
-  let clearingHouse: IClearingHouse;
+
   const domain = "earthfundTurboTestDomain31337";
 
   before(async () => {
@@ -95,6 +95,24 @@ describe("Governor", () => {
           )
         ).to.be.revertedWith("ENS domain unavailable");
       });
+    });
+  });
+  describe("Withdraw ENS Domain from the Dao Governor", () => {
+    beforeEach(async () => {
+      [token, governor, ensController, ensRegistrar, tokenId] =
+        await setupNetwork(domain, deployer);
+      await ensRegistrar.approve(governor.address, tokenId);
+      await governor.addENSDomain(ethers.BigNumber.from(tokenId));
+    });
+    it("should transfer the domain NFT to destination", async () => {
+      expect(await ensRegistrar.ownerOf(tokenId)).to.be.eq(governor.address);
+      await governor.withdrawENSDomain(alice.address);
+      expect(await ensRegistrar.ownerOf(tokenId)).to.eq(alice.address);
+    });
+    it("should set the Governor token ID to 0 to prevent continued operation", async () => {
+      expect(await governor.ensDomainNFTId()).to.be.gte(0);
+      await governor.withdrawENSDomain(alice.address);
+      expect(await governor.ensDomainNFTId()).to.eq(0);
     });
   });
   describe("Gnosis Safe", () => {
