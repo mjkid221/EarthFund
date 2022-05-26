@@ -18,6 +18,7 @@ interface IDonationsRouter {
 
     /// ### Events
     event SetFee(FeeType feeType, uint256 newFee);
+    event SetRegistrar(address indexed newRegistrar);
     event RegisterDao(
         address indexed daoSafe,
         address indexed daoToken,

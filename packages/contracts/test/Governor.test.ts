@@ -114,6 +114,12 @@ describe("Governor", () => {
       await governor.withdrawENSDomain(alice.address);
       expect(await governor.ensDomainNFTId()).to.eq(0);
     });
+    it("should revert if there isn't a domain in the contract", async () => {
+      await governor.withdrawENSDomain(alice.address);
+      await expect(
+        governor.withdrawENSDomain(alice.address)
+      ).to.be.rejectedWith("ens domain not set");
+    });
   });
   describe("Gnosis Safe", () => {
     let safe: IGnosisSafe;

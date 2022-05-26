@@ -83,6 +83,10 @@ contract DonationsRouter is IDonationsRouter, Ownable {
             platformFee = _fee;
         } else {
             // Enums are validated at runtime, so this will always be the reward type
+            require(
+                daoRegistry[msg.sender].daoToken != address(0),
+                "invalid dao"
+            );
             daoRegistry[msg.sender].rewardRate = _fee;
         }
 
@@ -92,5 +96,6 @@ contract DonationsRouter is IDonationsRouter, Ownable {
     function setRegistrar(address _newRegistrar) external override onlyOwner {
         require(_newRegistrar != address(0), "invalid registrar");
         registrar = _newRegistrar;
+        emit SetRegistrar(_newRegistrar);
     }
 }
