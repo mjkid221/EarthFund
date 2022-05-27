@@ -26,6 +26,11 @@ interface IStakingRewards {
         uint256 amount
     );
     event Distribution(address indexed daoToken, uint256 amount);
+    event Eject(
+        address indexed sender,
+        address indexed daoToken,
+        uint256 amount
+    );
 
     /// ### Functions
     /// @notice Stakes amount of dao token into the contract
@@ -75,7 +80,11 @@ interface IStakingRewards {
     function daoRewards(address _daoToken)
         external
         view
-        returns (uint256 totalStake, uint256 rewardPerToken);
+        returns (
+            uint256 totalStake,
+            uint256 rewardPerToken,
+            bool isSecondStaker
+        );
 
     function userStakes(address _daoToken, address _user)
         external

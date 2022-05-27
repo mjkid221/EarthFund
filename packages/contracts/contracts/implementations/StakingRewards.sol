@@ -51,6 +51,14 @@ contract StakingRewards is IStakingRewards {
         );
     }
 
+    function _getRewardAmount(
+        uint256 _userStake,
+        uint256 _rewardPerToken,
+        uint256 _userRewardsClaimed
+    ) internal pure returns (uint256 rewardAmount) {
+        return (_userStake * _rewardPerToken) - _userRewardsClaimed;
+    }
+
     function unstake(
         address _daoToken,
         uint256 _amount,
@@ -63,14 +71,67 @@ contract StakingRewards is IStakingRewards {
         RewardDistribution memory dao = daoRewards[_daoToken];
         UserStake memory user = userStakes[_daoToken][msg.sender];
 
-        // Claim outstanding rewards
+        require(_amount <= user.stakedAmount, "invalid unstake amount");
 
-        // Update stakes
+        user.stakedAmount -= _amount;
+        dao.totalStake -= _amount;
+
+        // Claim outstanding rewards
+        // uint256 rewardEntitlement = _getRewardAmount(
+        //     user.stakedAmount,
+        //     dao.rewardPerToken,
+        //     user.rewardsClaimed
+        // );
+
+        // // Update stakes
+        // user.stakedAmount -= _amount;
+        // user.rewardsClaimed = dao.rewardPerToken * user.stakedAmount;
+        // dao.totalStake -= _amount;
+
+        // daoRewards[_daoToken] = dao;
+        // userStakes[_daoToken][msg.sender] = user;
+
+        // emit Unstake(msg.sender, _daoToken, _amount);
+        // emit ClaimRewards(msg.sender, _daoToken, rewardEntitlement);
+
+        // Transfer rewards
     }
 
-    function claimRewards(address _daoToken, address _to) external override {}
+    function claimRewards(address _daoToken, address _to) external override {
+        require(_daoToken != address(0), "invalid dao token");
+        require(_to != address(0), "invalid destination");
 
-    function emergencyEject(address _daoToken, address _to) external override {}
+        RewardDistribution memory dao = daoRewards[_daoToken];
+        UserStake memory user = userStakes[_daoToken][msg.sender];
+
+        uint256 reward = _getRewardAmount(
+            user.stakedAmount,
+            dao.rewardPerToken,
+            user.rewardsClaimed
+        );
+
+        user.rewardsClaimed = dao.rewardPerToken * user.stakedAmount;
+        userStakes[_daoToken][msg.sender] = user;
+
+        emit ClaimRewards(msg.sender, _daoToken, reward);
+
+        ERC20(rewardToken).transfer(_to, reward);
+    }
+
+    function emergencyEject(address _daoToken, address _to) external override {
+        require(_daoToken != address(0), "invalid dao token");
+        require(_to != address(0), "invalid destination");
+
+        RewardDistribution memory dao = daoRewards[_daoToken];
+        UserStake memory user = userStakes[_daoToken][msg.sender];
+
+        user.rewardsClaimed = dao.rewardPerToken * user.stakedAmount;
+        userStakes[_daoToken][msg.sender] = user;
+
+        emit Eject(msg.sender, _daoToken, user.stakedAmount);
+
+        ERC20(_daoToken).transfer(_to, user.stakedAmount);
+    }
 
     function distributeRewards(address _daoToken, uint256 _amount)
         external
