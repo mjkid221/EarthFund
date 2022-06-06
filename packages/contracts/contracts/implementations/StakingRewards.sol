@@ -6,8 +6,8 @@ import "@prb/math/contracts/PRBMathUD60x18.sol";
 import "../interfaces/IStakingRewards.sol";
 
 contract StakingRewards is IStakingRewards {
-    address public immutable override rewardToken;
-    uint256 public override lastRewardBalance;
+    ERC20 public immutable override rewardToken;
+
     // Dao token => dao reward data
     mapping(address => RewardDistribution) public override daoRewards;
     // Dao token => user address => user stake data
@@ -17,7 +17,7 @@ contract StakingRewards is IStakingRewards {
 
     constructor(address _rewardToken) {
         require(_rewardToken != address(0), "invalid reward token");
-        rewardToken = _rewardToken;
+        rewardToken = ERC20(_rewardToken);
     }
 
     function stake(address _daoToken, uint256 _amount) external override {
@@ -27,36 +27,25 @@ contract StakingRewards is IStakingRewards {
         RewardDistribution memory dao = daoRewards[_daoToken];
         UserStake memory user = userStakes[_daoToken][msg.sender];
 
-        if (!dao.isSecondStaker) {
-            dao.isSecondStaker = true;
-        } else {
-            user.rewardsClaimed += dao.rewardPerToken * _amount;
+        if (dao.totalStake == 0) {
+            // Distribute reward amount equally across the first staker's tokens
+            dao.rewardPerToken = dao.rewardPerToken / _amount;
         }
-
+        user.pendingRewards += _getRewardAmount(
+            user.stakedAmount,
+            dao.rewardPerToken,
+            user.rewardEntry
+        );
+        user.rewardEntry = dao.rewardPerToken;
         user.stakedAmount += _amount;
         dao.totalStake += _amount;
 
-        userStakes[_daoToken][msg.sender] = user;
         daoRewards[_daoToken] = dao;
+        userStakes[_daoToken][msg.sender] = user;
 
         emit Stake(msg.sender, _daoToken, _amount);
 
-        // Transfer tokens
-        ERC20 token = ERC20(_daoToken);
-        uint256 balanceBefore = token.balanceOf(address(this));
-        token.transferFrom(msg.sender, address(this), _amount);
-        require(
-            token.balanceOf(address(this)) - balanceBefore == _amount,
-            "reflective token"
-        );
-    }
-
-    function _getRewardAmount(
-        uint256 _userStake,
-        uint256 _rewardPerToken,
-        uint256 _userRewardsClaimed
-    ) internal pure returns (uint256 rewardAmount) {
-        return (_userStake * _rewardPerToken) - _userRewardsClaimed;
+        ERC20(_daoToken).transferFrom(msg.sender, address(this), _amount);
     }
 
     function unstake(
@@ -73,28 +62,28 @@ contract StakingRewards is IStakingRewards {
 
         require(_amount <= user.stakedAmount, "invalid unstake amount");
 
+        // Save their currently earned reward entitlement
+        user.pendingRewards += _getRewardAmount(
+            user.stakedAmount,
+            dao.rewardPerToken,
+            user.rewardEntry
+        );
+
         user.stakedAmount -= _amount;
+        user.rewardEntry = dao.rewardPerToken;
         dao.totalStake -= _amount;
 
-        // Claim outstanding rewards
-        // uint256 rewardEntitlement = _getRewardAmount(
-        //     user.stakedAmount,
-        //     dao.rewardPerToken,
-        //     user.rewardsClaimed
-        // );
+        if (dao.totalStake == 0) {
+            // Last man out the door resets the staking contract for that DAO.
+            dao.rewardPerToken = 0;
+        }
 
-        // // Update stakes
-        // user.stakedAmount -= _amount;
-        // user.rewardsClaimed = dao.rewardPerToken * user.stakedAmount;
-        // dao.totalStake -= _amount;
+        daoRewards[_daoToken] = dao;
+        userStakes[_daoToken][msg.sender] = user;
 
-        // daoRewards[_daoToken] = dao;
-        // userStakes[_daoToken][msg.sender] = user;
+        emit Unstake(msg.sender, _daoToken, _amount);
 
-        // emit Unstake(msg.sender, _daoToken, _amount);
-        // emit ClaimRewards(msg.sender, _daoToken, rewardEntitlement);
-
-        // Transfer rewards
+        ERC20(_daoToken).transfer(_to, _amount);
     }
 
     function claimRewards(address _daoToken, address _to) external override {
@@ -104,18 +93,20 @@ contract StakingRewards is IStakingRewards {
         RewardDistribution memory dao = daoRewards[_daoToken];
         UserStake memory user = userStakes[_daoToken][msg.sender];
 
-        uint256 reward = _getRewardAmount(
+        uint256 entitlement = _getRewardAmount(
             user.stakedAmount,
             dao.rewardPerToken,
-            user.rewardsClaimed
-        );
+            user.rewardEntry
+        ) + user.pendingRewards;
 
-        user.rewardsClaimed = dao.rewardPerToken * user.stakedAmount;
+        user.pendingRewards = 0;
+        user.rewardEntry = dao.rewardPerToken;
+
         userStakes[_daoToken][msg.sender] = user;
 
-        emit ClaimRewards(msg.sender, _daoToken, reward);
+        emit ClaimRewards(msg.sender, _daoToken, entitlement);
 
-        ERC20(rewardToken).transfer(_to, reward);
+        rewardToken.transfer(_to, entitlement);
     }
 
     function emergencyEject(address _daoToken, address _to) external override {
@@ -125,16 +116,96 @@ contract StakingRewards is IStakingRewards {
         RewardDistribution memory dao = daoRewards[_daoToken];
         UserStake memory user = userStakes[_daoToken][msg.sender];
 
-        user.rewardsClaimed = dao.rewardPerToken * user.stakedAmount;
+        uint256 entitlement = _getRewardAmount(
+            user.stakedAmount,
+            dao.rewardPerToken,
+            user.rewardEntry
+        ) + user.pendingRewards;
+
+        uint256 ejectAmount = user.stakedAmount;
+        user.stakedAmount = 0;
+        user.rewardEntry = 0;
+        user.pendingRewards = 0;
+        dao.totalStake -= ejectAmount;
+
+        if (dao.totalStake > 0) {
+            // Distribute user's lost rewards to everyone else.
+            dao.rewardPerToken = _calculateRewardPerToken(
+                dao.rewardPerToken,
+                entitlement,
+                dao.totalStake
+            );
+        } else {
+            // Last man out the door resets the dao
+            dao.rewardPerToken = 0;
+        }
+
+        daoRewards[_daoToken] = dao;
         userStakes[_daoToken][msg.sender] = user;
 
-        emit Eject(msg.sender, _daoToken, user.stakedAmount);
+        emit Eject(msg.sender, _daoToken, ejectAmount);
 
-        ERC20(_daoToken).transfer(_to, user.stakedAmount);
+        ERC20(_daoToken).transfer(_to, ejectAmount);
     }
 
     function distributeRewards(address _daoToken, uint256 _amount)
         external
         override
-    {}
+    {
+        require(_daoToken != address(0), "invalid dao");
+        require(_amount > 0, "invalid amount");
+
+        RewardDistribution memory dao = daoRewards[_daoToken];
+        if (dao.totalStake == 0) {
+            dao.rewardPerToken = _amount;
+        } else {
+            dao.rewardPerToken = _calculateRewardPerToken(
+                dao.rewardPerToken,
+                _amount,
+                dao.totalStake
+            );
+        }
+        daoRewards[_daoToken] = dao;
+
+        // Emit event
+        emit Distribution(_daoToken, _amount);
+
+        rewardToken.transferFrom(msg.sender, address(this), _amount);
+    }
+
+    function pendingRewards(address _user, address _daoToken)
+        external
+        view
+        override
+        returns (uint256 rewardAmount)
+    {
+        RewardDistribution memory dao = daoRewards[_daoToken];
+        UserStake memory user = userStakes[_daoToken][_user];
+
+        rewardAmount =
+            _getRewardAmount(
+                user.stakedAmount,
+                dao.rewardPerToken,
+                user.rewardEntry
+            ) +
+            user.pendingRewards;
+    }
+
+    /// ### Internal functions
+    function _getRewardAmount(
+        uint256 _userStake,
+        uint256 _rewardPerToken,
+        uint256 _userRewardsClaimed
+    ) internal pure returns (uint256 rewardAmount) {
+        if (_userStake == 0) return 0;
+        return (_userStake * _rewardPerToken) - _userRewardsClaimed;
+    }
+
+    function _calculateRewardPerToken(
+        uint256 _currentRewardPerToken,
+        uint256 _distribution,
+        uint256 _totalStake
+    ) internal pure returns (uint256 rewardPerToken) {
+        return _currentRewardPerToken + (_distribution / _totalStake);
+    }
 }
