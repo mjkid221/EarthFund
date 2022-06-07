@@ -5,7 +5,11 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@prb/math/contracts/PRBMathUD60x18.sol";
 import "../interfaces/IStakingRewards.sol";
 
+import "hardhat/console.sol";
+
 contract StakingRewards is IStakingRewards {
+    using PRBMathUD60x18 for uint256;
+
     ERC20 public immutable override rewardToken;
 
     // Dao token => dao reward data
@@ -29,13 +33,20 @@ contract StakingRewards is IStakingRewards {
 
         if (dao.totalStake == 0) {
             // Distribute reward amount equally across the first staker's tokens
-            dao.rewardPerToken = dao.rewardPerToken / _amount;
+            user.pendingRewards = dao.rewardPerToken;
+            dao.rewardPerToken = _calculateRewardPerToken(
+                0,
+                dao.rewardPerToken,
+                _amount
+            );
+        } else {
+            user.pendingRewards += _getRewardAmount(
+                user.stakedAmount,
+                dao.rewardPerToken,
+                user.rewardEntry
+            );
         }
-        user.pendingRewards += _getRewardAmount(
-            user.stakedAmount,
-            dao.rewardPerToken,
-            user.rewardEntry
-        );
+
         user.rewardEntry = dao.rewardPerToken;
         user.stakedAmount += _amount;
         dao.totalStake += _amount;
@@ -156,6 +167,7 @@ contract StakingRewards is IStakingRewards {
         require(_amount > 0, "invalid amount");
 
         RewardDistribution memory dao = daoRewards[_daoToken];
+
         if (dao.totalStake == 0) {
             dao.rewardPerToken = _amount;
         } else {
@@ -165,6 +177,7 @@ contract StakingRewards is IStakingRewards {
                 dao.totalStake
             );
         }
+
         daoRewards[_daoToken] = dao;
 
         // Emit event
@@ -198,7 +211,8 @@ contract StakingRewards is IStakingRewards {
         uint256 _userRewardsClaimed
     ) internal pure returns (uint256 rewardAmount) {
         if (_userStake == 0) return 0;
-        return (_userStake * _rewardPerToken) - _userRewardsClaimed;
+        if (_rewardPerToken == _userRewardsClaimed) return 0;
+        return _userStake.mul(_rewardPerToken) - _userRewardsClaimed;
     }
 
     function _calculateRewardPerToken(
@@ -206,6 +220,8 @@ contract StakingRewards is IStakingRewards {
         uint256 _distribution,
         uint256 _totalStake
     ) internal pure returns (uint256 rewardPerToken) {
-        return _currentRewardPerToken + (_distribution / _totalStake);
+        // TODO: How's this handle USDT with only 6 decimal places?
+        rewardPerToken = (_currentRewardPerToken +
+            (_distribution.div(_totalStake))).toUint();
     }
 }

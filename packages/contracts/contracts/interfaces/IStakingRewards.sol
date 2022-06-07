@@ -6,7 +6,7 @@ interface IStakingRewards {
     /// ### Structs
     struct RewardDistribution {
         uint256 totalStake;
-        uint256 rewardPerToken;
+        uint256 rewardPerToken; // Needs to be boosted by 1e18 before storing so we don't lose precision
     }
     // If totalstake is 0, first staker gets everything. When ejecting, or withdrawing, and totalstake becomes 0, reward per token should also be set to 0.
     struct UserStake {
