@@ -11,7 +11,11 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   await deploy("ClearingHouse", {
     from: deployer,
-    args: [process.env.EARTH_ERC20_TOKEN_ADDRESS ?? earthToken.address],
+    args: [
+      process.env.EARTH_ERC20_TOKEN_ADDRESS ?? earthToken.address,
+      ethers.utils.parseEther("1000000"),
+      ethers.utils.parseEther("5000"),
+    ],
     log: true,
   });
 };

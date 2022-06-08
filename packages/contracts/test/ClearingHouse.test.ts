@@ -1,5 +1,6 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
+import { parseEther } from "ethers/lib/utils";
 import { deployments, ethers } from "hardhat";
 import createChildDaoConfig from "../helpers/createChildDaoConfig";
 
@@ -688,7 +689,11 @@ describe("Clearing House", function () {
       const { deploy } = deployments;
       const clearingHouseDeployResult = await deploy("ClearingHouse", {
         from: deployer.address,
-        args: [reflectiveTokenThree.address],
+        args: [
+          reflectiveTokenThree.address,
+          ethers.utils.parseEther("1000000"),
+          ethers.utils.parseEther("5000"),
+        ],
         log: true,
       });
 
@@ -1062,7 +1067,89 @@ describe("Clearing House", function () {
       );
     });
   });
+  describe("Cause token limits", () => {
+    beforeEach(async () => {
+      await setupTestEnv(true);
 
+      // make the deployer account the governor in the clearing house contract for testing purposes
+      await clearingHouse.connect(deployer).addGovernor(deployer.address);
+      await earthToken.transfer(alice.address, parseEther("100000000"));
+      await earthToken
+        .connect(alice)
+        .approve(clearingHouse.address, ethers.constants.MaxUint256);
+      await childDaoToken
+        .connect(alice)
+        .approve(clearingHouse.address, ethers.constants.MaxUint256);
+      await earthToken.approve(
+        clearingHouse.address,
+        ethers.constants.MaxUint256
+      );
+      await childDaoToken.approve(
+        clearingHouse.address,
+        ethers.constants.MaxUint256
+      );
+    });
+    it("should prevent minting past the maximum supply", async () => {
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapEarthForChildDao(childDaoToken.address, parseEther("100000000"))
+      ).to.be.revertedWith("exceeds max supply");
+    });
+    it("should prevent swapping more than the maximum swap amount", async () => {
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapEarthForChildDao(childDaoToken.address, parseEther("10000"))
+      ).to.be.revertedWith("exceeds max swap per tx");
+
+      await clearingHouse.swapEarthForChildDao(
+        childDaoToken.address,
+        parseEther("6000")
+      );
+
+      await childDaoToken.transfer(alice.address, parseEther("6000"));
+
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapChildDaoForChildDao(
+            childDaoToken.address,
+            childDaoToken2.address,
+            parseEther("6000")
+          )
+      ).to.be.revertedWith("exceeds max swap per tx");
+    });
+
+    it("should allow the owner to mint beyond the swap limit", async () => {
+      expect(await childDaoToken.balanceOf(deployer.address)).to.eq(0);
+      await clearingHouse.swapEarthForChildDao(
+        childDaoToken.address,
+        parseEther("10000")
+      );
+      expect(await childDaoToken.balanceOf(deployer.address)).to.be.eq(
+        parseEther("10000")
+      );
+    });
+    it("should prevent the owner from minting past the max supply", async () => {
+      await expect(
+        clearingHouse.swapEarthForChildDao(
+          childDaoToken.address,
+          parseEther("100000000")
+        )
+      ).to.be.revertedWith("exceeds max supply");
+    });
+    it("should allow the owner to set the max supply", async () => {
+      await expect(clearingHouse.setMaxSupply(parseEther("1000")))
+        .to.emit(clearingHouse, "MaxSupplySet")
+        .withArgs(parseEther("1000"));
+    });
+    it("should allow the owner to set the max swap", async () => {
+      await expect(clearingHouse.setMaxSwap(parseEther("1000")))
+        .to.emit(clearingHouse, "MaxSwapSet")
+        .withArgs(parseEther("1000"));
+    });
+  });
   // it("should ", async () => {
   //   throw new Error("implement");
   // });
