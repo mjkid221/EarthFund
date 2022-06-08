@@ -13,6 +13,7 @@ import {
   IClearingHouse,
   ERC20,
   ReflectiveToken,
+  ClearingHouse__factory,
 } from "../typechain-types";
 
 describe("Clearing House", function () {
@@ -21,10 +22,10 @@ describe("Clearing House", function () {
   //////////////////////////////////////////////////////*/
   let deployer: SignerWithAddress,
     alice: SignerWithAddress,
-    token: ERC20Singleton,
     governor: IGovernor,
-    ensRegistrar: IENSRegistrar,
+    token: ERC20,
     ensController: IENSController,
+    ensRegistrar: IENSRegistrar,
     childDaoToken: ERC20Singleton,
     childDaoToken2: ERC20Singleton,
     earthToken: ERC20,
@@ -84,6 +85,31 @@ describe("Clearing House", function () {
     clearingHouse = await ethers.getContract("ClearingHouse");
   };
 
+  describe("Constructor", () => {
+    let factory: ClearingHouse__factory;
+    beforeEach(async () => {
+      factory = await ethers.getContractFactory("ClearingHouse");
+      await setupTestEnv();
+      await clearingHouse.connect(deployer).addGovernor(deployer.address);
+    });
+    it("should validate the earth token address", async () => {
+      await expect(
+        factory.deploy(ethers.constants.AddressZero, 1, 1)
+      ).to.be.revertedWith("invalid token");
+    });
+    it("should set the max supply if it's not 0", async () => {
+      const clearing = await factory.deploy(earthToken.address, 5, 5);
+      expect(await clearing.maxSupply()).to.eq(5);
+      const clearing2 = await factory.deploy(earthToken.address, 0, 5);
+      expect(await clearing2.maxSupply()).to.eq(0);
+    });
+    it("should set the max swap if it's not 0", async () => {
+      const clearing = await factory.deploy(earthToken.address, 5, 5);
+      expect(await clearing.maxSwap()).to.eq(5);
+      const clearing2 = await factory.deploy(earthToken.address, 5, 0);
+      expect(await clearing2.maxSwap()).to.eq(0);
+    });
+  });
   /*//////////////////////////////////////////////////////
                   CREATING CHILD DAO TESTS
   //////////////////////////////////////////////////////*/
