@@ -12,6 +12,7 @@ import {
   IStakingRewards,
   DAOToken__factory,
 } from "../typechain-types";
+import { parseEther } from "ethers/lib/utils";
 
 chai.use(solidity);
 chai.use(chaiAsPromised);
@@ -53,7 +54,7 @@ const setupEnvironment = async (
 describe("Staking Rewards", () => {
   let deployer: SignerWithAddress, alice: SignerWithAddress;
   let rewardToken: ERC20, staking: IStakingRewards, daoA: ERC20, daoB: ERC20;
-  const rewardAmount = ethers.utils.parseUnits("10", 6);
+  const rewardAmount = ethers.utils.parseUnits("1000", 6);
   const stakeAmount = ethers.utils.parseEther("100");
 
   before(async () => {
@@ -122,9 +123,10 @@ describe("Staking Rewards", () => {
       ).to.eq(rewardAmount);
 
       await staking.distributeRewards(daoA.address, rewardAmount);
+
       expect(
         await staking.pendingRewards(deployer.address, daoA.address)
-      ).to.eq(rewardAmount.mul(2));
+      ).to.eq(rewardAmount.add(rewardAmount));
     });
     it("should allow two users to stake at the same time", async () => {
       expect(
@@ -227,7 +229,7 @@ describe("Staking Rewards", () => {
       ).to.eq(0);
 
       await staking.unstake(daoA.address, stakeAmount, deployer.address);
-
+      await staking.pendingRewards(deployer.address, daoA.address);
       expect(
         (await staking.userStakes(daoA.address, deployer.address))
           .pendingRewards
@@ -304,43 +306,47 @@ describe("Staking Rewards", () => {
     it("should increase the reward per token amount for current stakers", async () => {
       await staking.stake(daoA.address, stakeAmount);
       expect((await staking.daoRewards(daoA.address)).rewardPerToken).to.eq(0);
+      expect((await staking.daoRewards(daoA.address)).totalStake).to.eq(
+        stakeAmount
+      );
 
       await staking.distributeRewards(daoA.address, rewardAmount);
+
       expect((await staking.daoRewards(daoA.address)).rewardPerToken).to.eq(
-        rewardAmount.div(stakeAmount)
+        rewardAmount.mul(parseEther("1")).mul(parseEther("1")).div(stakeAmount)
       );
     });
   });
-  describe("Claim rewards", () => {
-    beforeEach(async () => {
-      const contracts = await setupEnvironment(deployer, alice);
-      rewardToken = contracts.rewardToken;
-      staking = contracts.staking;
-      daoA = contracts.daoA;
-      daoB = contracts.daoB;
-      await staking.stake(daoA.address, stakeAmount);
-      await staking.connect(alice).stake(daoA.address, stakeAmount);
-      await staking.distributeRewards(daoA.address, stakeAmount);
-    });
-    it("should transfer the user's entitlement", async () => {
-      throw new Error("Implement");
-    });
-    it("should not affect another user's entitlement", async () => {
-      throw new Error("Implement");
-    });
-    it("should prevent a user from claiming the same entitlement twice", async () => {
-      throw new Error("Implement");
-    });
-    it("should not affect a user's stake in another dao", async () => {
-      throw new Error("Implement");
-    });
-    it("should transfer rewards to the specified address", async () => {
-      throw new Error("Implement");
-    });
-    it("should set the user's reward point", async () => {
-      throw new Error("Implement");
-    });
-  });
+  // describe("Claim rewards", () => {
+  //   beforeEach(async () => {
+  //     const contracts = await setupEnvironment(deployer, alice);
+  //     rewardToken = contracts.rewardToken;
+  //     staking = contracts.staking;
+  //     daoA = contracts.daoA;
+  //     daoB = contracts.daoB;
+  //     await staking.stake(daoA.address, stakeAmount);
+  //     await staking.connect(alice).stake(daoA.address, stakeAmount);
+  //     await staking.distributeRewards(daoA.address, stakeAmount);
+  //   });
+  //   it("should transfer the user's entitlement", async () => {
+  //     throw new Error("Implement");
+  //   });
+  //   it("should not affect another user's entitlement", async () => {
+  //     throw new Error("Implement");
+  //   });
+  //   it("should prevent a user from claiming the same entitlement twice", async () => {
+  //     throw new Error("Implement");
+  //   });
+  //   it("should not affect a user's stake in another dao", async () => {
+  //     throw new Error("Implement");
+  //   });
+  //   it("should transfer rewards to the specified address", async () => {
+  //     throw new Error("Implement");
+  //   });
+  //   it("should set the user's reward point", async () => {
+  //     throw new Error("Implement");
+  //   });
+  // });
   // describe("Emergency eject", () => {
   //   beforeEach(async () => {});
   //   it("should return the user's stake tokens", async () => {
