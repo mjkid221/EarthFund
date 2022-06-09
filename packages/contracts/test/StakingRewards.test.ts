@@ -21,7 +21,7 @@ const setupEnvironment = async (
   deployer: SignerWithAddress,
   alice: SignerWithAddress
 ) => {
-  await deployments.fixture(["_EarthToken", "_stakingRewards"]);
+  await deployments.fixture(["_EarthToken", "_StakingRewards"]);
   const rewardToken: ERC20 = await ethers.getContract("EarthToken");
   const staking: IStakingRewards = await ethers.getContract("StakingRewards");
   const factory: DAOToken__factory = await ethers.getContractFactory(

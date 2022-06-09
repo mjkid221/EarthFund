@@ -94,8 +94,8 @@ describe("Donations Router", () => {
     beforeEach(async () => {
       await deployments.fixture([
         "_EarthToken",
-        "_testStaking",
-        "_donationsRouter",
+        "_TestStaking",
+        "_DonationsRouter",
       ]);
       token = await ethers.getContract("EarthToken");
       router = await ethers.getContract("DonationsRouter");
@@ -219,8 +219,8 @@ describe("Donations Router", () => {
     beforeEach(async () => {
       await deployments.fixture([
         "_EarthToken",
-        "_testStaking",
-        "_donationsRouter",
+        "_TestStaking",
+        "_DonationsRouter",
       ]);
       router = await ethers.getContract("DonationsRouter");
     });
@@ -253,8 +253,8 @@ describe("Donations Router", () => {
     beforeEach(async () => {
       await deployments.fixture([
         "_EarthToken",
-        "_testStaking",
-        "_donationsRouter",
+        "_TestStaking",
+        "_DonationsRouter",
       ]);
       router = await ethers.getContract("DonationsRouter");
     });
@@ -279,8 +279,8 @@ describe("Donations Router", () => {
     beforeEach(async () => {
       await deployments.fixture([
         "_EarthToken",
-        "_testStaking",
-        "_donationsRouter",
+        "_TestStaking",
+        "_DonationsRouter",
       ]);
       router = await ethers.getContract("DonationsRouter");
     });
