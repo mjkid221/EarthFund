@@ -3,7 +3,9 @@ import { DeployFunction } from "hardhat-deploy/types";
 import { ethers } from "hardhat";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
+import ContractAddresses from "../constants/contractAddresses";
 import config from "../deployment.config";
+import createChildDaoConfig from "../helpers/createChildDaoConfig";
 import setupNetwork from "../helpers/setupNetwork";
 import { IENSRegistrar, IGovernor } from "../typechain-types";
 
@@ -35,7 +37,26 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         throw new Error("governor has no ens domain set");
     }
 
-    // 2. create child doa config using helper function
+    // make sure the config chain id is one of the supported ones
+    if (!ContractAddresses[config.childDaoConfig.chainId.toString()]) {
+        throw new Error("unsupported chain id");
+    }
+
+    // check if config owners array is empty
+    if (!config.childDaoConfig.owners.length) {
+        throw new Error("child dao config owners array is empty");
+    }
+
+    // create child doa config using helper function
+    const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig(
+        config.childDaoConfig.owners,
+        config.childDaoConfig.tokenName,
+        config.childDaoConfig.tokenSymbol,
+        config.childDaoConfig.subdomain,
+        config.childDaoConfig.snapshotKey,
+        config.childDaoConfig.snapshotValue,
+        config.childDaoConfig.chainId.toString()
+    );
 
     // 3. call create child dao on the governor contract using the created config
 };
