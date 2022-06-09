@@ -225,7 +225,6 @@ contract StakingRewards is IStakingRewards {
         uint256 _distribution,
         uint256 _totalStake
     ) internal pure returns (uint256 rewardPerToken) {
-        // TODO: How's this handle USDT with only 6 decimal places?
         rewardPerToken =
             _currentRewardPerToken +
             (PRBMathUD60x18.fromUint(_distribution).div(_totalStake));

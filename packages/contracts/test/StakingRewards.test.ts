@@ -122,7 +122,26 @@ describe("Staking Rewards", () => {
         await staking.pendingRewards(deployer.address, daoA.address)
       ).to.eq(rewardAmount);
 
+      const rpt1 = (await staking.daoRewards(daoA.address)).rewardPerToken;
+
       await staking.distributeRewards(daoA.address, rewardAmount);
+
+      const rpt2 = (await staking.daoRewards(daoA.address)).rewardPerToken;
+
+      console.log(
+        rpt1
+          .mul(stakeAmount)
+          .div(parseEther("1"))
+          .div(parseEther("1"))
+          .add(
+            rpt2
+              .sub(rpt1)
+              .mul(stakeAmount.mul(2))
+              .div(parseEther("1"))
+              .div(parseEther("1"))
+          )
+          .toString()
+      );
 
       expect(
         await staking.pendingRewards(deployer.address, daoA.address)
