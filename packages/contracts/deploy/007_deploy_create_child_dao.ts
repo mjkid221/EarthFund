@@ -58,7 +58,25 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         config.childDaoConfig.chainId.toString()
     );
 
-    // 3. call create child dao on the governor contract using the created config
+    // call create child dao on the governor contract using the created config
+    const createChildDaoTx = await (
+        await governor.createChildDAO(_tokenData, _safeData, _subdomain)
+    ).wait();
+
+    const childDaoSafe = await ethers.getContractAt(
+        "IGnosisSafe",
+        createChildDaoTx.events?.find((el) => el.event === "ChildDaoCreated")
+            ?.args?.safe
+    );
+
+    const childDaoToken = await ethers.getContractAt(
+        "ERC20Singleton",
+        createChildDaoTx.events?.find((el) => el.event === "ChildDaoCreated")
+            ?.args?.token
+    );
+
+    console.log({ childDaoSafeAddress: childDaoSafe.address });
+    console.log({ childDaoToken: childDaoToken.address });
 };
 
 export default func;
