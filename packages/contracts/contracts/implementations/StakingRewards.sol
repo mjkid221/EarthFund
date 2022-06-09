@@ -33,12 +33,14 @@ contract StakingRewards is IStakingRewards {
 
         if (dao.totalStake == 0) {
             // Distribute reward amount equally across the first staker's tokens
-            user.pendingRewards = dao.rewardPerToken;
-            dao.rewardPerToken = _calculateRewardPerToken(
-                0,
-                dao.rewardPerToken,
-                _amount
-            );
+            if (dao.rewardPerToken > 0) {
+                user.pendingRewards = dao.rewardPerToken;
+                dao.rewardPerToken = _calculateRewardPerToken(
+                    0,
+                    dao.rewardPerToken,
+                    _amount
+                );
+            }
         } else {
             user.pendingRewards += _getRewardAmount(
                 user.stakedAmount,
@@ -169,7 +171,7 @@ contract StakingRewards is IStakingRewards {
         RewardDistribution memory dao = daoRewards[_daoToken];
 
         if (dao.totalStake == 0) {
-            dao.rewardPerToken = _amount;
+            dao.rewardPerToken += _amount;
         } else {
             dao.rewardPerToken = _calculateRewardPerToken(
                 dao.rewardPerToken,
@@ -205,6 +207,7 @@ contract StakingRewards is IStakingRewards {
     }
 
     /// ### Internal functions
+
     function _getRewardAmount(
         uint256 _userStake,
         uint256 _rewardPerToken,
@@ -212,7 +215,9 @@ contract StakingRewards is IStakingRewards {
     ) internal pure returns (uint256 rewardAmount) {
         if (_userStake == 0) return 0;
         if (_rewardPerToken == _userRewardsClaimed) return 0;
-        return _userStake.mul(_rewardPerToken) - _userRewardsClaimed;
+        rewardAmount = PRBMathUD60x18.toUint(
+            (_userStake.mul(_rewardPerToken) - _userRewardsClaimed)
+        );
     }
 
     function _calculateRewardPerToken(
@@ -221,7 +226,8 @@ contract StakingRewards is IStakingRewards {
         uint256 _totalStake
     ) internal pure returns (uint256 rewardPerToken) {
         // TODO: How's this handle USDT with only 6 decimal places?
-        rewardPerToken = (_currentRewardPerToken +
-            (_distribution.div(_totalStake))).toUint();
+        rewardPerToken =
+            _currentRewardPerToken +
+            (PRBMathUD60x18.fromUint(_distribution).div(_totalStake));
     }
 }
