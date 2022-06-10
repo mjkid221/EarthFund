@@ -211,12 +211,13 @@ contract StakingRewards is IStakingRewards {
     function _getRewardAmount(
         uint256 _userStake,
         uint256 _rewardPerToken,
-        uint256 _userRewardsClaimed
+        uint256 _userRewardEntry
     ) internal pure returns (uint256 rewardAmount) {
         if (_userStake == 0) return 0;
-        if (_rewardPerToken == _userRewardsClaimed) return 0;
+        if (_rewardPerToken == _userRewardEntry) return 0;
         rewardAmount = PRBMathUD60x18.toUint(
-            (_userStake.mul(_rewardPerToken) - _userRewardsClaimed)
+            (_userStake.mul(_rewardPerToken) -
+                (_userStake.mul(_userRewardEntry)))
         );
     }
 
