@@ -684,11 +684,14 @@ describe("Clearing House", function () {
     });
 
     it("should revert with '1Earth token transfer failed'", async () => {
+      // get the staking contract
+      const stakingRewards = await ethers.getContract("StakingRewards");
+
       // need to redeploy the the clearing house contract with reflective token three as the earth token
       const { deploy } = deployments;
       const clearingHouseDeployResult = await deploy("ClearingHouse", {
         from: deployer.address,
-        args: [reflectiveTokenThree.address],
+        args: [reflectiveTokenThree.address, stakingRewards.address, false],
         log: true,
       });
 
