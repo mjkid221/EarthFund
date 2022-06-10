@@ -122,7 +122,26 @@ describe("Staking Rewards", () => {
         await staking.pendingRewards(deployer.address, daoA.address)
       ).to.eq(rewardAmount);
 
+      const rpt1 = (await staking.daoRewards(daoA.address)).rewardPerToken;
+
       await staking.distributeRewards(daoA.address, rewardAmount);
+
+      const rpt2 = (await staking.daoRewards(daoA.address)).rewardPerToken;
+
+      console.log(
+        rpt1
+          .mul(stakeAmount)
+          .div(parseEther("1"))
+          .div(parseEther("1"))
+          .add(
+            rpt2
+              .sub(rpt1)
+              .mul(stakeAmount.mul(2))
+              .div(parseEther("1"))
+              .div(parseEther("1"))
+          )
+          .toString()
+      );
 
       expect(
         await staking.pendingRewards(deployer.address, daoA.address)
@@ -317,63 +336,63 @@ describe("Staking Rewards", () => {
       );
     });
   });
-  // describe("Claim rewards", () => {
-  //   beforeEach(async () => {
-  //     const contracts = await setupEnvironment(deployer, alice);
-  //     rewardToken = contracts.rewardToken;
-  //     staking = contracts.staking;
-  //     daoA = contracts.daoA;
-  //     daoB = contracts.daoB;
-  //     await staking.stake(daoA.address, stakeAmount);
-  //     await staking.connect(alice).stake(daoA.address, stakeAmount);
-  //     await staking.distributeRewards(daoA.address, stakeAmount);
-  //   });
-  //   it("should transfer the user's entitlement", async () => {
-  //     throw new Error("Implement");
-  //   });
-  //   it("should not affect another user's entitlement", async () => {
-  //     throw new Error("Implement");
-  //   });
-  //   it("should prevent a user from claiming the same entitlement twice", async () => {
-  //     throw new Error("Implement");
-  //   });
-  //   it("should not affect a user's stake in another dao", async () => {
-  //     throw new Error("Implement");
-  //   });
-  //   it("should transfer rewards to the specified address", async () => {
-  //     throw new Error("Implement");
-  //   });
-  //   it("should set the user's reward point", async () => {
-  //     throw new Error("Implement");
-  //   });
-  // });
-  // describe("Emergency eject", () => {
-  //   beforeEach(async () => {});
-  //   it("should return the user's stake tokens", async () => {
-  //     throw new Error("Implement");
-  //   });
-  //   it("should reduce the user's pending rewards to 0", async () => {
-  //     throw new Error("Implement");
-  //   });
-  //   it("should not grant the user their previous entitlement if they immediately restake", async () => {
-  //     throw new Error("Implement");
-  //   });
-  //   it("should not affect any other stakes the user has", async () => {
-  //     throw new Error("Implement");
-  //   });
-  //   it("should not affect other users stakes", async () => {
-  //     throw new Error("Implement");
-  //   });
-  //   it("should distribute the user's unclaimed entitlement to all other users", async () => {
-  //     throw new Error("Implement");
-  //   });
-  // });
-  // describe("Pending rewards", () => {
-  //   it("should return 0 if the user has no rewards", async () => {
-  //     throw new Error("Implement");
-  //   });
-  //   it("should return the user's pending entitlement", async () => {
-  //     throw new Error("Implement");
-  //   });
-  // });
+  describe("Claim rewards", () => {
+    beforeEach(async () => {
+      const contracts = await setupEnvironment(deployer, alice);
+      rewardToken = contracts.rewardToken;
+      staking = contracts.staking;
+      daoA = contracts.daoA;
+      daoB = contracts.daoB;
+      await staking.stake(daoA.address, stakeAmount);
+      await staking.connect(alice).stake(daoA.address, stakeAmount);
+      await staking.distributeRewards(daoA.address, stakeAmount);
+    });
+    it("should transfer the user's entitlement", async () => {
+      throw new Error("Implement");
+    });
+    it("should not affect another user's entitlement", async () => {
+      throw new Error("Implement");
+    });
+    it("should prevent a user from claiming the same entitlement twice", async () => {
+      throw new Error("Implement");
+    });
+    it("should not affect a user's stake in another dao", async () => {
+      throw new Error("Implement");
+    });
+    it("should transfer rewards to the specified address", async () => {
+      throw new Error("Implement");
+    });
+    it("should set the user's reward point", async () => {
+      throw new Error("Implement");
+    });
+  });
+  describe("Emergency eject", () => {
+    beforeEach(async () => {});
+    it("should return the user's stake tokens", async () => {
+      throw new Error("Implement");
+    });
+    it("should reduce the user's pending rewards to 0", async () => {
+      throw new Error("Implement");
+    });
+    it("should not grant the user their previous entitlement if they immediately restake", async () => {
+      throw new Error("Implement");
+    });
+    it("should not affect any other stakes the user has", async () => {
+      throw new Error("Implement");
+    });
+    it("should not affect other users stakes", async () => {
+      throw new Error("Implement");
+    });
+    it("should distribute the user's unclaimed entitlement to all other users", async () => {
+      throw new Error("Implement");
+    });
+  });
+  describe("Pending rewards", () => {
+    it("should return 0 if the user has no rewards", async () => {
+      throw new Error("Implement");
+    });
+    it("should return the user's pending entitlement", async () => {
+      throw new Error("Implement");
+    });
+  });
 });
