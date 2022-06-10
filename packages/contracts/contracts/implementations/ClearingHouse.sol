@@ -7,26 +7,47 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import "./ERC20Singleton.sol";
 import "./Governor.sol";
+import "./StakingRewards.sol";
 import "../interfaces/IClearingHouse.sol";
 
 contract ClearingHouse is IClearingHouse, Ownable, Pausable {
   /*///////////////////////////////////////////////////////////////
-                            IMMUTABLES
+                            STATE
     //////////////////////////////////////////////////////////////*/
 
   mapping(ERC20Singleton => bool) public childDaoRegistry;
 
   ERC20 public immutable earthToken;
 
-  Governor public governor; // this one is not actually immutable
+  Governor public governor;
 
-  constructor(ERC20 _earthToken) {
+  bool public autoStake;
+
+  StakingRewards public staking;
+
+  constructor(
+    ERC20 _earthToken,
+    StakingRewards _staking,
+    bool _autoStake
+  ) {
+    require(address(_earthToken) != address(0), "invalid earth token address");
+
+    require(address(_staking) != address(0), "invalid staking address");
+
     earthToken = _earthToken;
+
+    staking = _staking;
+
+    // don't set auto stake if false, save gas
+    if (_autoStake) {
+      autoStake = _autoStake;
+    }
   }
 
   /*///////////////////////////////////////////////////////////////
                             MODIFIERS
     //////////////////////////////////////////////////////////////*/
+
   modifier isGovernorSet() {
     require(address(governor) != address(0), "governor not set");
     _;
@@ -77,8 +98,22 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
   }
 
   /*///////////////////////////////////////////////////////////////
-                            SWAP LOGIC
+                          STAKING LOGIC
     //////////////////////////////////////////////////////////////*/
+
+  function setAutoStake(bool _state) external onlyOwner {
+    autoStake = _state;
+  }
+
+  function setStaking(StakingRewards _staking) external onlyOwner {
+    require(address(_staking) != address(0), "invalid staking address");
+
+    staking = _staking;
+  }
+
+  /*///////////////////////////////////////////////////////////////
+                            SWAP LOGIC
+   //////////////////////////////////////////////////////////////*/
 
   function swapEarthForChildDao(ERC20Singleton _childDaoToken, uint256 _amount)
     external
@@ -206,6 +241,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
   /*///////////////////////////////////////////////////////////////
                             PAUSE LOGIC
     //////////////////////////////////////////////////////////////*/
+
   function pause() external onlyOwner {
     _pause();
   }

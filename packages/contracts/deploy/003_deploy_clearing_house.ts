@@ -8,10 +8,15 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployer } = await getNamedAccounts();
 
   const earthToken = await ethers.getContract("EarthToken");
+  const stakingRewards = await ethers.getContract("StakingRewards");
 
   await deploy("ClearingHouse", {
     from: deployer,
-    args: [process.env.EARTH_ERC20_TOKEN_ADDRESS ?? earthToken.address],
+    args: [
+      process.env.EARTH_ERC20_TOKEN_ADDRESS ?? earthToken.address,
+      stakingRewards.address,
+      process.env.CLEARING_HOUSE_AUTO_STAKE ?? false,
+    ],
     log: true,
   });
 };
