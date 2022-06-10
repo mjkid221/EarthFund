@@ -197,6 +197,15 @@ describe("Staking Rewards", () => {
       daoB = contracts.daoB;
       await staking.stake(daoA.address, stakeAmount);
     });
+    it("should not allow a user to unstake more than they have", async () => {
+      await expect(
+        staking.unstake(
+          daoA.address,
+          ethers.constants.MaxUint256,
+          deployer.address
+        )
+      ).to.be.revertedWith("invalid unstake amount");
+    });
     it("should transfer staked tokens to the user", async () => {
       const before = await daoA.balanceOf(deployer.address);
       await staking.unstake(daoA.address, stakeAmount.div(2), deployer.address);
@@ -287,7 +296,16 @@ describe("Staking Rewards", () => {
       daoA = contracts.daoA;
       daoB = contracts.daoB;
     });
-
+    it("should check the dao token address", async () => {
+      await expect(
+        staking.distributeRewards(ethers.constants.AddressZero, 0)
+      ).to.be.revertedWith("invalid dao");
+    });
+    it("should check the destination address", async () => {
+      await expect(
+        staking.distributeRewards(daoA.address, 0)
+      ).to.be.revertedWith("invalid amount");
+    });
     it("should pull the reward tokens from the caller", async () => {
       const before = await rewardToken.balanceOf(deployer.address);
       await staking.distributeRewards(daoA.address, rewardAmount);
@@ -329,6 +347,19 @@ describe("Staking Rewards", () => {
       await staking.connect(alice).stake(daoA.address, stakeAmount);
       await staking.distributeRewards(daoA.address, stakeAmount);
       await staking.distributeRewards(daoB.address, rewardAmount);
+    });
+    it("should check the dao token address", async () => {
+      await expect(
+        staking.claimRewards(
+          ethers.constants.AddressZero,
+          ethers.constants.AddressZero
+        )
+      ).to.be.revertedWith("invalid dao token");
+    });
+    it("should check the destination address", async () => {
+      await expect(
+        staking.claimRewards(daoA.address, ethers.constants.AddressZero)
+      ).to.be.revertedWith("invalid destination");
     });
     it("should transfer the user's entitlement", async () => {
       const amount = await staking.pendingRewards(
@@ -416,6 +447,19 @@ describe("Staking Rewards", () => {
       await staking.distributeRewards(daoA.address, stakeAmount);
       await staking.distributeRewards(daoB.address, rewardAmount);
     });
+    it("should check the dao token address", async () => {
+      await expect(
+        staking.emergencyEject(
+          ethers.constants.AddressZero,
+          ethers.constants.AddressZero
+        )
+      ).to.be.revertedWith("invalid dao token");
+    });
+    it("should check the destination address", async () => {
+      await expect(
+        staking.emergencyEject(daoA.address, ethers.constants.AddressZero)
+      ).to.be.revertedWith("invalid destination");
+    });
     it("should return the user's stake tokens", async () => {
       const balance = await daoA.balanceOf(deployer.address);
       const stake = (await staking.userStakes(daoA.address, deployer.address))
@@ -424,6 +468,7 @@ describe("Staking Rewards", () => {
       expect(await daoA.balanceOf(deployer.address)).to.eq(balance.add(stake));
     });
     it("should reduce the user's pending rewards to 0", async () => {
+      await staking.unstake(daoA.address, parseEther("1"), deployer.address);
       expect(
         (await staking.userStakes(daoA.address, deployer.address))
           .pendingRewards
@@ -435,6 +480,7 @@ describe("Staking Rewards", () => {
       ).to.eq(0);
     });
     it("should not grant the user their previous entitlement if they immediately restake", async () => {
+      await staking.unstake(daoA.address, parseEther("1"), deployer.address);
       expect(
         (await staking.userStakes(daoA.address, deployer.address))
           .pendingRewards
@@ -447,8 +493,9 @@ describe("Staking Rewards", () => {
       ).to.eq(0);
     });
     it("should not affect any other stakes the user has", async () => {
+      await staking.unstake(daoB.address, parseEther("1"), deployer.address);
       expect(
-        (await staking.userStakes(daoA.address, deployer.address))
+        (await staking.userStakes(daoB.address, deployer.address))
           .pendingRewards
       ).to.be.gt(0);
       await staking.emergencyEject(daoA.address, deployer.address);
@@ -458,14 +505,15 @@ describe("Staking Rewards", () => {
       ).to.be.gt(0);
     });
     it("should not affect other users stakes", async () => {
-      expect(
-        (await staking.userStakes(daoA.address, deployer.address))
-          .pendingRewards
-      ).to.be.gt(0);
+      await staking
+        .connect(alice)
+        .unstake(daoA.address, parseEther("1"), alice.address);
+      const before = (await staking.userStakes(daoA.address, alice.address))
+        .pendingRewards;
       await staking.emergencyEject(daoA.address, deployer.address);
       expect(
         (await staking.userStakes(daoA.address, alice.address)).pendingRewards
-      ).to.be.gt(0);
+      ).to.be.eq(before);
     });
     it("should distribute the user's unclaimed entitlement to all other users", async () => {
       const rpt = (await staking.daoRewards(daoA.address)).rewardPerToken;
@@ -478,8 +526,18 @@ describe("Staking Rewards", () => {
         rpt.add(
           pending
             .mul(parseEther("1"))
+            .mul(parseEther("1"))
             .div((await staking.daoRewards(daoA.address)).totalStake)
         )
+      );
+    });
+    it("should set the reward per token to 0 if the last guy ejects", async () => {
+      expect((await staking.daoRewards(daoB.address)).rewardPerToken).to.be.gt(
+        0
+      );
+      await staking.emergencyEject(daoB.address, deployer.address);
+      expect((await staking.daoRewards(daoB.address)).rewardPerToken).to.be.eq(
+        0
       );
     });
   });
