@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@prb/math/contracts/PRBMathUD60x18.sol";
 import "../interfaces/IStakingRewards.sol";
 
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 contract StakingRewards is IStakingRewards {
     using PRBMathUD60x18 for uint256;
@@ -208,19 +208,26 @@ contract StakingRewards is IStakingRewards {
 
     /// ### Internal functions
 
+    /// @notice Calculates the actual amount of reward token that a user is entitled to
+    /// @param _userStake  The number of tokens a user has currently staked
+    /// @param _rewardPerToken  The current reward per token A 60.18 fixed point number
+    /// @param _userRewardEntry  The reward per token the last time the user modified their stake. A 60.18 fixed point number
     function _getRewardAmount(
         uint256 _userStake,
         uint256 _rewardPerToken,
         uint256 _userRewardEntry
     ) internal pure returns (uint256 rewardAmount) {
-        if (_userStake == 0) return 0;
-        if (_rewardPerToken == _userRewardEntry) return 0;
+        if (_userStake == 0 || _rewardPerToken == _userRewardEntry) return 0;
         rewardAmount = PRBMathUD60x18.toUint(
             (_userStake.mul(_rewardPerToken) -
                 (_userStake.mul(_userRewardEntry)))
         );
     }
 
+    /// @notice Calculates the reward per token
+    /// @param _currentRewardPerToken The current reward token per staked token
+    /// @param _distribution  The amount to distribute
+    /// @param _totalStake  The total amount of tokens staked
     function _calculateRewardPerToken(
         uint256 _currentRewardPerToken,
         uint256 _distribution,
