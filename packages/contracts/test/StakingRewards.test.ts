@@ -122,30 +122,11 @@ describe("Staking Rewards", () => {
         await staking.pendingRewards(deployer.address, daoA.address)
       ).to.eq(rewardAmount);
 
-      const rpt1 = (await staking.daoRewards(daoA.address)).rewardPerToken;
-
       await staking.distributeRewards(daoA.address, rewardAmount);
-
-      const rpt2 = (await staking.daoRewards(daoA.address)).rewardPerToken;
-
-      console.log(
-        rpt1
-          .mul(stakeAmount)
-          .div(parseEther("1"))
-          .div(parseEther("1"))
-          .add(
-            rpt2
-              .sub(rpt1)
-              .mul(stakeAmount.mul(2))
-              .div(parseEther("1"))
-              .div(parseEther("1"))
-          )
-          .toString()
-      );
 
       expect(
         await staking.pendingRewards(deployer.address, daoA.address)
-      ).to.eq(rewardAmount.add(rewardAmount));
+      ).to.eq(rewardAmount.mul(2));
     });
     it("should allow two users to stake at the same time", async () => {
       expect(
@@ -216,6 +197,15 @@ describe("Staking Rewards", () => {
       daoB = contracts.daoB;
       await staking.stake(daoA.address, stakeAmount);
     });
+    it("should not allow a user to unstake more than they have", async () => {
+      await expect(
+        staking.unstake(
+          daoA.address,
+          ethers.constants.MaxUint256,
+          deployer.address
+        )
+      ).to.be.revertedWith("invalid unstake amount");
+    });
     it("should transfer staked tokens to the user", async () => {
       const before = await daoA.balanceOf(deployer.address);
       await staking.unstake(daoA.address, stakeAmount.div(2), deployer.address);
@@ -248,6 +238,7 @@ describe("Staking Rewards", () => {
       ).to.eq(0);
 
       await staking.unstake(daoA.address, stakeAmount, deployer.address);
+
       await staking.pendingRewards(deployer.address, daoA.address);
       expect(
         (await staking.userStakes(daoA.address, deployer.address))
@@ -305,7 +296,16 @@ describe("Staking Rewards", () => {
       daoA = contracts.daoA;
       daoB = contracts.daoB;
     });
-
+    it("should check the dao token address", async () => {
+      await expect(
+        staking.distributeRewards(ethers.constants.AddressZero, 0)
+      ).to.be.revertedWith("invalid dao");
+    });
+    it("should check the destination address", async () => {
+      await expect(
+        staking.distributeRewards(daoA.address, 0)
+      ).to.be.revertedWith("invalid amount");
+    });
     it("should pull the reward tokens from the caller", async () => {
       const before = await rewardToken.balanceOf(deployer.address);
       await staking.distributeRewards(daoA.address, rewardAmount);
@@ -346,53 +346,221 @@ describe("Staking Rewards", () => {
       await staking.stake(daoA.address, stakeAmount);
       await staking.connect(alice).stake(daoA.address, stakeAmount);
       await staking.distributeRewards(daoA.address, stakeAmount);
+      await staking.distributeRewards(daoB.address, rewardAmount);
+    });
+    it("should check the dao token address", async () => {
+      await expect(
+        staking.claimRewards(
+          ethers.constants.AddressZero,
+          ethers.constants.AddressZero
+        )
+      ).to.be.revertedWith("invalid dao token");
+    });
+    it("should check the destination address", async () => {
+      await expect(
+        staking.claimRewards(daoA.address, ethers.constants.AddressZero)
+      ).to.be.revertedWith("invalid destination");
     });
     it("should transfer the user's entitlement", async () => {
-      throw new Error("Implement");
+      const amount = await staking.pendingRewards(
+        deployer.address,
+        daoA.address
+      );
+      const balance = await rewardToken.balanceOf(deployer.address);
+      await staking.claimRewards(daoA.address, deployer.address);
+      expect(await rewardToken.balanceOf(deployer.address)).to.eq(
+        balance.add(amount)
+      );
     });
     it("should not affect another user's entitlement", async () => {
-      throw new Error("Implement");
+      const amount = await staking.pendingRewards(alice.address, daoA.address);
+
+      await staking.claimRewards(daoA.address, deployer.address);
+      expect(await staking.pendingRewards(alice.address, daoA.address)).to.eq(
+        amount
+      );
     });
     it("should prevent a user from claiming the same entitlement twice", async () => {
-      throw new Error("Implement");
+      const amount = await staking.pendingRewards(
+        deployer.address,
+        daoA.address
+      );
+      const balance = await rewardToken.balanceOf(deployer.address);
+      await staking.claimRewards(daoA.address, deployer.address);
+      expect(await rewardToken.balanceOf(deployer.address)).to.eq(
+        balance.add(amount)
+      );
+      await staking.claimRewards(daoA.address, deployer.address);
+      expect(await rewardToken.balanceOf(deployer.address)).to.eq(
+        balance.add(amount)
+      );
     });
     it("should not affect a user's stake in another dao", async () => {
-      throw new Error("Implement");
+      await staking.stake(daoB.address, stakeAmount);
+      const amount = await staking.pendingRewards(
+        deployer.address,
+        daoA.address
+      );
+      const balance = await rewardToken.balanceOf(deployer.address);
+
+      await staking.claimRewards(daoA.address, deployer.address);
+      expect(await rewardToken.balanceOf(deployer.address)).to.eq(
+        balance.add(amount)
+      );
+      expect(
+        await staking.pendingRewards(deployer.address, daoB.address)
+      ).to.eq(rewardAmount);
     });
     it("should transfer rewards to the specified address", async () => {
-      throw new Error("Implement");
+      const amount = await staking.pendingRewards(
+        deployer.address,
+        daoA.address
+      );
+      const balance = await rewardToken.balanceOf(alice.address);
+      await staking.claimRewards(daoA.address, alice.address);
+      expect(await rewardToken.balanceOf(alice.address)).to.eq(
+        balance.add(amount)
+      );
     });
     it("should set the user's reward point", async () => {
-      throw new Error("Implement");
+      const rewardEntry = (
+        await staking.userStakes(daoA.address, deployer.address)
+      ).rewardEntry;
+      const rpt = (await staking.daoRewards(daoA.address)).rewardPerToken;
+      expect(rewardEntry).to.be.lt(rpt);
+      await staking.claimRewards(daoA.address, deployer.address);
+      expect(
+        (await staking.userStakes(daoA.address, deployer.address)).rewardEntry
+      ).to.eq(rpt);
     });
   });
   describe("Emergency eject", () => {
-    beforeEach(async () => {});
+    beforeEach(async () => {
+      const contracts = await setupEnvironment(deployer, alice);
+      rewardToken = contracts.rewardToken;
+      staking = contracts.staking;
+      daoA = contracts.daoA;
+      daoB = contracts.daoB;
+      await staking.stake(daoA.address, stakeAmount);
+      await staking.stake(daoB.address, stakeAmount);
+      await staking.connect(alice).stake(daoA.address, stakeAmount);
+      await staking.distributeRewards(daoA.address, stakeAmount);
+      await staking.distributeRewards(daoB.address, rewardAmount);
+    });
+    it("should check the dao token address", async () => {
+      await expect(
+        staking.emergencyEject(
+          ethers.constants.AddressZero,
+          ethers.constants.AddressZero
+        )
+      ).to.be.revertedWith("invalid dao token");
+    });
+    it("should check the destination address", async () => {
+      await expect(
+        staking.emergencyEject(daoA.address, ethers.constants.AddressZero)
+      ).to.be.revertedWith("invalid destination");
+    });
     it("should return the user's stake tokens", async () => {
-      throw new Error("Implement");
+      const balance = await daoA.balanceOf(deployer.address);
+      const stake = (await staking.userStakes(daoA.address, deployer.address))
+        .stakedAmount;
+      await staking.emergencyEject(daoA.address, deployer.address);
+      expect(await daoA.balanceOf(deployer.address)).to.eq(balance.add(stake));
     });
     it("should reduce the user's pending rewards to 0", async () => {
-      throw new Error("Implement");
+      await staking.unstake(daoA.address, parseEther("1"), deployer.address);
+      expect(
+        (await staking.userStakes(daoA.address, deployer.address))
+          .pendingRewards
+      ).to.be.gt(0);
+      await staking.emergencyEject(daoA.address, deployer.address);
+      expect(
+        (await staking.userStakes(daoA.address, deployer.address))
+          .pendingRewards
+      ).to.eq(0);
     });
     it("should not grant the user their previous entitlement if they immediately restake", async () => {
-      throw new Error("Implement");
+      await staking.unstake(daoA.address, parseEther("1"), deployer.address);
+      expect(
+        (await staking.userStakes(daoA.address, deployer.address))
+          .pendingRewards
+      ).to.be.gt(0);
+      await staking.emergencyEject(daoA.address, deployer.address);
+      await staking.stake(daoA.address, stakeAmount);
+      expect(
+        (await staking.userStakes(daoA.address, deployer.address))
+          .pendingRewards
+      ).to.eq(0);
     });
     it("should not affect any other stakes the user has", async () => {
-      throw new Error("Implement");
+      await staking.unstake(daoB.address, parseEther("1"), deployer.address);
+      expect(
+        (await staking.userStakes(daoB.address, deployer.address))
+          .pendingRewards
+      ).to.be.gt(0);
+      await staking.emergencyEject(daoA.address, deployer.address);
+      expect(
+        (await staking.userStakes(daoB.address, deployer.address))
+          .pendingRewards
+      ).to.be.gt(0);
     });
     it("should not affect other users stakes", async () => {
-      throw new Error("Implement");
+      await staking
+        .connect(alice)
+        .unstake(daoA.address, parseEther("1"), alice.address);
+      const before = (await staking.userStakes(daoA.address, alice.address))
+        .pendingRewards;
+      await staking.emergencyEject(daoA.address, deployer.address);
+      expect(
+        (await staking.userStakes(daoA.address, alice.address)).pendingRewards
+      ).to.be.eq(before);
     });
     it("should distribute the user's unclaimed entitlement to all other users", async () => {
-      throw new Error("Implement");
+      const rpt = (await staking.daoRewards(daoA.address)).rewardPerToken;
+      const pending = await staking.pendingRewards(
+        deployer.address,
+        daoA.address
+      );
+      await staking.emergencyEject(daoA.address, deployer.address);
+      expect((await staking.daoRewards(daoA.address)).rewardPerToken).to.eq(
+        rpt.add(
+          pending
+            .mul(parseEther("1"))
+            .mul(parseEther("1"))
+            .div((await staking.daoRewards(daoA.address)).totalStake)
+        )
+      );
+    });
+    it("should set the reward per token to 0 if the last guy ejects", async () => {
+      expect((await staking.daoRewards(daoB.address)).rewardPerToken).to.be.gt(
+        0
+      );
+      await staking.emergencyEject(daoB.address, deployer.address);
+      expect((await staking.daoRewards(daoB.address)).rewardPerToken).to.be.eq(
+        0
+      );
     });
   });
   describe("Pending rewards", () => {
+    beforeEach(async () => {
+      const contracts = await setupEnvironment(deployer, alice);
+      rewardToken = contracts.rewardToken;
+      staking = contracts.staking;
+      daoA = contracts.daoA;
+    });
     it("should return 0 if the user has no rewards", async () => {
-      throw new Error("Implement");
+      expect(
+        await staking.pendingRewards(deployer.address, daoA.address)
+      ).to.eq(0);
     });
     it("should return the user's pending entitlement", async () => {
-      throw new Error("Implement");
+      await staking.stake(daoA.address, stakeAmount);
+
+      await staking.distributeRewards(daoA.address, rewardAmount);
+
+      expect(
+        await staking.pendingRewards(deployer.address, daoA.address)
+      ).to.eq(rewardAmount);
     });
   });
 });
