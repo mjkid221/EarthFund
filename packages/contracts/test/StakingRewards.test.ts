@@ -1,10 +1,12 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
+import { parseEther } from "ethers/lib/utils";
+import { solidity } from "ethereum-waffle";
 import { deployments, ethers } from "hardhat";
 
-import { solidity } from "ethereum-waffle";
 
+import convertToSeconds from "../helpers/convertToSeconds";
 import {
   StakingRewards__factory,
   ERC20,
@@ -12,7 +14,6 @@ import {
   IStakingRewards,
   DAOToken__factory,
 } from "../typechain-types";
-import { parseEther } from "ethers/lib/utils";
 
 chai.use(solidity);
 chai.use(chaiAsPromised);
@@ -70,6 +71,40 @@ describe("Staking Rewards", () => {
         factory.deploy(ethers.constants.AddressZero)
       ).to.be.rejectedWith("invalid reward token");
     });
+  });
+  describe("Lockup Period", () => {
+    beforeEach(async () => {
+      const contracts = await setupEnvironment(deployer, alice);
+      rewardToken = contracts.rewardToken;
+      staking = contracts.staking;
+      daoA = contracts.daoA;
+      daoB = contracts.daoB;
+    });
+    it("should deploy and have a lockup period of zero", async () => {
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from("0"));
+    })
+    it("should set the lock up period to one day", async () => {
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from("0"));
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+    })
+    it("should set the lock up period to one month", async () => {
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from("0"));
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ months: 1 })));
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from(convertToSeconds({ months: 1 })));
+    })
+    it("should set the lock up period to one year", async () => {
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from("0"));
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ years: 1 })));
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from(convertToSeconds({ years: 1 })));
+    })
+    it("should be able to set the lock up period back to zero", async () => {
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from("0"));
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+      await staking.setLockupPeriod(ethers.BigNumber.from(0));
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from("0"));
+    })
   });
   describe("Stake", () => {
     beforeEach(async () => {
