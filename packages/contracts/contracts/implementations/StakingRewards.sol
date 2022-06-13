@@ -19,53 +19,41 @@ contract StakingRewards is IStakingRewards {
         public
         override userStakes;
 
+    uint256 public lockupPeriod;
+
     constructor(address _rewardToken) {
         require(_rewardToken != address(0), "invalid reward token");
         rewardToken = ERC20(_rewardToken);
     }
 
-    function stake(address _daoToken, uint256 _amount) external override {
-        require(_daoToken != address(0), "invalid token");
-        require(_amount > 0, "invalid amount");
-
-        RewardDistribution memory dao = daoRewards[_daoToken];
+    modifier isUnlocked(address _daoToken) {
         UserStake memory user = userStakes[_daoToken][msg.sender];
+        require(block.timestamp >= user.timeStaked + lockupPeriod, "stake still locked");
+        _;
+    }
+    
+    function setLockupPeriod(uint256 _lockupPeriod) external override {
+        lockupPeriod = _lockupPeriod;
+    }
 
-        if (dao.totalStake == 0) {
-            // Distribute reward amount equally across the first staker's tokens
-            if (dao.rewardPerToken > 0) {
-                user.pendingRewards = dao.rewardPerToken;
-                dao.rewardPerToken = _calculateRewardPerToken(
-                    0,
-                    dao.rewardPerToken,
-                    _amount
-                );
-            }
-        } else {
-            user.pendingRewards += _getRewardAmount(
-                user.stakedAmount,
-                dao.rewardPerToken,
-                user.rewardEntry
-            );
-        }
+    function stake(address _daoToken, uint256 _amount) external override {
+        _processStake(msg.sender, _daoToken, _amount);
+    }
 
-        user.rewardEntry = dao.rewardPerToken;
-        user.stakedAmount += _amount;
-        dao.totalStake += _amount;
-
-        daoRewards[_daoToken] = dao;
-        userStakes[_daoToken][msg.sender] = user;
-
-        emit Stake(msg.sender, _daoToken, _amount);
-
-        ERC20(_daoToken).transferFrom(msg.sender, address(this), _amount);
+    function stakeOnBehalf(address _user, address _daoToken, uint256 _amount) external override {
+        require (_user != address(0), "invalid user");
+        _processStake(_user, _daoToken, _amount);
     }
 
     function unstake(
         address _daoToken,
         uint256 _amount,
         address _to
-    ) external override {
+    ) 
+        external 
+        override 
+        isUnlocked(_daoToken) 
+    {
         require(_daoToken != address(0), "invalid token");
         require(_amount > 0, "invalid amount");
         require(_to != address(0), "invalid destination");
@@ -122,7 +110,11 @@ contract StakingRewards is IStakingRewards {
         rewardToken.transfer(_to, entitlement);
     }
 
-    function emergencyEject(address _daoToken, address _to) external override {
+    function emergencyEject(address _daoToken, address _to) 
+        external 
+        override 
+        isUnlocked(_daoToken) 
+    {
         require(_daoToken != address(0), "invalid dao token");
         require(_to != address(0), "invalid destination");
 
@@ -207,6 +199,48 @@ contract StakingRewards is IStakingRewards {
     }
 
     /// ### Internal functions
+
+    /// @notice Processes the stake for both stake and stake on behalf functions
+    /// @param _user The user the tokens are being staked on behalf for
+    /// @param _daoToken The governance token of the dao to be staked.
+    /// @param _amount The amount of governance token to be staked
+    function _processStake(address _user, address _daoToken, uint256 _amount) internal {
+        require(_daoToken != address(0), "invalid token");
+        require(_amount > 0, "invalid amount");
+
+        RewardDistribution memory dao = daoRewards[_daoToken];
+        UserStake memory user = userStakes[_daoToken][_user];
+
+        if (dao.totalStake == 0) {
+            // Distribute reward amount equally across the first staker's tokens
+            if (dao.rewardPerToken > 0) {
+                user.pendingRewards = dao.rewardPerToken;
+                dao.rewardPerToken = _calculateRewardPerToken(
+                    0,
+                    dao.rewardPerToken,
+                    _amount
+                );
+            }
+        } else {
+            user.pendingRewards += _getRewardAmount(
+                user.stakedAmount,
+                dao.rewardPerToken,
+                user.rewardEntry
+            );
+        }
+
+        user.rewardEntry = dao.rewardPerToken;
+        user.stakedAmount += _amount;
+        user.timeStaked = block.timestamp;
+        dao.totalStake += _amount;
+
+        daoRewards[_daoToken] = dao;
+        userStakes[_daoToken][_user] = user;
+
+        emit Stake(_user, _daoToken, _amount);
+
+        ERC20(_daoToken).transferFrom(_user, address(this), _amount);
+    }
 
     /// @notice Calculates the actual amount of reward token that a user is entitled to
     /// @param _userStake  The number of tokens a user has currently staked
