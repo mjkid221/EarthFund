@@ -31,7 +31,7 @@ describe("Governor", () => {
   let token: ERC20Singleton, governor: IGovernor;
   let ensRegistrar: IENSRegistrar, ensController: IENSController;
   let tokenId: string;
-  let clearingHouse: IClearingHouse;
+
   const domain = "earthfundTurboTestDomain31337";
 
   before(async () => {
@@ -121,7 +121,6 @@ describe("Governor", () => {
       ).to.be.rejectedWith("ens domain not set");
     });
   });
-
   describe("Gnosis Safe", () => {
     let safe: IGnosisSafe;
 

@@ -12,6 +12,7 @@ interface IClearingHouse {
 
     event TokensSwapped(address from, address to, uint256 amount);
 
+    event SetSwapFee(uint256 oldFee, uint256 newFee);
     event MaxSupplySet(uint256 maxSupply);
     event MaxSwapSet(uint256 maxSwap);
 

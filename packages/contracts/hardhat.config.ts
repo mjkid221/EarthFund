@@ -15,12 +15,15 @@ const config: HardhatUserConfig = {
   solidity: "0.8.13",
   networks: {
     hardhat: {
+      chainId: 31337,
       forking: {
         url: process.env.MAINNET_URL || "",
         blockNumber: Number(process.env.BLOCK_NUMBER) || 14452169,
       },
     },
-    localhost: {},
+    localhost: {
+      chainId: 31337,
+    },
     goerli: {
       url: process.env.GOERLI_URL || "",
       accounts:
