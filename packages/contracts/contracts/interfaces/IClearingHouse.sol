@@ -87,4 +87,10 @@ interface IClearingHouse {
     external
     view
     returns (bool);
+
+  function earthToken() external view returns (ERC20);
+
+  function autoStake() external view returns (bool);
+
+  function staking() external view returns (StakingRewards);
 }

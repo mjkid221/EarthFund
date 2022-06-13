@@ -12,6 +12,7 @@ import {
   IClearingHouse,
   ERC20,
   ReflectiveToken,
+  IStakingRewards,
 } from "../typechain-types";
 
 describe("Clearing House", function () {
@@ -27,7 +28,8 @@ describe("Clearing House", function () {
     childDaoToken: ERC20Singleton,
     childDaoToken2: ERC20Singleton,
     earthToken: ERC20,
-    clearingHouse: IClearingHouse;
+    clearingHouse: IClearingHouse,
+    stakingRewards: IStakingRewards;
 
   let tokenId: string;
   const domain = "earthfundTurboTestDomain31337";
@@ -81,7 +83,66 @@ describe("Clearing House", function () {
 
     earthToken = await ethers.getContract("EarthToken");
     clearingHouse = await ethers.getContract("ClearingHouse");
+    stakingRewards = await ethers.getContract("StakingRewards");
   };
+  /*//////////////////////////////////////////////////////
+                    CONSTRUCTOR TESTS
+  //////////////////////////////////////////////////////*/
+  describe("Constructor", () => {
+    beforeEach(async () => {
+      await setupTestEnv();
+    });
+
+    it("should have deployed the clearing house with the earth token contract as the default earth token state", async () => {
+      expect(await clearingHouse.earthToken()).to.be.eq(earthToken.address);
+    });
+
+    it("should have deployed the clearing house with the staking reward contract as the default staking state", async () => {
+      expect(await clearingHouse.staking()).to.be.eq(stakingRewards.address);
+    });
+
+
+    it("should have deployed the clearing house with auto stake state set to false", async () => {
+      expect(await clearingHouse.autoStake()).to.be.eq(false);
+    });
+
+    it("should have deployed the clearing house with auto stake state set to true", async () => {
+      // redeploy the clearing house contract with auto stake on
+      const { deploy } = deployments;
+      const clearingHouseDeployResults = await deploy("ClearingHouse", {
+        from: deployer.address,
+        args: [earthToken.address, stakingRewards.address, true],
+        log: true,
+      })
+
+      clearingHouse = await ethers.getContractAt(
+        clearingHouseDeployResults.abi,
+        clearingHouseDeployResults.address
+      );
+
+      expect(await clearingHouse.autoStake()).to.be.eq(true);
+    });
+
+    it("should revert when deploying the clearing house contract with the zero address for the earth token", async () => {
+      // redeploy the clearing house contract with the zero address for the earth token
+      const { deploy } = deployments;
+      await expect(deploy("ClearingHouse", {
+        from: deployer.address,
+        args: [ethers.constants.AddressZero, stakingRewards.address, true],
+        log: true,
+      })).to.be.revertedWith("invalid earth token address");
+    });
+
+    it("should revert when deploying the clearing house contract with the zero address for the staking contract", async () => {
+      // redeploy the clearing house contract with the zero address for the staking contract
+      const { deploy } = deployments;
+      await expect(deploy("ClearingHouse", {
+        from: deployer.address,
+        args: [earthToken.address, ethers.constants.AddressZero, true],
+        log: true,
+      })).to.be.revertedWith("invalid staking address");
+    });
+  })
 
   /*//////////////////////////////////////////////////////
                   CREATING CHILD DAO TESTS
@@ -158,6 +219,40 @@ describe("Clearing House", function () {
       ).to.be.revertedWith("child dao already registered");
     });
   });
+
+  /*//////////////////////////////////////////////////////
+                AUTO STAKE LOGIC TESTS 
+  //////////////////////////////////////////////////////*/
+  describe("Auto stake logic", () => {
+    beforeEach(async () => {
+      await setupTestEnv();
+    });
+
+    it("should update the staking state to the passed in address", async () => {
+      expect(await clearingHouse.staking()).to.be.eq(stakingRewards.address);
+      await clearingHouse.setStaking(deployer.address);
+      expect(await clearingHouse.staking()).to.be.eq(deployer.address);
+    });
+
+    it("should revert when trying to update the staking state with the zero address", async () => {
+      expect(await clearingHouse.staking()).to.be.eq(stakingRewards.address);
+      await expect(clearingHouse.setStaking(ethers.constants.AddressZero)).to.be.revertedWith("invalid staking address");
+    });
+
+    it("should update the auto stake state to true", async () => {
+      expect(await clearingHouse.autoStake()).to.be.eq(false);
+      await clearingHouse.setAutoStake(true);
+      expect(await clearingHouse.autoStake()).to.be.eq(true);
+    });
+
+    it("should update the auto stake state to false", async () => {
+      expect(await clearingHouse.autoStake()).to.be.eq(false);
+      await clearingHouse.setAutoStake(true);
+      expect(await clearingHouse.autoStake()).to.be.eq(true);
+      await clearingHouse.setAutoStake(false);
+      expect(await clearingHouse.autoStake()).to.be.eq(false);
+    });
+  })
 
   /*//////////////////////////////////////////////////////
                 SWAP FOR DAO TOKENS TESTS
@@ -684,9 +779,6 @@ describe("Clearing House", function () {
     });
 
     it("should revert with '1Earth token transfer failed'", async () => {
-      // get the staking contract
-      const stakingRewards = await ethers.getContract("StakingRewards");
-
       // need to redeploy the the clearing house contract with reflective token three as the earth token
       const { deploy } = deployments;
       const clearingHouseDeployResult = await deploy("ClearingHouse", {
