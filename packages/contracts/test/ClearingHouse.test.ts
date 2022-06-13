@@ -167,6 +167,10 @@ describe("Clearing House", function () {
       );
     });
 
+    it("should set the staking contract's allowance to the max int in the child dao token for the clearing house contract", async () => {
+      expect(await childDaoToken.allowance(clearingHouse.address, stakingRewards.address)).to.eq(ethers.constants.MaxUint256);
+    });
+
     it("should revert when trying to register a child dao token contract and no governor is set", async () => {
       // set the governor in the clearing house to the zero address
       await clearingHouse

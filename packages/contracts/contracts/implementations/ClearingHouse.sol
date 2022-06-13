@@ -92,6 +92,8 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
       "child dao already registered"
     );
 
+    _childDaoToken.approve(address(staking), type(uint256).max);
+
     childDaoRegistry[_childDaoToken] = true;
 
     emit ChildDaoRegistered(address(_childDaoToken));
@@ -249,4 +251,9 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
   function unpause() external onlyOwner {
     _unpause();
   }
+
+  /*///////////////////////////////////////////////////////////////
+                        INTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+  // TODO: implement stake helper functions...
 }
