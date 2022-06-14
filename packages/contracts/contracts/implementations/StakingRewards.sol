@@ -2,12 +2,13 @@
 pragma solidity 0.8.13;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@prb/math/contracts/PRBMathUD60x18.sol";
 import "../interfaces/IStakingRewards.sol";
 
 // import "hardhat/console.sol";
 
-contract StakingRewards is IStakingRewards {
+contract StakingRewards is IStakingRewards, Ownable {
     using PRBMathUD60x18 for uint256;
 
     ERC20 public immutable override rewardToken;
@@ -32,7 +33,7 @@ contract StakingRewards is IStakingRewards {
         _;
     }
     
-    function setLockupPeriod(uint256 _lockupPeriod) external override {
+    function setLockupPeriod(uint256 _lockupPeriod) external override onlyOwner {
         lockupPeriod = _lockupPeriod;
     }
 

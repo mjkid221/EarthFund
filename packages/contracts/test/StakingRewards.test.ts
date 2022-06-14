@@ -105,6 +105,14 @@ describe("Staking Rewards", () => {
       await staking.setLockupPeriod(ethers.BigNumber.from(0));
       expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from("0"));
     })
+    it("should only allow the owner to call the function", async () => {
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from("0"));
+      await expect(
+        staking.connect(alice).setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ days: 1 })))
+      ).to.be.revertedWith("Ownable: caller is not the owner");
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+    })
   });
   describe("Stake", () => {
     beforeEach(async () => {
