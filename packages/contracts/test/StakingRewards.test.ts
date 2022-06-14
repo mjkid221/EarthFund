@@ -3,7 +3,7 @@ import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
 import { parseEther } from "ethers/lib/utils";
 import { solidity } from "ethereum-waffle";
-import { deployments, ethers } from "hardhat";
+import { deployments, ethers, network } from "hardhat";
 
 
 import convertToSeconds from "../helpers/convertToSeconds";
@@ -452,6 +452,54 @@ describe("Staking Rewards", () => {
       await expect(
         staking.unstake(daoA.address, stakeAmount, ethers.constants.AddressZero)
       ).to.be.rejectedWith("invalid destination");
+    });
+    it("should revert when trying to unstake before the lock up period ends", async () => {
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+      expect(
+        (await staking.userStakes(daoA.address, deployer.address)).stakedAmount
+      ).to.eq(stakeAmount);
+      await expect(staking.unstake(daoA.address, stakeAmount, deployer.address)).to.be.revertedWith("stake still locked");
+    });
+    it("should revert when trying to unstake right before the lock up period ends", async () => {
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+      const userStake = await staking.userStakes(daoA.address, deployer.address);
+      expect(
+        userStake.stakedAmount
+      ).to.eq(stakeAmount);
+
+      // set evm block timestamp to right before the lock up period ends
+      await network.provider.send("evm_setNextBlockTimestamp", [userStake.timeStaked.toNumber() + convertToSeconds({ hours: 23, minutes: 59, seconds: 59 })]);
+      await expect(staking.unstake(daoA.address, stakeAmount, deployer.address)).to.be.revertedWith("stake still locked");
+    });
+    it("should allow unstake at the moment lock up period ends", async () => {
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+      await staking.stake(daoB.address, stakeAmount);
+      const userStake = await staking.userStakes(daoA.address, deployer.address);
+      expect(
+        userStake.stakedAmount
+      ).to.eq(stakeAmount);
+
+      // set evm block timestamp to right when the lock up period ends
+      await network.provider.send("evm_setNextBlockTimestamp", [userStake.timeStaked.toNumber() + convertToSeconds({ days: 1 })]);
+      await staking.unstake(daoA.address, stakeAmount, deployer.address);
+      expect(
+        (await staking.userStakes(daoA.address, deployer.address)).stakedAmount
+      ).to.eq(0);
+    });
+    it("should allow unstake after the lock up period ends", async () => {
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+      await staking.stake(daoB.address, stakeAmount);
+      const userStake = await staking.userStakes(daoA.address, deployer.address);
+      expect(
+        userStake.stakedAmount
+      ).to.eq(stakeAmount);
+
+      // set evm block timestamp to right when the lock up period ends
+      await network.provider.send("evm_setNextBlockTimestamp", [userStake.timeStaked.toNumber() + convertToSeconds({ days: 1, seconds: 1 })]);
+      await staking.unstake(daoA.address, stakeAmount, deployer.address);
+      expect(
+        (await staking.userStakes(daoA.address, deployer.address)).stakedAmount
+      ).to.eq(0);
     });
   });
   describe("Distribute rewards", () => {
