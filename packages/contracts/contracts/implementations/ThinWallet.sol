@@ -53,11 +53,12 @@ contract ThinWallet is IThinWallet, Initializable, AccessControl {
       hasRole(TRANSFER_ROLE, msg.sender) || msg.sender == admin,
       "user does not have permissions"
     );
-    // for (uint64 i = 0; i < _transfers.length; i++) {
-    //   address(_transfers[i].recipient).call{
-    //     value: _transfers[i].amount,
-    //     gas: 2300
-    //   }(msg.value);
-    // }
+    for (uint64 i = 0; i < _transfers.length; i++) {
+      (bool success, ) = address(_transfers[i].recipient).call{
+        value: _transfers[i].amount
+      }("");
+    }
   }
+
+  receive() external payable {}
 }
