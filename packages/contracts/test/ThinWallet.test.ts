@@ -3,9 +3,11 @@ import { EarthToken, ThinWallet } from "../typechain-types";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 
+import { TRANSFER_ADMIN } from "../constants/thinWalletRoles";
+
 const { deploy } = deployments;
 
-describe("Thin Wallet", async () => {
+describe.only("Thin Wallet", async () => {
   let EarthToken: EarthToken,
     ThinWallet: ThinWallet,
     deployer: SignerWithAddress;
@@ -16,7 +18,7 @@ describe("Thin Wallet", async () => {
     ThinWallet = await ethers.getContract("ThinWallet");
   });
 
-  describe.only("Initialize Thin Wallet", async () => {
+  describe("Initialize Thin Wallet", async () => {
     it("should not deploy with zero address admin", async () => {
       await deploy("TestDeploy", {
         from: deployer.address,
@@ -41,6 +43,22 @@ describe("Thin Wallet", async () => {
       await expect(
         testDeploy.initialize(deployer.address, [ethers.constants.AddressZero])
       ).to.be.revertedWith("owner cannot be 0x0");
+    });
+  });
+
+  describe("Thin Wallet Access Control", async () => {
+    it("should give admin TRANSFER_ADMIN role", async () => {
+      await deploy("TestDeploy", {
+        from: deployer.address,
+        log: false,
+        contract: "ThinWallet",
+        args: [],
+      });
+      const testDeploy = (await ethers.getContract("TestDeploy")) as ThinWallet;
+      await testDeploy.initialize(deployer.address, [
+        ethers.constants.AddressZero,
+      ]);
+      await expect(testDeploy.hasRole(TRANSFER_ADMIN, deployer.address));
     });
   });
 });

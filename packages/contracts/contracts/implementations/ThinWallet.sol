@@ -22,6 +22,7 @@ contract ThinWallet is IThinWallet, Initializable, AccessControl {
     require(_admin != address(0), "admin address cannot be 0x0");
     admin = _admin;
     _setupRole(TRANSFER_ADMIN_ROLE, _admin);
+    _setupRole(DEFAULT_ADMIN_ROLE, _admin);
     for (uint64 i = 0; i < _owners.length; i++) {
       require(_owners[i] != address(0), "owner cannot be 0x0");
       _setupRole(TRANSFER_ROLE, _owners[i]);
