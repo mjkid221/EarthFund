@@ -5,12 +5,14 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 
 import "../interfaces/IThinWallet.sol";
 
-contract ThinWallet is IThinWallet, Initializable {
+contract ThinWallet is IThinWallet, Initializable, AccessControl {
+  bytes32 public constant TRANSFER_ROLE = keccak256("TRANSFER");
+  bytes32 public constant TRANSFER_ADMIN_ROLE = keccak256("TRANSFER_ADMIN");
   address public admin;
-  mapping(address => bool) public owners;
 
   /// ### Functions
   /// @notice Initializes the thin wallet clone with the accounts that can control it
@@ -18,11 +20,13 @@ contract ThinWallet is IThinWallet, Initializable {
   /// @param _owners  The accounts that can call the transfer functions
   function initialize(address _admin, address[] calldata _owners) external {
     require(_admin != address(0), "admin address cannot be 0x0");
+    admin = _admin;
+    _setupRole(TRANSFER_ADMIN_ROLE, _admin);
     for (uint64 i = 0; i < _owners.length; i++) {
       require(_owners[i] != address(0), "owner cannot be 0x0");
-      owners[_owners[i]] = true;
+      _setupRole(TRANSFER_ROLE, _owners[i]);
+      _setupRole(TRANSFER_ADMIN_ROLE, _owners[i]);
     }
-    admin = _admin;
   }
 
   /// @notice Transfers amounts of an ERC20 to one or more recipients
@@ -33,7 +37,10 @@ contract ThinWallet is IThinWallet, Initializable {
     TokenMovement[] calldata _transfers,
     TokenMovement[] calldata _approvals
   ) external {
-    require(owners[msg.sender] != false, "sender must be owner");
+    require(
+      hasRole(TRANSFER_ROLE, msg.sender) || msg.sender == admin,
+      "user does not have permissions"
+    );
     for (uint64 i = 0; i < _transfers.length; i++) {
       ERC20 token = ERC20(_transfers[i].token);
       token.transfer(_transfers[i].recipient, _transfers[i].amount);
@@ -48,5 +55,16 @@ contract ThinWallet is IThinWallet, Initializable {
   /// @notice Transfers amounts of ether to one or more recipeints
   /// @dev This should use address(recipient).call to transfer the ether
   /// @param _transfers  The ether transfers
-  function transferEther(EtherPaymentTransfer[] calldata _transfers) external {}
+  function transferEther(EtherPaymentTransfer[] calldata _transfers) external {
+    require(
+      hasRole(TRANSFER_ROLE, msg.sender) || msg.sender == admin,
+      "user does not have permissions"
+    );
+    // for (uint64 i = 0; i < _transfers.length; i++) {
+    //   address(_transfers[i].recipient).call{
+    //     value: _transfers[i].amount,
+    //     gas: 2300
+    //   }(msg.value);
+    // }
+  }
 }
