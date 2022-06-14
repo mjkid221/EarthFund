@@ -137,19 +137,26 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
       "1Earth token transfer failed"
     );
 
-    // mint child dao tokens to the msg sender
     ERC20Singleton childDaoToken = _childDaoToken;
 
     uint256 childDaoTotalSupplyBefore = childDaoToken.totalSupply();
 
-    childDaoToken.mint(msg.sender, _amount);
+    if (autoStake) {
+      // mint child dao tokens to this contract
+      childDaoToken.mint(address(this), _amount);
+
+      staking.stakeOnBehalf(msg.sender, address(_childDaoToken), _amount);
+    } else {
+      // mint child dao tokens to the msg sender
+      childDaoToken.mint(msg.sender, _amount);
+
+      emit TokensSwapped(address(earthToken), address(childDaoToken), _amount);
+    }
 
     require(
       childDaoTotalSupplyBefore + _amount == childDaoToken.totalSupply(),
       "child dao token mint error"
     );
-
-    emit TokensSwapped(address(earthToken), address(childDaoToken), _amount);
   }
 
   function swapChildDaoForEarth(ERC20Singleton _childDaoToken, uint256 _amount)

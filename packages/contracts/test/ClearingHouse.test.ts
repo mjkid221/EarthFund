@@ -385,6 +385,23 @@ describe("Clearing House", function () {
           )
       ).to.be.revertedWith("not enough 1Earth tokens");
     });
+
+    it("should stake the dao tokens when auto stake is on", async () => {
+      const swapAmount = 500;
+
+      // use alice, alice should have 500 earth tokens to start
+      expect(await earthToken.balanceOf(alice.address)).to.be.eq(ethers.utils.parseEther(swapAmount.toString()));
+      expect(
+        (await stakingRewards.userStakes(childDaoToken.address, alice.address)).stakedAmount
+      ).to.be.eq(0);
+
+      await clearingHouse.setAutoStake(true);
+      await clearingHouse.connect(alice).swapEarthForChildDao(childDaoToken.address, ethers.utils.parseEther(swapAmount.toString()));
+      expect(await earthToken.balanceOf(alice.address)).to.be.eq(0);
+      expect(
+        (await stakingRewards.userStakes(childDaoToken.address, alice.address)).stakedAmount
+      ).to.be.eq(ethers.utils.parseEther(swapAmount.toString()))
+    });
   });
 
   /*//////////////////////////////////////////////////////
