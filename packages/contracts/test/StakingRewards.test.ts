@@ -10,7 +10,6 @@ import convertToSeconds from "../helpers/convertToSeconds";
 import {
   StakingRewards__factory,
   ERC20,
-  TestStaking,
   IStakingRewards,
   DAOToken__factory,
 } from "../typechain-types";

@@ -13,7 +13,7 @@ import "../interfaces/IClearingHouse.sol";
 contract ClearingHouse is IClearingHouse, Ownable, Pausable {
   /*///////////////////////////////////////////////////////////////
                             STATE
-    //////////////////////////////////////////////////////////////*/
+  //////////////////////////////////////////////////////////////*/
 
   mapping(ERC20Singleton => bool) public childDaoRegistry;
 
@@ -25,10 +25,16 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
 
   StakingRewards public staking;
 
+  uint256 public override maxSupply;
+
+  uint256 public override maxSwap;
+
   constructor(
     ERC20 _earthToken,
     StakingRewards _staking,
-    bool _autoStake
+    bool _autoStake,
+    uint256 _maxSupply,
+    uint256 _maxSwap
   ) {
     require(address(_earthToken) != address(0), "invalid earth token address");
 
@@ -42,11 +48,19 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     if (_autoStake) {
       autoStake = _autoStake;
     }
+
+    if (_maxSupply > 0) {
+      maxSupply = _maxSupply;
+    }
+
+    if (_maxSwap > 0) {
+      maxSwap = _maxSwap;
+    }
   }
 
   /*///////////////////////////////////////////////////////////////
-                            MODIFIERS
-    //////////////////////////////////////////////////////////////*/
+                          MODIFIERS
+  //////////////////////////////////////////////////////////////*/
 
   modifier isGovernorSet() {
     require(address(governor) != address(0), "governor not set");
@@ -63,9 +77,44 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     _;
   }
 
+  modifier checkInvariants(ERC20Singleton _childDaoToken, uint256 _amount) {
+    require(
+        _childDaoToken.totalSupply() + _amount <= maxSupply,
+        "exceeds max supply"
+    );
+    if (msg.sender != owner()) {
+        require(_amount <= maxSwap, "exceeds max swap per tx");
+    }
+    _;
+  }
+
   /*///////////////////////////////////////////////////////////////
-                            REGISTER LOGIC
-    //////////////////////////////////////////////////////////////*/
+                          SUPPLY LOGIC
+  //////////////////////////////////////////////////////////////*/
+
+  function setMaxSupply(uint256 _maxSupply)
+    external
+    override
+    whenNotPaused
+    onlyOwner
+  {
+    maxSupply = _maxSupply;
+    emit MaxSupplySet(_maxSupply);
+  }
+
+  function setMaxSwap(uint256 _maxSwap)
+    external
+    override
+    whenNotPaused
+    onlyOwner
+  {
+    maxSwap = _maxSwap;
+    emit MaxSwapSet(_maxSwap);
+  }
+
+  /*///////////////////////////////////////////////////////////////
+                          REGISTER LOGIC
+  //////////////////////////////////////////////////////////////*/
 
   function addGovernor(Governor _governor) external whenNotPaused onlyOwner {
     governor = _governor;
@@ -121,6 +170,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     external
     whenNotPaused
     isChildDaoRegistered(_childDaoToken)
+    checkInvariants(_childDaoToken, _amount)
   {
     require(
       earthToken.balanceOf(msg.sender) >= _amount,
@@ -163,6 +213,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     external
     whenNotPaused
     isChildDaoRegistered(_childDaoToken)
+    checkInvariants(_childDaoToken, _amount)
   {
     ERC20Singleton childDaoToken = _childDaoToken;
 
@@ -203,6 +254,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     whenNotPaused
     isChildDaoRegistered(_fromChildDaoToken)
     isChildDaoRegistered(_toChildDaoToken)
+    checkInvariants(_toChildDaoToken, _amount)
   {
     require(
       _fromChildDaoToken != _toChildDaoToken,
@@ -258,9 +310,4 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
   function unpause() external onlyOwner {
     _unpause();
   }
-
-  /*///////////////////////////////////////////////////////////////
-                        INTERNAL FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-  // TODO: implement stake helper functions...
 }

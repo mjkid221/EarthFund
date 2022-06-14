@@ -8,7 +8,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployer } = await getNamedAccounts();
   await deploy("EarthToken", {
     from: deployer,
-    args: [ethers.utils.parseEther("1000000")],
+    args: [ethers.constants.MaxUint256],
     log: true,
   });
 };

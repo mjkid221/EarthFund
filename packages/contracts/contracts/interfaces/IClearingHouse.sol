@@ -8,16 +8,20 @@ import "../implementations/StakingRewards.sol";
 interface IClearingHouse {
   /*///////////////////////////////////////////////////////////////
                             EVENTS
-    //////////////////////////////////////////////////////////////*/
+  //////////////////////////////////////////////////////////////*/
   event ChildDaoRegistered(address childDaoToken);
 
   event TokensSwapped(address from, address to, uint256 amount);
 
   event SetSwapFee(uint256 oldFee, uint256 newFee);
 
+  event MaxSupplySet(uint256 maxSupply);
+
+  event MaxSwapSet(uint256 maxSwap);
+
   /*///////////////////////////////////////////////////////////////
-                            FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
+                          FUNCTIONS
+  //////////////////////////////////////////////////////////////*/
   /**
    * @notice Updates the governor contract in state, an only owner function
    * @param _governor The address of the new governor contract
@@ -70,6 +74,14 @@ interface IClearingHouse {
     uint256 _amount
   ) external;
 
+  /// @notice Sets the maximum amount of cause tokens that can be minted
+  /// @param _maxSupply  the new maximum supply
+  function setMaxSupply(uint256 _maxSupply) external;
+
+  /// @notice Sets the maximum amount a given account can swap for
+  /// @param _maxSwap  the new maximum swap amount
+  function setMaxSwap(uint256 _maxSwap) external;
+
   /**
    * @notice Pauses the contract, an only owner function
    */
@@ -93,4 +105,8 @@ interface IClearingHouse {
   function autoStake() external view returns (bool);
 
   function staking() external view returns (StakingRewards);
+
+  function maxSupply() external view returns (uint256 maxSupply);
+
+  function maxSwap() external view returns (uint256 maxSwap);
 }
