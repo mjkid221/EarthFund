@@ -240,7 +240,7 @@ contract StakingRewards is IStakingRewards, Ownable {
 
         emit Stake(_user, _daoToken, _amount);
 
-        ERC20(_daoToken).transferFrom(_user, address(this), _amount);
+        ERC20(_daoToken).transferFrom(msg.sender, address(this), _amount);
     }
 
     /// @notice Calculates the actual amount of reward token that a user is entitled to

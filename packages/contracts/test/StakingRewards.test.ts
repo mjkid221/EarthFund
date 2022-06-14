@@ -55,6 +55,7 @@ const setupEnvironment = async (
 describe("Staking Rewards", () => {
   let deployer: SignerWithAddress, alice: SignerWithAddress;
   let rewardToken: ERC20, staking: IStakingRewards, daoA: ERC20, daoB: ERC20;
+  const startAmount = ethers.utils.parseEther("100000");
   const rewardAmount = ethers.utils.parseUnits("1000", 6);
   const stakeAmount = ethers.utils.parseEther("100");
 
@@ -250,12 +251,18 @@ describe("Staking Rewards", () => {
         (await staking.userStakes(daoA.address, deployer.address)).stakedAmount
       ).to.be.eq(0);
     });
-    it("should transfer dao tokens from alice calling with deployer", async () => {
+    it("should transfer dao tokens from alice while staking for deployer", async () => {
       const before = await daoA.balanceOf(alice.address);
-      await staking.stakeOnBehalf(alice.address, daoA.address, stakeAmount);
+      await staking.connect(alice).stakeOnBehalf(deployer.address, daoA.address, stakeAmount);
       expect(await daoA.balanceOf(alice.address)).to.eq(
         before.sub(stakeAmount)
       );
+      expect(
+        (await staking.userStakes(daoA.address, deployer.address)).stakedAmount
+      ).to.be.eq(stakeAmount);
+      expect(
+        (await staking.userStakes(daoA.address, alice.address)).stakedAmount
+      ).to.be.eq(0);
     });
     it("should increase total amount of dao tokens staked", async () => {
       expect((await staking.daoRewards(daoA.address)).totalStake).to.eq(0);
