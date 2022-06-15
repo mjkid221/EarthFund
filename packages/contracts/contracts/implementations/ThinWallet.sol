@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
-
 import "../interfaces/IThinWallet.sol";
 
 error InvalidPermissions(address _user);
@@ -33,8 +32,7 @@ contract ThinWallet is IThinWallet, Initializable, AccessControl {
   }
 
   function transferERC20(
-    TokenMovement[] calldata _transfers,
-    TokenMovement[] calldata _approvals
+    TokenMovement[] calldata _transfers
   ) external {
     if (!(hasRole(TRANSFER_ROLE, msg.sender) || msg.sender == admin)){
       revert InvalidPermissions(msg.sender);
@@ -43,11 +41,6 @@ contract ThinWallet is IThinWallet, Initializable, AccessControl {
       ERC20 token = ERC20(_transfers[i].token);
       token.transfer(_transfers[i].recipient, _transfers[i].amount);
       emit TransferERC20(_transfers[i]);
-    }
-
-    for (uint64 i = 0; i < _approvals.length; i++) {
-      ERC20 token = ERC20(_approvals[i].token);
-      token.increaseAllowance(_approvals[i].recipient, _approvals[i].amount);
     }
   }
 
