@@ -26,10 +26,8 @@ interface IThinWallet {
   /// @notice Transfers amounts of an ERC20 to one or more recipients
   /// @dev If the `setApprove` field is true, the contract should approve that recipient for type(uint256).max
   /// @param _transfers  An array of transfers. Each transfer object specifies the amount and recipient to send tokens to
-  /// @param _approvals  An array of approval objects. Each approval specifies the recipient and the amount to approve that recipient to spend.
   function transferERC20(
-    TokenMovement[] calldata _transfers,
-    TokenMovement[] calldata _approvals
+    TokenMovement[] calldata _transfers
   ) external;
 
   /// @notice Transfers amounts of ether to one or more recipeints
