@@ -11,7 +11,7 @@ interface IClearingHouse {
   //////////////////////////////////////////////////////////////*/
   event ChildDaoRegistered(address childDaoToken);
 
-  event TokensSwapped(address from, address to, uint256 amount);
+  event TokensSwapped(address from, address to, uint256 amount, bool autoStake);
 
   event SetSwapFee(uint256 oldFee, uint256 newFee);
 

@@ -445,6 +445,16 @@ describe("Clearing House", function () {
       expect(
         (await stakingRewards.userStakes(childDaoToken.address, alice.address)).stakedAmount
       ).to.be.eq(ethers.utils.parseEther(swapAmount.toString()))
+      expect(
+        await earthToken.balanceOf(clearingHouse.address)
+      ).to.be.eq(ethers.utils.parseEther(swapAmount.toString()));
+      expect(await childDaoToken.balanceOf(clearingHouse.address)).to.be.eq(0);
+      expect(
+        await earthToken.balanceOf(stakingRewards.address)
+      ).to.be.eq(0);
+      expect(
+        await childDaoToken.balanceOf(stakingRewards.address)
+      ).to.be.eq(ethers.utils.parseEther(swapAmount.toString()));
     });
   });
 

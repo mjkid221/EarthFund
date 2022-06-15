@@ -199,14 +199,14 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     } else {
       // mint child dao tokens to the msg sender
       childDaoToken.mint(msg.sender, _amount);
-
-      emit TokensSwapped(address(earthToken), address(childDaoToken), _amount);
     }
 
     require(
       childDaoTotalSupplyBefore + _amount == childDaoToken.totalSupply(),
       "child dao token mint error"
     );
+
+    emit TokensSwapped(address(earthToken), address(childDaoToken), _amount, autoStake);
   }
 
   function swapChildDaoForEarth(ERC20Singleton _childDaoToken, uint256 _amount)
@@ -242,7 +242,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
       "child dao token burn error"
     );
 
-    emit TokensSwapped(address(childDaoToken), address(earthToken), _amount);
+    emit TokensSwapped(address(childDaoToken), address(earthToken), _amount, autoStake);
   }
 
   function swapChildDaoForChildDao(
@@ -295,7 +295,8 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     emit TokensSwapped(
       address(fromChildDaoToken),
       address(toChildDaoToken),
-      _amount
+      _amount,
+      autoStake
     );
   }
 
