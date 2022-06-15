@@ -174,7 +174,7 @@ describe("Thin Wallet", async () => {
         amount: amountToTransfer
       };
 
-      await testDeploy.connect(deployer).transferERC20([tokenTransfer], [tokenTransfer]);
+      await testDeploy.connect(deployer).transferERC20([tokenTransfer]);
       expect (await EarthToken.balanceOf(userB.address)).to.be.eq(amountToTransfer)
     });
 
@@ -201,7 +201,7 @@ describe("Thin Wallet", async () => {
         amount: amountToTransfer
       };
 
-      await testDeploy.connect(userA).transferERC20([tokenTransfer], [tokenTransfer]);
+      await testDeploy.connect(userA).transferERC20([tokenTransfer]);
       expect (await EarthToken.balanceOf(userB.address)).to.be.eq(amountToTransfer)
     });
 
@@ -304,7 +304,7 @@ describe("Thin Wallet", async () => {
           tokenTransfers.push(tokenTransfer);
         }
       }
-      await testDeploy.transferERC20(tokenTransfers, tokenTransfers);
+      await testDeploy.transferERC20(tokenTransfers);
       expect (await EarthToken.balanceOf(userA.address)).to.be.eq(userAInitialBalance.add(amountToTransfer.div(2)));
       expect (await EarthToken.balanceOf(userB.address)).to.be.eq(userBInitialBalance.add(amountToTransfer.div(2)));
     });
@@ -381,7 +381,7 @@ describe("Thin Wallet", async () => {
       };
 
       const expectedErrorMsg = `InvalidPermissions("${userB.address}")`;
-      await expect (testDeploy.connect(userB).transferERC20([tokenTransfer], [tokenTransfer])).to.be.revertedWith(expectedErrorMsg);
+      await expect (testDeploy.connect(userB).transferERC20([tokenTransfer])).to.be.revertedWith(expectedErrorMsg);
     });
     it("should fail to transfer ether from call by non-admin or non-owner ", async () => {
       await deploy("TestDeploy", {
@@ -439,6 +439,6 @@ describe("Thin Wallet", async () => {
       
       const expectedErrorMsg = `failed to send ether`;
       await expect(testDeploy.connect(userA).transferEther([EtherTransfer])).to.be.revertedWith(expectedErrorMsg);
-    })
+    });
   });
 });
