@@ -13,7 +13,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     let deployer: SignerWithAddress;
     [deployer] = await ethers.getSigners();
 
-    if (!config.childDaoConfig.chainId) {
+    if (!config?.childDaoConfig?.chainId) {
         throw new Error("no chain id provided in the deployment config");
     }
 
@@ -22,7 +22,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     )) as IGovernor;
 
     // create ENS subdomain if local network
-    if (config.childDaoConfig.chainId === 31337) {
+    if (config?.childDaoConfig?.chainId === 31337) {
         let tokenId: string;
         let ensRegistrar: IENSRegistrar;
 
@@ -38,13 +38,18 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     }
 
     // make sure the config chain id is one of the supported ones
-    if (!ContractAddresses[config.childDaoConfig.chainId.toString()]) {
+    if (!ContractAddresses[config?.childDaoConfig?.chainId.toString()]) {
         throw new Error("unsupported chain id");
     }
 
     // check if config owners array is empty
-    if (!config.childDaoConfig.owners.length) {
+    if (!config?.childDaoConfig?.owners?.length) {
         throw new Error("child dao config owners array is empty");
+    }
+
+    // check safe threshold is less than or equal to the owners array length
+    if (config?.childDaoConfig?.safeThreshold > config?.childDaoConfig?.owners?.length) {
+        throw new Error("safe threshold must be less than or equal to the owners array in the deployment config");
     }
 
     // create child doa config using helper function
@@ -55,7 +60,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         config.childDaoConfig.subdomain,
         config.childDaoConfig.snapshotKey,
         config.childDaoConfig.snapshotValue,
-        config.childDaoConfig.chainId.toString()
+        config.childDaoConfig.chainId.toString(),
+        config.childDaoConfig.safeThreshold
     );
 
     // call create child dao on the governor contract using the created config
@@ -80,4 +86,4 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 };
 
 export default func;
-func.tags = ["_CreateChildDao"]; // TODO: figure out whether to add to `testbed` tag
+func.tags = ["_CreateChildDao"];

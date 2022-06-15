@@ -11,7 +11,8 @@ const createChildDaoConfig = async (
   subdomain = "subtest",
   snapshotKey = "A",
   snapshotValue = "B",
-  chainId = "31337"
+  chainId = "31337",
+  safeThreshold = 1
 ) => ({
   _tokenData: {
     tokenName: toUtf8Bytes(tokenName),
@@ -21,7 +22,7 @@ const createChildDaoConfig = async (
     initializer:
       (await createGnosisSetupTx(
         owners,
-        1,
+        safeThreshold,
         ethers.constants.AddressZero,
         [],
         ContractAddresses[chainId].GnosisFallbackHandler,

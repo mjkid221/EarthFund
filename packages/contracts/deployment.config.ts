@@ -7,5 +7,6 @@ export default {
         snapshotKey: "test-snapshot-key",
         snapshotValue: "test-snapshot-value",
         subdomain: "test-subdomain",
+        safeThreshold: 1, // NOTE: must be less than or equal to the number of owners, will throw error in script if owners array length is less
     }
 }
