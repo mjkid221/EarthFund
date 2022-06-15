@@ -9,6 +9,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const chainId = await hre.getChainId();
 
   const earthToken = await ethers.getContract("EarthToken");
+  const stakingRewards = await ethers.getContract("StakingRewards");
 
   let maxSupply = process.env.MAX_SUPPLY;
   let maxSwap = process.env.MAX_SWAP;
@@ -25,6 +26,8 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     from: deployer,
     args: [
       process.env.EARTH_ERC20_TOKEN_ADDRESS ?? earthToken.address,
+      stakingRewards.address,
+      process.env.CLEARING_HOUSE_AUTO_STAKE ?? false,
       maxSupply,
       maxSwap,
     ],

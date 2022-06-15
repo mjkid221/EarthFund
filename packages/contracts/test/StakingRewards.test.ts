@@ -1,18 +1,18 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
-import { deployments, ethers } from "hardhat";
-
+import { parseEther } from "ethers/lib/utils";
 import { solidity } from "ethereum-waffle";
+import { deployments, ethers, network } from "hardhat";
 
+
+import convertToSeconds from "../helpers/convertToSeconds";
 import {
   StakingRewards__factory,
   ERC20,
-  TestStaking,
   IStakingRewards,
   DAOToken__factory,
 } from "../typechain-types";
-import { parseEther } from "ethers/lib/utils";
 
 chai.use(solidity);
 chai.use(chaiAsPromised);
@@ -54,6 +54,7 @@ const setupEnvironment = async (
 describe("Staking Rewards", () => {
   let deployer: SignerWithAddress, alice: SignerWithAddress;
   let rewardToken: ERC20, staking: IStakingRewards, daoA: ERC20, daoB: ERC20;
+  const startAmount = ethers.utils.parseEther("100000");
   const rewardAmount = ethers.utils.parseUnits("1000", 6);
   const stakeAmount = ethers.utils.parseEther("100");
 
@@ -70,6 +71,48 @@ describe("Staking Rewards", () => {
         factory.deploy(ethers.constants.AddressZero)
       ).to.be.rejectedWith("invalid reward token");
     });
+  });
+  describe("Lockup Period", () => {
+    beforeEach(async () => {
+      const contracts = await setupEnvironment(deployer, alice);
+      rewardToken = contracts.rewardToken;
+      staking = contracts.staking;
+      daoA = contracts.daoA;
+      daoB = contracts.daoB;
+    });
+    it("should deploy and have a lockup period of zero", async () => {
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from("0"));
+    })
+    it("should set the lock up period to one day", async () => {
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from("0"));
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+    })
+    it("should set the lock up period to one month", async () => {
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from("0"));
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ months: 1 })));
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from(convertToSeconds({ months: 1 })));
+    })
+    it("should set the lock up period to one year", async () => {
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from("0"));
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ years: 1 })));
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from(convertToSeconds({ years: 1 })));
+    })
+    it("should be able to set the lock up period back to zero", async () => {
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from("0"));
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+      await staking.setLockupPeriod(ethers.BigNumber.from(0));
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from("0"));
+    })
+    it("should only allow the owner to call the function", async () => {
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from("0"));
+      await expect(
+        staking.connect(alice).setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ days: 1 })))
+      ).to.be.revertedWith("Ownable: caller is not the owner");
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+      expect(await staking.lockupPeriod()).to.be.eq(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+    })
   });
   describe("Stake", () => {
     beforeEach(async () => {
@@ -163,7 +206,6 @@ describe("Staking Rewards", () => {
         (await staking.userStakes(daoB.address, deployer.address)).stakedAmount
       ).to.eq(stakeAmount);
     });
-
     it("should allow the first user to stake to claim any rewards that have been distributed pre staking", async () => {
       await staking.distributeRewards(daoA.address, rewardAmount);
       expect(
@@ -184,6 +226,136 @@ describe("Staking Rewards", () => {
         staking.stake(ethers.constants.AddressZero, stakeAmount)
       ).to.be.rejectedWith("invalid token");
       await expect(staking.stake(daoA.address, 0)).to.be.rejectedWith(
+        "invalid amount"
+      );
+    });
+  });
+  describe("Stake on behalf", () => {
+    beforeEach(async () => {
+      const contracts = await setupEnvironment(deployer, alice);
+      rewardToken = contracts.rewardToken;
+      staking = contracts.staking;
+      daoA = contracts.daoA;
+      daoB = contracts.daoB;
+    });
+    it("should increase alice's staked amount calling with deployer", async () => {
+      expect(
+        (await staking.userStakes(daoA.address, alice.address)).stakedAmount
+      ).to.be.eq(0);
+      await staking.stakeOnBehalf(alice.address, daoA.address, stakeAmount);
+      expect(
+        (await staking.userStakes(daoA.address, alice.address)).stakedAmount
+      ).to.be.eq(stakeAmount);
+      expect(
+        (await staking.userStakes(daoA.address, deployer.address)).stakedAmount
+      ).to.be.eq(0);
+    });
+    it("should transfer dao tokens from alice while staking for deployer", async () => {
+      const before = await daoA.balanceOf(alice.address);
+      await staking.connect(alice).stakeOnBehalf(deployer.address, daoA.address, stakeAmount);
+      expect(await daoA.balanceOf(alice.address)).to.eq(
+        before.sub(stakeAmount)
+      );
+      expect(
+        (await staking.userStakes(daoA.address, deployer.address)).stakedAmount
+      ).to.be.eq(stakeAmount);
+      expect(
+        (await staking.userStakes(daoA.address, alice.address)).stakedAmount
+      ).to.be.eq(0);
+    });
+    it("should increase total amount of dao tokens staked", async () => {
+      expect((await staking.daoRewards(daoA.address)).totalStake).to.eq(0);
+      await staking.stakeOnBehalf(alice.address, daoA.address, stakeAmount); // deployer stake for alice
+      expect((await staking.daoRewards(daoA.address)).totalStake).to.eq(
+        stakeAmount
+      );
+      await staking.connect(alice).stakeOnBehalf(deployer.address, daoA.address, stakeAmount); // alice stake for deployer
+      expect((await staking.daoRewards(daoA.address)).totalStake).to.eq(
+        stakeAmount.mul(2)
+      );
+    });
+    it("should allow the deployer to increase alice's stake without overwriting unclaimed rewards", async () => {
+      await staking.stakeOnBehalf(alice.address, daoA.address, stakeAmount);
+      expect(
+        await staking.pendingRewards(alice.address, daoA.address)
+      ).to.eq(0);
+
+      await staking.distributeRewards(daoA.address, rewardAmount);
+      expect(
+        await staking.pendingRewards(alice.address, daoA.address)
+      ).to.eq(rewardAmount);
+
+      await staking.stakeOnBehalf(alice.address, daoA.address, stakeAmount);
+      expect(
+        await staking.pendingRewards(alice.address, daoA.address)
+      ).to.eq(rewardAmount);
+
+      await staking.distributeRewards(daoA.address, rewardAmount);
+      expect(
+        await staking.pendingRewards(alice.address, daoA.address)
+      ).to.eq(rewardAmount.mul(2));
+    });
+    it("should allow two users to stake for each other at the same time", async () => {
+      expect(
+        (await staking.userStakes(daoA.address, alice.address)).stakedAmount
+      ).to.eq(0);
+      await staking.stakeOnBehalf(alice.address, daoA.address, stakeAmount);
+      expect(
+        (await staking.userStakes(daoA.address, alice.address)).stakedAmount
+      ).to.eq(stakeAmount);
+      expect(
+        (await staking.userStakes(daoA.address, deployer.address)).stakedAmount
+      ).to.eq(0);
+      await staking.connect(alice).stakeOnBehalf(deployer.address, daoA.address, stakeAmount);
+      expect(
+        (await staking.userStakes(daoA.address, deployer.address)).stakedAmount
+      ).to.eq(stakeAmount);
+      expect(
+        (await staking.userStakes(daoA.address, alice.address)).stakedAmount
+      ).to.eq(stakeAmount);
+    });
+    it("should allow deployer to stake on behalf of alice in two different daos without issue", async () => {
+      expect(
+        (await staking.userStakes(daoA.address, alice.address)).stakedAmount
+      ).to.eq(0);
+      await staking.stakeOnBehalf(alice.address, daoA.address, stakeAmount);
+      expect(
+        (await staking.userStakes(daoA.address, alice.address)).stakedAmount
+      ).to.eq(stakeAmount);
+      expect(
+        (await staking.userStakes(daoB.address, alice.address)).stakedAmount
+      ).to.eq(0);
+      await staking.stakeOnBehalf(alice.address, daoB.address, stakeAmount);
+      expect(
+        (await staking.userStakes(daoB.address, alice.address)).stakedAmount
+      ).to.eq(stakeAmount);
+    });
+    it("should allow the first user to stake to claim any rewards that have been distributed pre staking", async () => {
+      await staking.distributeRewards(daoA.address, rewardAmount);
+      expect(
+        await staking.pendingRewards(alice.address, daoA.address)
+      ).to.eq(0);
+      await staking.stakeOnBehalf(alice.address, daoA.address, stakeAmount);
+      expect(
+        await staking.pendingRewards(alice.address, daoA.address)
+      ).to.eq(rewardAmount);
+      expect(
+        await staking.pendingRewards(deployer.address, daoA.address)
+      ).to.eq(0);
+    });
+    it("should emit an event", async () => {
+      await expect(staking.stakeOnBehalf(alice.address, daoA.address, stakeAmount))
+        .to.emit(staking, "Stake")
+        .withArgs(alice.address, daoA.address, stakeAmount);
+    });
+    it("should validate input parameters", async () => {
+      await expect(
+        staking.stakeOnBehalf(ethers.constants.AddressZero, daoA.address, stakeAmount)
+      ).to.be.rejectedWith("invalid user");
+      await expect(
+        staking.stakeOnBehalf(alice.address, ethers.constants.AddressZero, stakeAmount)
+      ).to.be.rejectedWith("invalid token");
+      await expect(staking.stakeOnBehalf(alice.address, daoA.address, 0)).to.be.rejectedWith(
         "invalid amount"
       );
     });
@@ -286,6 +458,54 @@ describe("Staking Rewards", () => {
       await expect(
         staking.unstake(daoA.address, stakeAmount, ethers.constants.AddressZero)
       ).to.be.rejectedWith("invalid destination");
+    });
+    it("should revert when trying to unstake before the lock up period ends", async () => {
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+      expect(
+        (await staking.userStakes(daoA.address, deployer.address)).stakedAmount
+      ).to.eq(stakeAmount);
+      await expect(staking.unstake(daoA.address, stakeAmount, deployer.address)).to.be.revertedWith("stake still locked");
+    });
+    it("should revert when trying to unstake right before the lock up period ends", async () => {
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+      const userStake = await staking.userStakes(daoA.address, deployer.address);
+      expect(
+        userStake.stakedAmount
+      ).to.eq(stakeAmount);
+
+      // set evm block timestamp to right before the lock up period ends
+      await network.provider.send("evm_setNextBlockTimestamp", [userStake.timeStaked.toNumber() + convertToSeconds({ hours: 23, minutes: 59, seconds: 59 })]);
+      await expect(staking.unstake(daoA.address, stakeAmount, deployer.address)).to.be.revertedWith("stake still locked");
+    });
+    it("should allow unstake at the moment lock up period ends", async () => {
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+      await staking.stake(daoB.address, stakeAmount);
+      const userStake = await staking.userStakes(daoA.address, deployer.address);
+      expect(
+        userStake.stakedAmount
+      ).to.eq(stakeAmount);
+
+      // set evm block timestamp to right when the lock up period ends
+      await network.provider.send("evm_setNextBlockTimestamp", [userStake.timeStaked.toNumber() + convertToSeconds({ days: 1 })]);
+      await staking.unstake(daoA.address, stakeAmount, deployer.address);
+      expect(
+        (await staking.userStakes(daoA.address, deployer.address)).stakedAmount
+      ).to.eq(0);
+    });
+    it("should allow unstake after the lock up period ends", async () => {
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+      await staking.stake(daoB.address, stakeAmount);
+      const userStake = await staking.userStakes(daoA.address, deployer.address);
+      expect(
+        userStake.stakedAmount
+      ).to.eq(stakeAmount);
+
+      // set evm block timestamp to after the lock up period ends
+      await network.provider.send("evm_setNextBlockTimestamp", [userStake.timeStaked.toNumber() + convertToSeconds({ days: 1, seconds: 1 })]);
+      await staking.unstake(daoA.address, stakeAmount, deployer.address);
+      expect(
+        (await staking.userStakes(daoA.address, deployer.address)).stakedAmount
+      ).to.eq(0);
     });
   });
   describe("Distribute rewards", () => {
@@ -539,6 +759,52 @@ describe("Staking Rewards", () => {
       expect((await staking.daoRewards(daoB.address)).rewardPerToken).to.be.eq(
         0
       );
+    });
+    it("should revert when trying to emergency eject before the lock up period ends", async () => {
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+      expect(
+        (await staking.userStakes(daoA.address, deployer.address)).stakedAmount
+      ).to.eq(stakeAmount);
+      await expect(staking.emergencyEject(daoA.address, deployer.address)).to.be.revertedWith("stake still locked");
+    });
+    it("should revert when trying to emergency eject right before the lock up period ends", async () => {
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+      const userStake = await staking.userStakes(daoA.address, deployer.address);
+      expect(
+        userStake.stakedAmount
+      ).to.eq(stakeAmount);
+
+      // set evm block timestamp to right before the lock up period ends
+      await network.provider.send("evm_setNextBlockTimestamp", [userStake.timeStaked.toNumber() + convertToSeconds({ hours: 23, minutes: 59, seconds: 59 })]);
+      await expect(staking.emergencyEject(daoA.address, deployer.address)).to.be.revertedWith("stake still locked");
+    });
+    it("should allow emergency eject at the moment lock up period ends", async () => {
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+      const userStake = await staking.userStakes(daoA.address, deployer.address);
+      expect(
+        userStake.stakedAmount
+      ).to.eq(stakeAmount);
+
+      // set evm block timestamp to right when the lock up period ends
+      await network.provider.send("evm_setNextBlockTimestamp", [userStake.timeStaked.toNumber() + convertToSeconds({ days: 1 })]);
+      await staking.emergencyEject(daoA.address, deployer.address);
+      expect(
+        (await staking.userStakes(daoA.address, deployer.address)).stakedAmount
+      ).to.eq(0);
+    });
+    it("should allow emergency eject after the lock up period ends", async () => {
+      await staking.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ days: 1 })));
+      const userStake = await staking.userStakes(daoA.address, deployer.address);
+      expect(
+        userStake.stakedAmount
+      ).to.eq(stakeAmount);
+
+      // set evm block timestamp to after the lock up period ends
+      await network.provider.send("evm_setNextBlockTimestamp", [userStake.timeStaked.toNumber() + convertToSeconds({ days: 1, seconds: 1 })]);
+      await staking.emergencyEject(daoA.address, deployer.address);
+      expect(
+        (await staking.userStakes(daoA.address, deployer.address)).stakedAmount
+      ).to.eq(0);
     });
   });
   describe("Pending rewards", () => {
