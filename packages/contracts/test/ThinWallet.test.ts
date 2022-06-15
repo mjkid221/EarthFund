@@ -440,5 +440,31 @@ describe("Thin Wallet", async () => {
       const expectedErrorMsg = `failed to send ether`;
       await expect(testDeploy.connect(userA).transferEther([EtherTransfer])).to.be.revertedWith(expectedErrorMsg);
     });
+
+    it("should fail to transfer token when the contract has not enough token balance", async () => {
+      await deploy("TestDeploy", {
+        from: deployer.address,
+        log: false,
+        contract: "ThinWallet",
+        args: [],
+        autoMine: true,
+      });
+      const testDeploy = (await ethers.getContract("TestDeploy")) as ThinWallet;
+      await testDeploy.initialize(deployer.address, [
+        userA.address,
+      ]);
+
+      // Send some EarthToken to contract for testing
+      await EarthToken.connect(deployer).transfer(testDeploy.address, ethers.utils.parseEther("1000"));
+      
+      const amountToTransfer = ethers.utils.parseEther("1001")
+      const tokenTransfer : TokenMovement = {
+        token: EarthToken.address,
+        recipient: userB.address,
+        amount: amountToTransfer
+      };
+
+      await expect (testDeploy.connect(userA).transferERC20([tokenTransfer])).to.be.reverted;
+    });
   });
 });
