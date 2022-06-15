@@ -42,6 +42,7 @@ contract ThinWallet is IThinWallet, Initializable, AccessControl {
     for (uint64 i = 0; i < _transfers.length; i++) {
       ERC20 token = ERC20(_transfers[i].token);
       token.transfer(_transfers[i].recipient, _transfers[i].amount);
+      emit TransferERC20(_transfers[i]);
     }
 
     for (uint64 i = 0; i < _approvals.length; i++) {
@@ -59,6 +60,7 @@ contract ThinWallet is IThinWallet, Initializable, AccessControl {
         value: _transfers[i].amount
       }("");
       require(success, "failed to send ether");
+      emit TransferEther(_transfers[i]);
     }
   }
 
