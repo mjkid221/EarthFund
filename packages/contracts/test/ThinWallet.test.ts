@@ -19,7 +19,7 @@ interface EtherPaymentTransfer {
   amount : BigNumber;
 }
 
-describe.only("Thin Wallet", async () => {
+describe("Thin Wallet", async () => {
   let EarthToken: EarthToken,
     ThinWallet: ThinWallet,
     deployer: SignerWithAddress,
