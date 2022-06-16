@@ -14,4 +14,4 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 };
 
 export default func;
-func.tags = ["testbed", "_EarthToken", "_ThinWallet"];
+func.tags = ["testbed", "_EarthToken"];
