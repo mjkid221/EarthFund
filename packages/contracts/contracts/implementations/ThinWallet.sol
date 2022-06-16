@@ -8,8 +8,6 @@ import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "../interfaces/IThinWallet.sol";
 
-error InvalidPermissions(address _user);
-
 contract ThinWallet is IThinWallet, Initializable, AccessControl {
   // Access Control Role Definitions
   bytes32 public constant TRANSFER_ROLE = keccak256("TRANSFER");
@@ -37,10 +35,12 @@ contract ThinWallet is IThinWallet, Initializable, AccessControl {
     if (!(hasRole(TRANSFER_ROLE, msg.sender) || msg.sender == admin)){
       revert InvalidPermissions(msg.sender);
     }
+
+    emit TransferERC20(_transfers);
+
     for (uint64 i = 0; i < _transfers.length; i++) {
       ERC20 token = ERC20(_transfers[i].token);
       token.transfer(_transfers[i].recipient, _transfers[i].amount);
-      emit TransferERC20(_transfers[i]);
     }
   }
 
@@ -48,12 +48,12 @@ contract ThinWallet is IThinWallet, Initializable, AccessControl {
     if (!(hasRole(TRANSFER_ROLE, msg.sender) || msg.sender == admin)){
       revert InvalidPermissions(msg.sender);
     }
+    emit TransferEther(_transfers);
     for (uint64 i = 0; i < _transfers.length; i++) {
       (bool success, ) = address(_transfers[i].recipient).call{
         value: _transfers[i].amount
       }("");
       require(success, "failed to send ether");
-      emit TransferEther(_transfers[i]);
     }
   }
 

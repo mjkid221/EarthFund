@@ -2,6 +2,8 @@
 pragma solidity 0.8.13;
 
 interface IThinWallet {
+  error InvalidPermissions(address _user);
+
   struct TokenMovement {
     address token;
     address recipient;
@@ -14,8 +16,8 @@ interface IThinWallet {
   }
 
   /// ### Events
-  event TransferERC20(TokenMovement transfers);
-  event TransferEther(EtherPaymentTransfer transfers);
+  event TransferERC20(TokenMovement[] transfers);
+  event TransferEther(EtherPaymentTransfer[] transfers);
 
   /// ### Functions
   /// @notice Initializes the thin wallet clone with the accounts that can control it
