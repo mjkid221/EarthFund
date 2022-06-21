@@ -117,7 +117,7 @@ describe("Clearing House", function () {
       const { deploy } = deployments;
       const clearingHouseDeployResults = await deploy("ClearingHouse", {
         from: deployer.address,
-        args: [earthToken.address, stakingRewards.address, true, 0, 0],
+        args: [earthToken.address, stakingRewards.address, true, 0, 0, deployer.address],
         log: true,
       })
 
@@ -134,7 +134,7 @@ describe("Clearing House", function () {
       const { deploy } = deployments;
       await expect(deploy("ClearingHouse", {
         from: deployer.address,
-        args: [ethers.constants.AddressZero, stakingRewards.address, true, 0, 0],
+        args: [ethers.constants.AddressZero, stakingRewards.address, true, 0, 0, deployer.address],
         log: true,
       })).to.be.revertedWith("invalid earth token address");
     });
@@ -144,7 +144,7 @@ describe("Clearing House", function () {
       const { deploy } = deployments;
       await expect(deploy("ClearingHouse", {
         from: deployer.address,
-        args: [earthToken.address, ethers.constants.AddressZero, true, 0, 0],
+        args: [earthToken.address, ethers.constants.AddressZero, true, 0, 0, deployer.address],
         log: true,
       })).to.be.revertedWith("invalid staking address");
     });
@@ -155,7 +155,8 @@ describe("Clearing House", function () {
         stakingRewards.address,
         false,
         5,
-        5
+        5,
+        deployer.address
       );
       expect(await clearing.maxSupply()).to.eq(5);
       const clearing2 = await factory.deploy(
@@ -163,7 +164,8 @@ describe("Clearing House", function () {
         stakingRewards.address,
         false,
         0,
-        5
+        5,
+        deployer.address
       );
       expect(await clearing2.maxSupply()).to.eq(0);
     });
@@ -174,7 +176,8 @@ describe("Clearing House", function () {
         stakingRewards.address,
         false,
         5,
-        5
+        5,
+        deployer.address
       );
       expect(await clearing.maxSwap()).to.eq(5);
       const clearing2 = await factory.deploy(
@@ -182,7 +185,8 @@ describe("Clearing House", function () {
         stakingRewards.address,
         false,
         5,
-        0
+        0,
+        deployer.address
       );
       expect(await clearing2.maxSwap()).to.eq(0);
     });
@@ -864,6 +868,7 @@ describe("Clearing House", function () {
           false,
           ethers.utils.parseEther("1000000"),
           ethers.utils.parseEther("5000"),
+          deployer.address
         ],
         log: true,
       });
