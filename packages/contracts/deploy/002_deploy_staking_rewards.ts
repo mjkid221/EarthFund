@@ -21,20 +21,27 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     throw new Error("Invalid reward token");
   }
 
-  await deploy("StakingRewards", {
-    from: deployer,
-    args: [
-      rewardToken,
-      owner
-    ],
-    log: true,
-  });
-
-  if (chainId !== "31337"){
-    const stakingRewards = (await ethers.getContract("StakingRewards")) as IStakingRewards;
-    await stakingRewards.setLockupPeriod(ethers.BigNumber.from(convertToSeconds({ days: 30 })));
-  };
-  
+  if (chainId === "31337"){
+    await deploy("StakingRewards", {
+      from: deployer,
+      args: [
+        rewardToken,
+        owner,
+        ethers.BigNumber.from(convertToSeconds({ days: 0 }))
+      ],
+      log: true,
+    });
+  }else{
+    await deploy("StakingRewards", {
+      from: deployer,
+      args: [
+        rewardToken,
+        owner,
+        ethers.BigNumber.from(convertToSeconds({ days: 30 }))
+      ],
+      log: true,
+    });
+  }
 };
 
 export default func;
