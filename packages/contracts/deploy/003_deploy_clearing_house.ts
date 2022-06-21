@@ -18,8 +18,6 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   if(process.env.CLEARING_HOUSE_AUTO_STAKE == "true"){
     autoStake = true;
-  }else{
-    autoStake = false;
   }
   if (chainId == "31337") {
     maxSupply = ethers.utils.parseEther("1000000").toString();
