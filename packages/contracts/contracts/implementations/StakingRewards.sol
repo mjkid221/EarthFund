@@ -22,9 +22,10 @@ contract StakingRewards is IStakingRewards, Ownable {
 
     uint256 public lockupPeriod;
 
-    constructor(address _rewardToken, address _owner) {
+    constructor(address _rewardToken, address _owner, uint256 _lockupPeriod) {
         require(_rewardToken != address(0), "invalid reward token");
         rewardToken = ERC20(_rewardToken);
+        lockupPeriod = _lockupPeriod;
         transferOwnership(_owner);
     }
 
