@@ -68,7 +68,7 @@ describe("Staking Rewards", () => {
     });
     it("should fail to deploy if reward token address isn't set", async () => {
       await expect(
-        factory.deploy(ethers.constants.AddressZero, deployer.address)
+        factory.deploy(ethers.constants.AddressZero, deployer.address, ethers.BigNumber.from(convertToSeconds({ days: 0 })))
       ).to.be.rejectedWith("invalid reward token");
     });
   });
