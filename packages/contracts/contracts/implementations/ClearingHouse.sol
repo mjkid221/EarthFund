@@ -34,7 +34,8 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     StakingRewards _staking,
     bool _autoStake,
     uint256 _maxSupply,
-    uint256 _maxSwap
+    uint256 _maxSwap,
+    address _owner
   ) {
     require(address(_earthToken) != address(0), "invalid earth token address");
 
@@ -56,6 +57,8 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     if (_maxSwap > 0) {
       maxSwap = _maxSwap;
     }
+
+    _transferOwnership(_owner);
   }
 
   /*///////////////////////////////////////////////////////////////
