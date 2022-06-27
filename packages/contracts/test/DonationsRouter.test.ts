@@ -180,12 +180,15 @@ describe("Donations Router", () => {
         thinWalletId : ethers.utils.hexZeroPad(causeID.toHexString(), 32)
       }
       const thinWalletClone : string = await router.calculateThinWallet(walletId);
+      expect(await daoToken.balanceOf(thinWalletClone)).to.eq(0);
 
       const codePromise = await ethers.provider.getCode(thinWalletClone);
-      expect(codePromise.length).to.be.eq(2);
+      expect(codePromise).to.eq("0x");
 
       const amountToTransfer : BigNumber = ethers.utils.parseEther("100"); 
-      expect(await daoToken.connect(platformOwner).transfer(thinWalletClone, amountToTransfer));
+      await daoToken.connect(platformOwner).transfer(thinWalletClone, amountToTransfer);
+
+      expect(await daoToken.balanceOf(thinWalletClone)).to.eq(amountToTransfer);
     
     });
     it("should be able to receive ERC20 token donations", async () => {
@@ -209,10 +212,10 @@ describe("Donations Router", () => {
       const thinWalletClone = cause.defaultWallet;
       expect (await ethers.provider.getBalance(thinWalletClone)).to.be.eq(0);
       const amountToTransfer : BigNumber = ethers.utils.parseEther("100"); 
-      expect(await alice.sendTransaction({
+      await alice.sendTransaction({
         to: thinWalletClone,
         value: amountToTransfer
-      }));
+      });
       expect (await ethers.provider.getBalance(thinWalletClone)).to.be.eq(amountToTransfer);
     });
     it("should receive donations after a thin wallet has been deployed", async () => {
@@ -260,7 +263,6 @@ describe("Donations Router", () => {
       
       await router.registerCause(registrationRequest);
       const newCauseID : BigNumber = await router.causeId();
-      expect(newCauseID).to.be.gt(initialCauseID);
       expect(newCauseID).to.be.eq(initialCauseID.add(1));
     });
 
@@ -309,17 +311,18 @@ describe("Donations Router", () => {
     it("should allow multiple causes to register with the same dao token", async () => {
       expect (await router.causeId()).to.be.eq(0);
       const amountOfRegistrations = 10;
+      let causeID : BigNumber = BigNumber.from("0");
       for (let i = 0 ; i < amountOfRegistrations; i++){
         await router.registerCause(registrationRequest);
-      }
 
-      const causeID : BigNumber = await router.causeId();
+        causeID = await router.causeId();
+        
+        const cause : CauseRecord = await router.causeRecords(causeID);
+        expect (cause.owner).to.be.eq(registrationRequest.owner);
+        expect (cause.rewardPercentage).to.be.eq(registrationRequest.rewardPercentage);
+        expect (cause.daoToken).to.be.eq(registrationRequest.daoToken);
+      }
       expect(causeID).to.be.eq(amountOfRegistrations);
-      
-      const cause : CauseRecord = await router.causeRecords(causeID);
-      expect (cause.owner).to.be.eq(registrationRequest.owner);
-      expect (cause.rewardPercentage).to.be.eq(registrationRequest.rewardPercentage);
-      expect (cause.daoToken).to.be.eq(registrationRequest.daoToken);
     });
     it("should emit an event", async () => {
       expect (await router.causeId()).to.be.eq(0);
@@ -391,7 +394,7 @@ describe("Donations Router", () => {
       let cause : CauseRecord = await router.causeRecords(causeID);
       expect(cause.owner).to.be.equal(alice.address);
 
-      expect(await router.connect(platformOwner).updateCause(causeID, updatedCauseRegistration));
+      await router.connect(platformOwner).updateCause(causeID, updatedCauseRegistration);
 
       cause = await router.causeRecords(causeID);
       expect(cause.owner).to.be.equal(bob.address);
@@ -438,7 +441,7 @@ describe("Donations Router", () => {
       await router.connect(platformOwner).updateCause(causeID, updatedCauseRegistration);
 
       const newAllowance = await token.allowance(router.address, staking.address);
-      expect(newAllowance).to.be.gt(initialAllowance);
+      expect(newAllowance).to.eq(ethers.constants.MaxUint256);
     })
   });
   describe("Calculate thin wallet address", () => {
@@ -479,7 +482,9 @@ describe("Donations Router", () => {
         causeId : causeID,
         thinWalletId : ethers.utils.hexZeroPad(causeID.toHexString(), 32)
       }
-      expect(await router.calculateThinWallet(walletId));
+      expect(
+        ethers.utils.isAddress(await router.calculateThinWallet(walletId))
+      ).to.be.true;
     });
   });
   describe("Register thin wallet", () => {
