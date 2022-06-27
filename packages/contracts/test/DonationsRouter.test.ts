@@ -565,6 +565,28 @@ describe("Donations Router", () => {
       const tx = await router.connect(alice).registerThinWallet(walletId, owners);
       await expect (tx).to.emit(router, "RegisterWallet").withArgs(newThinWalletClone, [walletId.causeId, walletId.thinWalletId])
     });
+    it("should fail if the wallet to register is already deployed", async () => {
+      await router.registerCause(registrationRequest);
+      const causeID : BigNumber = await router.causeId();
+
+      const walletId : ThinWalletId = {
+        causeId : causeID,
+        thinWalletId : ethers.utils.hexZeroPad(causeID.toHexString(), 32)
+      }
+      const owners : string[] = [bob.address, jake.address];
+      expect(router.connect(alice).registerThinWallet(walletId, owners)).to.be.revertedWith("already deployed");
+    });
+    it("should fail if there are no owners", async () => {
+      await router.registerCause(registrationRequest);
+      const causeID : BigNumber = await router.causeId();
+
+      const walletId : ThinWalletId = {
+        causeId : causeID,
+        thinWalletId : ethers.utils.hexZeroPad(causeID.add("1").toHexString(), 32)
+      }
+      const owners : string[] = [];
+      expect(router.connect(alice).registerThinWallet(walletId, owners)).to.be.revertedWith("invalid owners");
+    })
   });
   describe("Withdraw from thin wallet", () => {
     let walletId : ThinWalletId
@@ -607,8 +629,12 @@ describe("Donations Router", () => {
       );
     });
     it("should validate the input parameters", async () => {
-      const returnConfig = await setUpRegistration(router, registrationRequest, deployer, token);
-      const walletId = returnConfig[0] as ThinWalletId;
+      await router.registerCause(registrationRequest);
+      const causeID = (await router.causeId()).add("1");
+      const walletId : ThinWalletId = {
+        causeId: causeID,
+        thinWalletId: ethers.utils.hexZeroPad(causeID.toHexString(), 32)
+      }
       
       const amountToWithdraw = ethers.utils.parseEther("100");
       const withdrawalRequest : WithdrawalRequest= {
@@ -619,7 +645,6 @@ describe("Donations Router", () => {
       expect(router.connect(platformOwner).withdrawFromThinWallet(walletId, withdrawalRequest)).to.be.revertedWith("invalid cause");
     });
     it("should revert if the caller isn't the cause owner", async () => {
-      await router.registerCause(registrationRequest);
       const returnConfig = await setUpRegistration(router, registrationRequest, deployer, token);
       const walletId = returnConfig[0] as ThinWalletId;
 
