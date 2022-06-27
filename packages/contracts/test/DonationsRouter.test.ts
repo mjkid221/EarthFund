@@ -423,9 +423,23 @@ describe("Donations Router", () => {
       const causeID : BigNumber = await router.causeId();
       const tx = await router.connect(platformOwner).updateCause(causeID, updatedCauseRegistration);
 
-      let updatedCause : CauseRecord = await router.causeRecords(causeID);
+      const updatedCause : CauseRecord = await router.causeRecords(causeID);
       await expect (tx).to.emit(router, "UpdateCause").withArgs(updatedCause);
     });
+    it("should update the allowance of a new cause token", async () => {
+      await router.registerCause(registrationRequest);
+      const causeID : BigNumber = await router.causeId();
+      updatedCauseRegistration = {
+        owner: bob.address,
+        rewardPercentage : rewardPercentage,
+        daoToken: token.address
+      } 
+      const initialAllowance = await token.allowance(router.address, staking.address);
+      await router.connect(platformOwner).updateCause(causeID, updatedCauseRegistration);
+
+      const newAllowance = await token.allowance(router.address, staking.address);
+      expect(newAllowance).to.be.gt(initialAllowance);
+    })
   });
   describe("Calculate thin wallet address", () => {
     beforeEach(async () => {
