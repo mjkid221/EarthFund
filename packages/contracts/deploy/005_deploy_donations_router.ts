@@ -9,10 +9,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const chainId = await hre.getChainId();
 
   const params = {
-    _owner: process.env.PARENT_DAO,
+    _owner: process.env.PARENT_DAO || deployer,
     _baseToken: process.env.REWARD_TOKEN,
     _stakingContract: "",
-    _walletImplementation: process.env.WALLET_IMPLEMENTATION,
+    _walletImplementation: "",
   };
 
   if (chainId === "31337") {
@@ -22,7 +22,10 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     params._walletImplementation = (await ethers.getContract("ThinWallet")).address;
   } else {
     params._stakingContract = (
-      await ethers.getContract("StakingContract")
+      await ethers.getContract("StakingRewards")
+    ).address;
+    params._walletImplementation = (
+      await ethers.getContract("ThinWallet")
     ).address;
   }
 
