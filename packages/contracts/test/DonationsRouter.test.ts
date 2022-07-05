@@ -19,6 +19,10 @@ interface CauseRegistrationRequest {
   rewardPercentage: BigNumber;
   daoToken: string;
 }
+interface CauseUpdateRequest {
+  owner: string;
+  rewardPercentage: BigNumber;
+}
 
 interface CauseRecord {
   owner: string;
@@ -361,7 +365,7 @@ describe("Donations Router", () => {
     });
   });
   describe("Update cause", () => {
-    let updatedCauseRegistration: CauseRegistrationRequest;
+    let updatedCauseRegistration: CauseUpdateRequest;
     beforeEach(async () => {
       await deploy("DonationsRouter", {
         from: deployer.address,
@@ -374,7 +378,6 @@ describe("Donations Router", () => {
       updatedCauseRegistration = {
         owner: bob.address,
         rewardPercentage: rewardPercentage,
-        daoToken: daoToken.address,
       };
     });
     it("should revert if the cause doesn't exist", async () => {
@@ -410,7 +413,6 @@ describe("Donations Router", () => {
       updatedCauseRegistration = {
         owner: address0,
         rewardPercentage: rewardPercentage,
-        daoToken: daoToken.address,
       };
       await expect(
         router
@@ -418,21 +420,7 @@ describe("Donations Router", () => {
           .updateCause(causeID, updatedCauseRegistration)
       ).to.be.revertedWith("invalid owner");
     });
-    it("should validate the new cause token", async () => {
-      await router.registerCause(registrationRequest);
-      const causeID: BigNumber = await router.causeId();
 
-      updatedCauseRegistration = {
-        owner: bob.address,
-        rewardPercentage: rewardPercentage,
-        daoToken: address0,
-      };
-      await expect(
-        router
-          .connect(platformOwner)
-          .updateCause(causeID, updatedCauseRegistration)
-      ).to.be.revertedWith("invalid token");
-    });
     it("should emit an event", async () => {
       await router.registerCause(registrationRequest);
       const causeID: BigNumber = await router.causeId();
@@ -442,28 +430,6 @@ describe("Donations Router", () => {
 
       const updatedCause: CauseRecord = await router.causeRecords(causeID);
       await expect(tx).to.emit(router, "UpdateCause").withArgs(updatedCause);
-    });
-    it("should update the allowance of a new cause token", async () => {
-      await router.registerCause(registrationRequest);
-      const causeID: BigNumber = await router.causeId();
-      updatedCauseRegistration = {
-        owner: bob.address,
-        rewardPercentage: rewardPercentage,
-        daoToken: token.address,
-      };
-      const initialAllowance = await token.allowance(
-        router.address,
-        staking.address
-      );
-      await router
-        .connect(platformOwner)
-        .updateCause(causeID, updatedCauseRegistration);
-
-      const newAllowance = await token.allowance(
-        router.address,
-        staking.address
-      );
-      expect(newAllowance).to.eq(ethers.constants.MaxUint256);
     });
   });
   describe("Calculate thin wallet address", () => {
