@@ -9,7 +9,6 @@ import "../interfaces/IDonationsRouter.sol";
 import "../interfaces/IStakingRewards.sol";
 import "../interfaces/IThinWallet.sol";
 import "./Queue.sol";
-import "hardhat/console.sol";
 
 contract DonationsRouter is IDonationsRouter, Ownable, Queue {
     using PRBMathUD60x18 for uint256;
