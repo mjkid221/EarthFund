@@ -11,6 +11,10 @@ interface IDonationsRouter {
         uint256 rewardPercentage;
         address daoToken;
     }
+    struct CauseUpdateRequest {
+        address owner;
+        uint256 rewardPercentage;
+    }
 
     struct CauseRecord {
         address owner;
@@ -53,10 +57,8 @@ interface IDonationsRouter {
     /// @dev Can only be called by the current owner of the cause
     /// @param _causeId  The cause to update
     /// @param _cause  The new details of the cause
-    function updateCause(
-        uint256 _causeId,
-        CauseRegistrationRequest calldata _cause
-    ) external;
+    function updateCause(uint256 _causeId, CauseUpdateRequest calldata _cause)
+        external;
 
     /// @notice Sets the address of the staking contract so rewards can be distributed
     /// @dev This should be secured
