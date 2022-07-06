@@ -8,8 +8,10 @@ import "@prb/math/contracts/PRBMathUD60x18.sol";
 import "../interfaces/IDonationsRouter.sol";
 import "../interfaces/IStakingRewards.sol";
 import "../interfaces/IThinWallet.sol";
+import "./Queue.sol";
+import "hardhat/console.sol";
 
-contract DonationsRouter is IDonationsRouter, Ownable {
+contract DonationsRouter is IDonationsRouter, Ownable, Queue {
     using PRBMathUD60x18 for uint256;
 
     ERC20 public immutable override baseToken;
@@ -142,13 +144,24 @@ contract DonationsRouter is IDonationsRouter, Ownable {
 
     function withdrawFromThinWallet(
         ThinWalletID calldata _walletId,
-        WithdrawalRequest calldata _withdrawal
+        WithdrawalRequest calldata _withdrawal,
+        bytes32 _proposalId
     ) external override {
         require(_walletId.causeId <= causeId, "invalid cause");
-
         CauseRecord memory cause = causeRecords[_walletId.causeId];
 
         require(msg.sender == cause.owner, "unauthorized");
+
+        require(_proposalId != '', "invalid proposal id");
+        uint128 queueToWithdraw = getFront(causeId);
+        ( , , bytes32 id, bool isUnclaimed) = getQueueItem(causeId, queueToWithdraw);
+        if (isUnclaimed 
+            && id == keccak256(abi.encode(causeId, _proposalId)
+        )) {
+            dequeue(causeId);
+        }else{
+            revert("not head of queue");
+        }
 
         bytes32 salt = _getSalt(_walletId);
         IThinWallet wallet = IThinWallet(deployedWallets[salt]);
@@ -203,6 +216,11 @@ contract DonationsRouter is IDonationsRouter, Ownable {
             });
             wallet.transferERC20(transfers);
         }
+    }
+
+    function addToQueue(uint256 _causeId, bytes32 _proposalId) external {
+        bytes32 queueId = keccak256(abi.encode(_causeId, _proposalId));
+        enqueue(causeId, queueId);
     }
 
     /// ### Internal functions

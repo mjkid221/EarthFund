@@ -83,7 +83,8 @@ interface IDonationsRouter {
     /// @param _withdrawal  An array of withdrawal requests for the wallet to process
     function withdrawFromThinWallet(
         ThinWalletID calldata _walletId,
-        WithdrawalRequest calldata _withdrawal
+        WithdrawalRequest calldata _withdrawal,
+        bytes32 _proposalId
     ) external;
 
     /// @notice Allows the platform owner to set the platform fee
@@ -123,4 +124,6 @@ interface IDonationsRouter {
         external
         view
         returns (address walletImplementation);
+
+    function addToQueue(uint256 _causeId, bytes32 proposalId) external;
 }
