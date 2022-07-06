@@ -2,8 +2,6 @@
 pragma solidity 0.8.13;
 
 abstract contract Queue {
-    uint256 public constant BYTES32_SIZE = (32 * 2) + 2;
-
     struct QueueManager {
         uint128 front;
         uint128 back;
