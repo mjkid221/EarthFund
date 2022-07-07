@@ -72,7 +72,10 @@ contract DonationsRouter is IDonationsRouter, Ownable {
         
         address[] memory owners = new address[](1);
         owners[0] = _cause.owner;
-        _deployWallet(_getSalt(ThinWalletID({causeId: id, thinWalletId: abi.encode(id)})), owners);
+        _deployWallet(
+            _getSalt(ThinWalletID({causeId: id, thinWalletId: abi.encode(id)})),
+            owners
+        );
 
         ERC20(_cause.daoToken).approve(
             address(stakingContract),
@@ -80,31 +83,21 @@ contract DonationsRouter is IDonationsRouter, Ownable {
         );
     }
 
-    function updateCause(
-        uint256 _causeId,
-        CauseRegistrationRequest calldata _cause
-    ) external override {
+    function updateCause(uint256 _causeId, CauseUpdateRequest calldata _cause)
+        external
+        override
+    {
         require(_causeId <= causeId, "invalid cause");
         CauseRecord memory cause = causeRecords[_causeId];
         require(msg.sender == cause.owner, "not authorized");
         require(_cause.owner != address(0), "invalid owner");
 
-        address oldToken = cause.daoToken;
-
         cause.owner = _cause.owner;
         cause.rewardPercentage = _cause.rewardPercentage;
-        cause.daoToken = _cause.daoToken;
 
         causeRecords[_causeId] = cause;
 
         emit UpdateCause(cause);
-
-        if (_cause.daoToken != oldToken) {
-            ERC20(_cause.daoToken).approve(
-                address(stakingContract),
-                type(uint256).max
-            );
-        }
     }
 
     function calculateThinWallet(ThinWalletID memory _walletId)
@@ -188,8 +181,11 @@ contract DonationsRouter is IDonationsRouter, Ownable {
             });
 
             wallet.transferERC20(transfers);
-    
-            (stakingContract.rewardToken()).increaseAllowance(address(stakingContract), rewardAmount);
+
+            (stakingContract.rewardToken()).increaseAllowance(
+                address(stakingContract),
+                rewardAmount
+            );
             stakingContract.distributeRewards(cause.daoToken, rewardAmount);
         } else {
             IThinWallet.TokenMovement[]
