@@ -36,7 +36,7 @@ interface IDonationsRouter {
 
     /// ### Events
 
-    event RegisterCause(CauseRecord cause);
+    event RegisterCause(address indexed owner, address indexed daoToken, uint256 causeId);
     event RegisterWallet(address indexed walletAddress, ThinWalletID walletId);
     event WithdrawFromWallet(ThinWalletID wallet, WithdrawalRequest request);
     event UpdateCause(CauseRecord cause);
