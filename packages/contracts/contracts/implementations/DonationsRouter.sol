@@ -87,8 +87,6 @@ contract DonationsRouter is IDonationsRouter, Ownable {
         require(_causeId <= causeId, "invalid cause");
         CauseRecord memory cause = causeRecords[_causeId];
         require(msg.sender == cause.owner, "not authorized");
-
-        require(_cause.daoToken != address(0), "invalid token");
         require(_cause.owner != address(0), "invalid owner");
 
         address oldToken = cause.daoToken;
