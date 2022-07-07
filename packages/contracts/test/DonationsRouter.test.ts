@@ -326,7 +326,7 @@ describe("Donations Router", () => {
       const tx = await router.registerCause(registrationRequest);
       const causeID: BigNumber = await router.causeId();
       const cause: CauseRecord = await router.causeRecords(causeID);
-      await expect(tx).to.emit(router, "RegisterCause").withArgs(cause);
+      await expect(tx).to.emit(router, "RegisterCause").withArgs(cause.owner, cause.daoToken, causeID);
     });
     it("should deploy a clone thin wallet for the default cause wallet", async () => {
       expect(await router.causeId()).to.be.eq(0);
