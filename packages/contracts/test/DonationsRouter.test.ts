@@ -233,12 +233,17 @@ describe("Donations Router", () => {
   });
   describe("Register cause", () => {
     beforeEach(async () => {
-      await deploy("DonationsRouter", {
-        from: deployer.address,
-        log: false,
-        args: [token.address, staking.address, alice.address, wallet.address],
-      });
-
+      registrationRequest = {
+        owner: platformOwner.address,
+        rewardPercentage: rewardPercentage,
+        daoToken: daoToken.address,
+      };
+      await deployments.fixture([
+        "_EarthToken",
+        "_StakingRewards",
+        "_ThinWallet",
+        "_DonationsRouter",
+      ]);
       router = await ethers.getContract("DonationsRouter");
     });
     it("should assign an ID of 1 to the first cause registered", async () => {
@@ -254,6 +259,7 @@ describe("Donations Router", () => {
       await router.registerCause(registrationRequest);
       const initialCauseID: BigNumber = await router.causeId();
 
+      registrationRequest.owner = bob.address;
       await router.registerCause(registrationRequest);
       const newCauseID: BigNumber = await router.causeId();
       expect(newCauseID).to.be.eq(initialCauseID.add(1));
@@ -307,30 +313,20 @@ describe("Donations Router", () => {
       expect(cause.daoToken).to.be.eq(registrationRequest.daoToken);
     });
 
-    it("should allow multiple causes to register with the same dao token", async () => {
-      expect(await router.causeId()).to.be.eq(0);
-      const amountOfRegistrations = 10;
-      let causeID: BigNumber = BigNumber.from("0");
-      for (let i = 0; i < amountOfRegistrations; i++) {
-        await router.registerCause(registrationRequest);
-
-        causeID = await router.causeId();
-
-        const cause: CauseRecord = await router.causeRecords(causeID);
-        expect(cause.owner).to.be.eq(registrationRequest.owner);
-        expect(cause.rewardPercentage).to.be.eq(
-          registrationRequest.rewardPercentage
-        );
-        expect(cause.daoToken).to.be.eq(registrationRequest.daoToken);
-      }
-      expect(causeID).to.be.eq(amountOfRegistrations);
+    it("should prevent multiple causes registering with the same owner/token pair", async () => {
+      await router.registerCause(registrationRequest);
+      await expect(
+        router.registerCause(registrationRequest)
+      ).to.be.revertedWith("cause exists");
     });
     it("should emit an event", async () => {
       expect(await router.causeId()).to.be.eq(0);
       const tx = await router.registerCause(registrationRequest);
       const causeID: BigNumber = await router.causeId();
       const cause: CauseRecord = await router.causeRecords(causeID);
-      await expect(tx).to.emit(router, "RegisterCause").withArgs(cause.owner, cause.daoToken, causeID);
+      await expect(tx)
+        .to.emit(router, "RegisterCause")
+        .withArgs(cause.owner, cause.daoToken, causeID);
     });
     it("should deploy a clone thin wallet for the default cause wallet", async () => {
       expect(await router.causeId()).to.be.eq(0);
@@ -596,15 +592,15 @@ describe("Donations Router", () => {
   describe("Withdraw from thin wallet", () => {
     let walletId: ThinWalletId;
     beforeEach(async () => {
-      await deploy("DonationsRouter", {
+      const result = await deploy("DonationsRouter", {
         from: deployer.address,
         log: false,
         args: [token.address, staking.address, alice.address, wallet.address],
       });
-      router = await ethers.getContract("DonationsRouter");
+      router = await ethers.getContractAt("DonationsRouter", result.address);
     });
     it("should emit an event", async () => {
-      await router.registerCause(registrationRequest);
+      // await router.registerCause(registrationRequest);
 
       const returnConfig = await setUpRegistration(
         router,
@@ -620,10 +616,12 @@ describe("Donations Router", () => {
         recipient: alice.address,
         amount: amountToWithdraw,
       };
-      const tx = await router
-        .connect(platformOwner)
-        .withdrawFromThinWallet(walletId, withdrawalRequest);
-      await expect(tx)
+
+      await expect(
+        router
+          .connect(platformOwner)
+          .withdrawFromThinWallet(walletId, withdrawalRequest)
+      )
         .to.emit(router, "WithdrawFromWallet")
         .withArgs(
           [walletId.causeId, walletId.thinWalletId],
