@@ -46,7 +46,8 @@ abstract contract Queue {
         });
 
         if (currentTail != 0) {
-            ( , uint128 prev, , ) = getQueueItem(_causeId, currentTail);
+            QueueItem memory item = getQueueItem(_causeId, currentTail);
+            uint128 prev = item.previous;
             queueItems[keccak256(abi.encode(_causeId, currentTail))] = QueueItem({
                 next: newTail,
                 previous: prev,
@@ -86,7 +87,10 @@ abstract contract Queue {
 
         bytes32 id = keccak256(abi.encode(_causeId, _index));
 
-        (uint128 next, uint128 previous, , ) = getQueueItem(_causeId, _index);
+        QueueItem memory item = getQueueItem(_causeId, _index);
+        uint128 next = item.next;
+        uint128 previous = item.previous;
+    
         QueueManager storage manager = queueManagers[_causeId];
         uint128 newPrevious = next; uint128 newNext = previous;
         if (_index == currentHead){
@@ -128,14 +132,8 @@ abstract contract Queue {
     function getQueueItem(uint256 _causeId, uint128 _index)
         internal
         view
-        returns (
-            uint128 next,
-            uint128 previous,
-            bytes32 id,
-            bool isUnclaimed
-        )
+        returns (QueueItem memory item)
     {
-        QueueItem memory item = queueItems[keccak256(abi.encode(_causeId, _index))];
-        return (item.next, item.previous, item.id, item.isUnclaimed);
+        item = queueItems[keccak256(abi.encode(_causeId, _index))];
     }
 }
