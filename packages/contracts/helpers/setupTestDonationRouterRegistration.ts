@@ -35,7 +35,7 @@ export const setUpRegistration = async (
   deployer : SignerWithAddress,
   token : ERC20
 ) => {
-  await router.registerCause(registrationRequest);
+  await router.connect(deployer).registerCause(registrationRequest);
   const causeID : BigNumber = await router.causeId();
   const walletId : ThinWalletId = {
     causeId : causeID,
