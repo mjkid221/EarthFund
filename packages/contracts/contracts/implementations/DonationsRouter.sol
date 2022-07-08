@@ -144,9 +144,9 @@ contract DonationsRouter is IDonationsRouter, Ownable, Queue {
 
         require(_proposalId != '', "invalid proposal id");
         uint128 queueToWithdraw = getFront(causeId);
-        ( , , bytes32 id, bool isUnclaimed) = getQueueItem(causeId, queueToWithdraw);
-        if (isUnclaimed 
-            && id == keccak256(abi.encode(causeId, _proposalId)
+        QueueItem memory item = getQueueItem(causeId, queueToWithdraw);
+        if (item.isUnclaimed 
+            && item.id == keccak256(abi.encode(causeId, _proposalId)
         )) {
             dequeue(causeId);
         }else{
@@ -212,8 +212,51 @@ contract DonationsRouter is IDonationsRouter, Ownable, Queue {
     }
 
     function addToQueue(uint256 _causeId, bytes32 _proposalId) external {
+        CauseRecord memory cause = causeRecords[_causeId];
+        require(msg.sender == cause.owner, "unauthorized");
         bytes32 queueId = keccak256(abi.encode(_causeId, _proposalId));
         enqueue(causeId, queueId);
+    }
+
+    function removeFromQueue(uint256 _causeId, bytes32 _proposalId, uint128 _index) external {
+        CauseRecord memory cause = causeRecords[_causeId];
+        require(msg.sender == cause.owner, "unauthorized");
+
+        bytes32 queueId = keccak256(abi.encode(_causeId, _proposalId));
+        QueueItem memory item = getQueueItem(causeId, _index);
+        require(item.id == queueId, "id does not match index item");
+
+        dequeue(_causeId, _index);
+    }
+
+    function getQueueAtIndex(uint256 _causeId, uint128 _index) 
+        external 
+        view  
+        returns (QueuedItem memory item)
+    {
+        QueueItem memory retrievedItem = getQueueItem(_causeId, _index);
+        item = QueuedItem({
+            next: retrievedItem.next,
+            previous: retrievedItem.previous,
+            id : retrievedItem.id,
+            isUnclaimed : retrievedItem.isUnclaimed
+        });
+    }
+
+    function getFirstInQueue(uint256 _causeId) 
+        external 
+        view 
+        returns (uint128 queueFront)
+    {
+        queueFront = getFront(_causeId);
+    }
+
+    function getLastInQueue(uint256 _causeId) 
+        external
+        view 
+        returns (uint128 queueBack)
+    {
+        queueBack = getBack(_causeId);
     }
 
     /// ### Internal functions
