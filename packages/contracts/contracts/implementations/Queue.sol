@@ -27,9 +27,6 @@ abstract contract Queue {
     /// @param _causeId  The cause to queue an item for
     /// @param _id  The unique ID to use when linking enqueue and withdrawal transactions
     function enqueue(uint256 _causeId, bytes32 _id) internal {
-        require(_causeId != 0, "invalid cause id");
-        require(_id != '', "invalid id");
-
         uint128 currentHead = getFront(_causeId);
         uint128 currentTail = getBack(_causeId);
         uint128 newTail = currentTail + 1;
@@ -79,9 +76,6 @@ abstract contract Queue {
     /// @param _causeId  the cause to dequeue an item for
     /// @param _index  The index of the item to dequeue. This should be the queue front, unless it's being used to remove an arbitrarily located item from the queue (ie from the middle)
     function _removeFromQueue(uint256 _causeId, uint128 _index) private {
-        require(_causeId != 0, "invalid cause id");
-        require(_index != 0, "invalid index");
-
         uint128 currentHead = getFront(_causeId);
         uint128 currentTail = getBack(_causeId);
 
