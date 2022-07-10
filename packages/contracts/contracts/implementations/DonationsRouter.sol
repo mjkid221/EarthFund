@@ -8,8 +8,9 @@ import "@prb/math/contracts/PRBMathUD60x18.sol";
 import "../interfaces/IDonationsRouter.sol";
 import "../interfaces/IStakingRewards.sol";
 import "../interfaces/IThinWallet.sol";
+import "./Queue.sol";
 
-contract DonationsRouter is IDonationsRouter, Ownable {
+contract DonationsRouter is IDonationsRouter, Ownable, Queue {
     using PRBMathUD60x18 for uint256;
 
     ERC20 public immutable override baseToken;
@@ -133,13 +134,24 @@ contract DonationsRouter is IDonationsRouter, Ownable {
 
     function withdrawFromThinWallet(
         ThinWalletID calldata _walletId,
-        WithdrawalRequest calldata _withdrawal
+        WithdrawalRequest calldata _withdrawal,
+        bytes32 _proposalId
     ) external override {
         require(_walletId.causeId <= causeId, "invalid cause");
-
         CauseRecord memory cause = causeRecords[_walletId.causeId];
 
         require(msg.sender == cause.owner, "unauthorized");
+
+        require(_proposalId != '', "invalid proposal id");
+        uint128 queueToWithdraw = getFront(causeId);
+        QueueItem memory item = getQueueItem(causeId, queueToWithdraw);
+        if (item.isUnclaimed 
+            && item.id == keccak256(abi.encode(causeId, _proposalId)
+        )) {
+            dequeue(causeId);
+        }else{
+            revert("not head of queue");
+        }
 
         bytes32 salt = _getSalt(_walletId);
         IThinWallet wallet = IThinWallet(deployedWallets[salt]);
@@ -197,6 +209,55 @@ contract DonationsRouter is IDonationsRouter, Ownable {
             });
             wallet.transferERC20(transfers);
         }
+    }
+
+    function addToQueue(uint256 _causeId, bytes32 _proposalId) external {
+        require(_proposalId != bytes32(0), "invalid proposal id");
+        CauseRecord memory cause = causeRecords[_causeId];
+        require(msg.sender == cause.owner, "unauthorized");
+        bytes32 queueId = keccak256(abi.encode(_causeId, _proposalId));
+        enqueue(causeId, queueId);
+    }
+
+    function removeFromQueue(uint256 _causeId, bytes32 _proposalId, uint128 _index) external {
+        CauseRecord memory cause = causeRecords[_causeId];
+        require(msg.sender == cause.owner, "unauthorized");
+
+        bytes32 queueId = keccak256(abi.encode(_causeId, _proposalId));
+        QueueItem memory item = getQueueItem(causeId, _index);
+        require(item.id == queueId, "id does not match index item");
+
+        dequeue(_causeId, _index);
+    }
+
+    function getQueueAtIndex(uint256 _causeId, uint128 _index) 
+        external 
+        view  
+        returns (QueuedItem memory item)
+    {
+        QueueItem memory retrievedItem = getQueueItem(_causeId, _index);
+        item = QueuedItem({
+            next: retrievedItem.next,
+            previous: retrievedItem.previous,
+            id : retrievedItem.id,
+            isUnclaimed : retrievedItem.isUnclaimed
+        });
+    }
+
+    function getFirstInQueue(uint256 _causeId) 
+        external 
+        view 
+        returns (uint128 queueFront)
+    {
+        queueFront = getFront(_causeId);
+    }
+
+    function getLastInQueue(uint256 _causeId) 
+        external
+        view 
+        returns (uint128 queueBack)
+    {
+        queueBack = getBack(_causeId);
     }
 
     /// ### Internal functions
