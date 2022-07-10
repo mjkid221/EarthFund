@@ -212,6 +212,7 @@ contract DonationsRouter is IDonationsRouter, Ownable, Queue {
     }
 
     function addToQueue(uint256 _causeId, bytes32 _proposalId) external {
+        require(_proposalId != bytes32(0), "invalid proposal id");
         CauseRecord memory cause = causeRecords[_causeId];
         require(msg.sender == cause.owner, "unauthorized");
         bytes32 queueId = keccak256(abi.encode(_causeId, _proposalId));
