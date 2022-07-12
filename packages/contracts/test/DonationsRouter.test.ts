@@ -45,8 +45,8 @@ interface ThinWalletId {
 interface QueueItem {
   next: BigNumber;
   previous: BigNumber;
-  id : string;
-  isUnclaimed : boolean;
+  id: string;
+  isUnclaimed: boolean;
 }
 
 describe("Donations Router", () => {
@@ -240,12 +240,17 @@ describe("Donations Router", () => {
   });
   describe("Register cause", () => {
     beforeEach(async () => {
-      await deploy("DonationsRouter", {
-        from: deployer.address,
-        log: false,
-        args: [token.address, staking.address, alice.address, wallet.address],
-      });
-
+      registrationRequest = {
+        owner: platformOwner.address,
+        rewardPercentage: rewardPercentage,
+        daoToken: daoToken.address,
+      };
+      await deployments.fixture([
+        "_EarthToken",
+        "_StakingRewards",
+        "_ThinWallet",
+        "_DonationsRouter",
+      ]);
       router = await ethers.getContract("DonationsRouter");
     });
     it("should assign an ID of 1 to the first cause registered", async () => {
@@ -261,6 +266,7 @@ describe("Donations Router", () => {
       await router.registerCause(registrationRequest);
       const initialCauseID: BigNumber = await router.causeId();
 
+      registrationRequest.owner = bob.address;
       await router.registerCause(registrationRequest);
       const newCauseID: BigNumber = await router.causeId();
       expect(newCauseID).to.be.eq(initialCauseID.add(1));
@@ -314,30 +320,20 @@ describe("Donations Router", () => {
       expect(cause.daoToken).to.be.eq(registrationRequest.daoToken);
     });
 
-    it("should allow multiple causes to register with the same dao token", async () => {
-      expect(await router.causeId()).to.be.eq(0);
-      const amountOfRegistrations = 10;
-      let causeID: BigNumber = BigNumber.from("0");
-      for (let i = 0; i < amountOfRegistrations; i++) {
-        await router.registerCause(registrationRequest);
-
-        causeID = await router.causeId();
-
-        const cause: CauseRecord = await router.causeRecords(causeID);
-        expect(cause.owner).to.be.eq(registrationRequest.owner);
-        expect(cause.rewardPercentage).to.be.eq(
-          registrationRequest.rewardPercentage
-        );
-        expect(cause.daoToken).to.be.eq(registrationRequest.daoToken);
-      }
-      expect(causeID).to.be.eq(amountOfRegistrations);
+    it("should prevent multiple causes registering with the same owner/token pair", async () => {
+      await router.registerCause(registrationRequest);
+      await expect(
+        router.registerCause(registrationRequest)
+      ).to.be.revertedWith("cause exists");
     });
     it("should emit an event", async () => {
       expect(await router.causeId()).to.be.eq(0);
       const tx = await router.registerCause(registrationRequest);
       const causeID: BigNumber = await router.causeId();
       const cause: CauseRecord = await router.causeRecords(causeID);
-      await expect(tx).to.emit(router, "RegisterCause").withArgs(cause.owner, cause.daoToken, causeID);
+      await expect(tx)
+        .to.emit(router, "RegisterCause")
+        .withArgs(cause.owner, cause.daoToken, causeID);
     });
     it("should deploy a clone thin wallet for the default cause wallet", async () => {
       expect(await router.causeId()).to.be.eq(0);
@@ -602,18 +598,19 @@ describe("Donations Router", () => {
   });
   describe("Withdraw from thin wallet", () => {
     let walletId: ThinWalletId;
-    const exampleProposalId_1 = "0xf345990c2f726e43bd821ebe52a3f3dca1e35145c131d559fdfcdec52dd0bfc2";
-    
+    const exampleProposalId_1 =
+      "0xf345990c2f726e43bd821ebe52a3f3dca1e35145c131d559fdfcdec52dd0bfc2";
+
     beforeEach(async () => {
-      await deploy("DonationsRouter", {
+      const result = await deploy("DonationsRouter", {
         from: deployer.address,
         log: false,
         args: [token.address, staking.address, alice.address, wallet.address],
       });
-      router = await ethers.getContract("DonationsRouter");
+      router = await ethers.getContractAt("DonationsRouter", result.address);
     });
     it("should emit an event", async () => {
-      await router.registerCause(registrationRequest);
+      // await router.registerCause(registrationRequest);
 
       const returnConfig = await setUpRegistration(
         router,
@@ -634,7 +631,11 @@ describe("Donations Router", () => {
 
       const tx = await router
         .connect(platformOwner)
-        .withdrawFromThinWallet(walletId, withdrawalRequest, exampleProposalId_1);
+        .withdrawFromThinWallet(
+          walletId,
+          withdrawalRequest,
+          exampleProposalId_1
+        );
       await expect(tx)
         .to.emit(router, "WithdrawFromWallet")
         .withArgs(
@@ -663,7 +664,11 @@ describe("Donations Router", () => {
       expect(
         router
           .connect(alice)
-          .withdrawFromThinWallet(walletId, withdrawalRequest, exampleProposalId_1)
+          .withdrawFromThinWallet(
+            walletId,
+            withdrawalRequest,
+            exampleProposalId_1
+          )
       ).to.be.revertedWith("invalid cause");
     });
     it("should revert if the caller isn't the cause owner", async () => {
@@ -674,7 +679,7 @@ describe("Donations Router", () => {
         token
       );
       const walletId = returnConfig[0] as ThinWalletId;
-      const causeID : string = walletId.causeId.toString();
+      const causeID: string = walletId.causeId.toString();
       await router.connect(alice).addToQueue(causeID, exampleProposalId_1);
 
       const amountToWithdraw = ethers.utils.parseEther("100");
@@ -684,7 +689,13 @@ describe("Donations Router", () => {
         amount: amountToWithdraw,
       };
       expect(
-        router.connect(bob).withdrawFromThinWallet(walletId, withdrawalRequest, exampleProposalId_1)
+        router
+          .connect(bob)
+          .withdrawFromThinWallet(
+            walletId,
+            withdrawalRequest,
+            exampleProposalId_1
+          )
       ).to.be.revertedWith("unauthorized");
     });
     it("should transfer platform fee to platform owner", async () => {
@@ -696,7 +707,7 @@ describe("Donations Router", () => {
         token
       );
       const walletId = returnConfig[0] as ThinWalletId;
-      const causeID : string = walletId.causeId.toString();
+      const causeID: string = walletId.causeId.toString();
       await router.connect(alice).addToQueue(causeID, exampleProposalId_1);
 
       const amountToWithdraw = ethers.utils.parseEther("100");
@@ -709,7 +720,11 @@ describe("Donations Router", () => {
       await router.connect(platformOwner).setPlatformFee(platformFee);
       await router
         .connect(platformOwner)
-        .withdrawFromThinWallet(walletId, withdrawalRequest, exampleProposalId_1);
+        .withdrawFromThinWallet(
+          walletId,
+          withdrawalRequest,
+          exampleProposalId_1
+        );
 
       const amountToGet: BigNumber = amountToWithdraw
         .mul(platformFee)
@@ -727,7 +742,7 @@ describe("Donations Router", () => {
       );
       const walletId = returnConfig[0] as ThinWalletId;
       const cause = returnConfig[1] as CauseRecord;
-      const causeID : string = walletId.causeId.toString();
+      const causeID: string = walletId.causeId.toString();
       await router.connect(alice).addToQueue(causeID, exampleProposalId_1);
 
       const amountToWithdraw = ethers.utils.parseEther("100");
@@ -740,7 +755,11 @@ describe("Donations Router", () => {
       await router.connect(platformOwner).setPlatformFee(platformFee);
       await router
         .connect(platformOwner)
-        .withdrawFromThinWallet(walletId, withdrawalRequest, exampleProposalId_1);
+        .withdrawFromThinWallet(
+          walletId,
+          withdrawalRequest,
+          exampleProposalId_1
+        );
 
       const feeAmount: BigNumber = amountToWithdraw
         .mul(platformFee)
@@ -763,7 +782,7 @@ describe("Donations Router", () => {
       );
       const walletId = returnConfig[0] as ThinWalletId;
       const cause = returnConfig[1] as CauseRecord;
-      const causeID : string = walletId.causeId.toString();
+      const causeID: string = walletId.causeId.toString();
       await router.connect(alice).addToQueue(causeID, exampleProposalId_1);
 
       const amountToWithdraw = ethers.utils.parseEther("100");
@@ -775,7 +794,11 @@ describe("Donations Router", () => {
       await router.connect(platformOwner).setPlatformFee(platformFee);
       await router
         .connect(platformOwner)
-        .withdrawFromThinWallet(walletId, withdrawalRequest, exampleProposalId_1);
+        .withdrawFromThinWallet(
+          walletId,
+          withdrawalRequest,
+          exampleProposalId_1
+        );
 
       const rewardAmountToGet = amountToWithdraw
         .mul(cause.rewardPercentage)
@@ -794,7 +817,7 @@ describe("Donations Router", () => {
       );
       expect(initialPlatformOwnerTokenBalance).to.eq(0);
       const walletId = returnConfig[0] as ThinWalletId;
-      const causeID : string = walletId.causeId.toString();
+      const causeID: string = walletId.causeId.toString();
       await router.connect(alice).addToQueue(causeID, exampleProposalId_1);
 
       const amountToWithdraw = ethers.utils.parseEther("100");
@@ -807,7 +830,11 @@ describe("Donations Router", () => {
       await router.connect(platformOwner).setPlatformFee(platformFee);
       await router
         .connect(platformOwner)
-        .withdrawFromThinWallet(walletId, withdrawalRequest, exampleProposalId_1);
+        .withdrawFromThinWallet(
+          walletId,
+          withdrawalRequest,
+          exampleProposalId_1
+        );
       const platformFeeToReceive: BigNumber = amountToWithdraw
         .mul(platformFee)
         .div(ethers.constants.WeiPerEther);
@@ -836,7 +863,7 @@ describe("Donations Router", () => {
 
       const walletId = returnConfig[0] as ThinWalletId;
       const cause = returnConfig[1] as CauseRecord;
-      const causeID : string = walletId.causeId.toString();
+      const causeID: string = walletId.causeId.toString();
       await router.connect(alice).addToQueue(causeID, exampleProposalId_1);
 
       const amountToWithdraw = ethers.utils.parseEther("100");
@@ -848,7 +875,11 @@ describe("Donations Router", () => {
       await router.connect(platformOwner).setPlatformFee(platformFee);
       await router
         .connect(platformOwner)
-        .withdrawFromThinWallet(walletId, withdrawalRequest, exampleProposalId_1);
+        .withdrawFromThinWallet(
+          walletId,
+          withdrawalRequest,
+          exampleProposalId_1
+        );
 
       const expectedRewardFeeToReceive = amountToWithdraw
         .mul(cause.rewardPercentage)
@@ -869,7 +900,7 @@ describe("Donations Router", () => {
         token
       );
       const walletId = returnConfig[0] as ThinWalletId;
-      const causeID : string = walletId.causeId.toString();
+      const causeID: string = walletId.causeId.toString();
       await router.connect(alice).addToQueue(causeID, exampleProposalId_1);
 
       const thinWalletClone = returnConfig[2] as string;
@@ -888,7 +919,11 @@ describe("Donations Router", () => {
       await router.connect(platformOwner).setPlatformFee(platformFee);
       await router
         .connect(platformOwner)
-        .withdrawFromThinWallet(walletId, withdrawalRequest, exampleProposalId_1);
+        .withdrawFromThinWallet(
+          walletId,
+          withdrawalRequest,
+          exampleProposalId_1
+        );
 
       expect(await token.balanceOf(bob.address)).to.be.eq(
         initialBobTokenBalance.add(amountToWithdrawWithoutFees)
@@ -902,7 +937,7 @@ describe("Donations Router", () => {
       expect(initialBobBalance).to.eq(0);
       await router.registerCause(registrationRequest);
       const causeID: BigNumber = await router.causeId();
-      
+
       const walletId: ThinWalletId = {
         causeId: causeID,
         thinWalletId: ethers.utils.hexZeroPad(
@@ -910,7 +945,9 @@ describe("Donations Router", () => {
           32
         ),
       };
-      await router.connect(alice).addToQueue(walletId.causeId.toString(), exampleProposalId_1);
+      await router
+        .connect(alice)
+        .addToQueue(walletId.causeId.toString(), exampleProposalId_1);
 
       const calculatedWalletAddress = await router.calculateThinWallet(
         walletId
@@ -936,7 +973,11 @@ describe("Donations Router", () => {
         .transfer(calculatedWalletAddress, rewardTokenToSend);
       await router
         .connect(platformOwner)
-        .withdrawFromThinWallet(walletId, withdrawalRequest, exampleProposalId_1);
+        .withdrawFromThinWallet(
+          walletId,
+          withdrawalRequest,
+          exampleProposalId_1
+        );
 
       expect(await token.balanceOf(bob.address)).to.eq(
         initialBobBalance.add(amountToWithdraw)
@@ -953,7 +994,9 @@ describe("Donations Router", () => {
         ),
       };
 
-      await router.connect(alice).addToQueue(walletId.causeId.toString(), exampleProposalId_1);
+      await router
+        .connect(alice)
+        .addToQueue(walletId.causeId.toString(), exampleProposalId_1);
 
       const calculatedWalletAddress = await router.calculateThinWallet(
         walletId
@@ -981,7 +1024,11 @@ describe("Donations Router", () => {
       await router.connect(platformOwner).setPlatformFee(platformFee);
       const tx = await router
         .connect(platformOwner)
-        .withdrawFromThinWallet(walletId, withdrawalRequest, exampleProposalId_1);
+        .withdrawFromThinWallet(
+          walletId,
+          withdrawalRequest,
+          exampleProposalId_1
+        );
       await expect(tx)
         .to.emit(router, "RegisterWallet")
         .withArgs(calculatedWalletAddress, [
@@ -997,7 +1044,9 @@ describe("Donations Router", () => {
         token
       );
       const walletId = returnConfig[0] as ThinWalletId;
-      await router.connect(alice).addToQueue(walletId.causeId.toString(), exampleProposalId_1);
+      await router
+        .connect(alice)
+        .addToQueue(walletId.causeId.toString(), exampleProposalId_1);
 
       const amountToWithdraw = ethers.utils.parseEther("100");
       const withdrawalRequest: WithdrawalRequest = {
@@ -1008,15 +1057,21 @@ describe("Donations Router", () => {
       await router.connect(platformOwner).setPlatformFee(platformFee);
       const tx = await router
         .connect(platformOwner)
-        .withdrawFromThinWallet(walletId, withdrawalRequest, exampleProposalId_1);
+        .withdrawFromThinWallet(
+          walletId,
+          withdrawalRequest,
+          exampleProposalId_1
+        );
 
       await expect(tx).to.not.emit(router, "RegisterWallet");
     });
   });
 
   describe("Facilitate queue", () => {
-    const exampleProposalId_1 = "0xf345990c2f726e43bd821ebe52a3f3dca1e35145c131d559fdfcdec52dd0bfc2";
-    const exampleProposalId_2 = "0xa32424082313a0624b80b1d199de5d047afc4170b0066be45d5796b7546e925b";
+    const exampleProposalId_1 =
+      "0xf345990c2f726e43bd821ebe52a3f3dca1e35145c131d559fdfcdec52dd0bfc2";
+    const exampleProposalId_2 =
+      "0xa32424082313a0624b80b1d199de5d047afc4170b0066be45d5796b7546e925b";
     beforeEach(async () => {
       await deploy("DonationsRouter", {
         from: deployer.address,
@@ -1038,7 +1093,7 @@ describe("Donations Router", () => {
       const causeId = walletId.causeId.toString();
 
       await router.connect(alice).addToQueue(causeId, exampleProposalId_1);
-      
+
       const amountToWithdraw = ethers.utils.parseEther("100");
       const withdrawalRequest: WithdrawalRequest = {
         token: token.address,
@@ -1048,13 +1103,16 @@ describe("Donations Router", () => {
 
       expect(
         router
-        .connect(alice)
-        .withdrawFromThinWallet(walletId, withdrawalRequest, exampleProposalId_1)
+          .connect(alice)
+          .withdrawFromThinWallet(
+            walletId,
+            withdrawalRequest,
+            exampleProposalId_1
+          )
       ).to.not.be.reverted;
-      
     });
 
-    it("should not be able to withdraw funds when queue does not exist", async() => {   
+    it("should not be able to withdraw funds when queue does not exist", async () => {
       const returnConfig = await setUpRegistration(
         router,
         registrationRequest,
@@ -1070,12 +1128,17 @@ describe("Donations Router", () => {
         recipient: alice.address,
         amount: amountToWithdraw,
       };
-      expect(router
-        .connect(alice)
-        .withdrawFromThinWallet(walletId, withdrawalRequest, exampleProposalId_1))
-        .to.be.revertedWith("not head of queue");
-    })
-    it("should not be able to withdraw funds when queue is not head of queue", async() => {
+      expect(
+        router
+          .connect(alice)
+          .withdrawFromThinWallet(
+            walletId,
+            withdrawalRequest,
+            exampleProposalId_1
+          )
+      ).to.be.revertedWith("not head of queue");
+    });
+    it("should not be able to withdraw funds when queue is not head of queue", async () => {
       const returnConfig = await setUpRegistration(
         router,
         registrationRequest,
@@ -1087,7 +1150,7 @@ describe("Donations Router", () => {
 
       await router.connect(alice).addToQueue(causeId, exampleProposalId_1);
       await router.connect(alice).addToQueue(causeId, exampleProposalId_2);
-      
+
       const amountToWithdraw = ethers.utils.parseEther("100");
       const withdrawalRequest: WithdrawalRequest = {
         token: token.address,
@@ -1095,10 +1158,15 @@ describe("Donations Router", () => {
         amount: amountToWithdraw,
       };
 
-      expect(router
-        .connect(alice)
-        .withdrawFromThinWallet(walletId, withdrawalRequest, exampleProposalId_2))
-        .to.be.revertedWith("not head of queue");
+      expect(
+        router
+          .connect(alice)
+          .withdrawFromThinWallet(
+            walletId,
+            withdrawalRequest,
+            exampleProposalId_2
+          )
+      ).to.be.revertedWith("not head of queue");
     });
     it("should validate proposal id when adding to queue", async () => {
       const returnConfig = await setUpRegistration(
@@ -1111,8 +1179,9 @@ describe("Donations Router", () => {
       const causeId = walletId.causeId.toString();
 
       const invalidProposalId: string = ethers.constants.HashZero;
-      expect(router.connect(alice).addToQueue(causeId, invalidProposalId))
-      .to.be.revertedWith("invalid proposal id");
+      expect(
+        router.connect(alice).addToQueue(causeId, invalidProposalId)
+      ).to.be.revertedWith("invalid proposal id");
     });
     it("should validate proposal id when withdrawing funds", async () => {
       const returnConfig = await setUpRegistration(
@@ -1133,10 +1202,15 @@ describe("Donations Router", () => {
         recipient: alice.address,
         amount: amountToWithdraw,
       };
-      expect(router
-        .connect(alice)
-        .withdrawFromThinWallet(walletId, withdrawalRequest, invalidProposalId))
-        .to.be.revertedWith("invalid proposal id");
+      expect(
+        router
+          .connect(alice)
+          .withdrawFromThinWallet(
+            walletId,
+            withdrawalRequest,
+            invalidProposalId
+          )
+      ).to.be.revertedWith("invalid proposal id");
     });
     it("should fail when user enqueuing is not owner", async () => {
       const returnConfig = await setUpRegistration(
@@ -1148,10 +1222,10 @@ describe("Donations Router", () => {
       const walletId = returnConfig[0] as ThinWalletId;
       const causeId = walletId.causeId.toString();
 
-      const nonOwner : SignerWithAddress = bob;
-      expect(router.connect(nonOwner)
-        .addToQueue(causeId, exampleProposalId_1))
-        .to.be.revertedWith("unauthorized");
+      const nonOwner: SignerWithAddress = bob;
+      expect(
+        router.connect(nonOwner).addToQueue(causeId, exampleProposalId_1)
+      ).to.be.revertedWith("unauthorized");
     });
 
     it("should fail when caller is not cause owner when removing from queue", async () => {
@@ -1164,9 +1238,8 @@ describe("Donations Router", () => {
       const walletId = returnConfig[0] as ThinWalletId;
       const causeId = walletId.causeId.toString();
 
-      const nonOwner : SignerWithAddress = bob;
-      await router.connect(alice)
-        .addToQueue(causeId, exampleProposalId_1);
+      const nonOwner: SignerWithAddress = bob;
+      await router.connect(alice).addToQueue(causeId, exampleProposalId_1);
 
       const amountToWithdraw = ethers.utils.parseEther("100");
       const withdrawalRequest: WithdrawalRequest = {
@@ -1175,10 +1248,15 @@ describe("Donations Router", () => {
         amount: amountToWithdraw,
       };
 
-      expect(router
-        .connect(nonOwner)
-        .withdrawFromThinWallet(walletId, withdrawalRequest, exampleProposalId_1))
-        .to.be.revertedWith("unauthorized");
+      expect(
+        router
+          .connect(nonOwner)
+          .withdrawFromThinWallet(
+            walletId,
+            withdrawalRequest,
+            exampleProposalId_1
+          )
+      ).to.be.revertedWith("unauthorized");
     });
 
     it("should remove an item from an arbitrary location in the queue", async () => {
@@ -1190,20 +1268,24 @@ describe("Donations Router", () => {
       );
       const walletId = returnConfig[0] as ThinWalletId;
       const causeId = walletId.causeId.toString();
-      
-      for (let i = 0 ; i < 5; i++){
-        await router.connect(alice)
-          .addToQueue(causeId, exampleProposalId_1);
+
+      for (let i = 0; i < 5; i++) {
+        await router.connect(alice).addToQueue(causeId, exampleProposalId_1);
       }
 
       const headOfQueue = await router.getFirstInQueue(causeId);
       const tailOfQueue = await router.getLastInQueue(causeId);
-      const middleOfQueueToRemove = (headOfQueue.add(tailOfQueue)).div(2);
- 
-      await router.connect(alice).removeFromQueue(causeId, exampleProposalId_1, middleOfQueueToRemove);
+      const middleOfQueueToRemove = headOfQueue.add(tailOfQueue).div(2);
 
-      const queueAtIndex = await router.getQueueAtIndex(causeId, middleOfQueueToRemove);
-      const {next , previous, id, isUnclaimed} : QueueItem = queueAtIndex; 
+      await router
+        .connect(alice)
+        .removeFromQueue(causeId, exampleProposalId_1, middleOfQueueToRemove);
+
+      const queueAtIndex = await router.getQueueAtIndex(
+        causeId,
+        middleOfQueueToRemove
+      );
+      const { next, previous, id, isUnclaimed }: QueueItem = queueAtIndex;
       expect(next).to.eq(BigNumber.from("0"));
       expect(previous).to.eq(BigNumber.from("0"));
       expect(id).to.eq(ethers.constants.HashZero);
@@ -1226,17 +1308,16 @@ describe("Donations Router", () => {
       expect(currentHead).to.eq(0);
       expect(currentTail).to.eq(0);
 
-      await router.connect(alice)
-        .addToQueue(causeId, exampleProposalId_1);
-      
+      await router.connect(alice).addToQueue(causeId, exampleProposalId_1);
+
       currentHead = await router.getFirstInQueue(causeId);
       currentTail = await router.getLastInQueue(causeId);
 
       expect(currentHead).to.eq(1);
       expect(currentTail).to.eq(1);
     });
-    
-    it("should only add items to the calling cause's queue in multiple queues", async() => {
+
+    it("should only add items to the calling cause's queue in multiple queues", async () => {
       const registrationRequest = {
         owner: alice.address,
         rewardPercentage: rewardPercentage,
@@ -1248,17 +1329,21 @@ describe("Donations Router", () => {
         daoToken: daoToken.address,
       };
       await router.registerCause(registrationRequest);
-      const firstCauseID : BigNumber = await router.causeId();
-      for (let i = 0 ; i < 100; i++){
-        await router.connect(alice).addToQueue(firstCauseID, exampleProposalId_1);
+      const firstCauseID: BigNumber = await router.causeId();
+      for (let i = 0; i < 100; i++) {
+        await router
+          .connect(alice)
+          .addToQueue(firstCauseID, exampleProposalId_1);
       }
       const firstCauseQueueTail = await router.getLastInQueue(firstCauseID);
       expect(firstCauseQueueTail).to.eq(100);
 
       await router.registerCause(registrationRequest2);
-      const secondCauseID : BigNumber = await router.causeId();
-      for (let i = 0 ; i < 50; i++){
-        await router.connect(bob).addToQueue(secondCauseID, exampleProposalId_2);
+      const secondCauseID: BigNumber = await router.causeId();
+      for (let i = 0; i < 50; i++) {
+        await router
+          .connect(bob)
+          .addToQueue(secondCauseID, exampleProposalId_2);
       }
       const secondCauseQueueTail = await router.getLastInQueue(secondCauseID);
       expect(secondCauseQueueTail).to.eq(50);
@@ -1270,13 +1355,14 @@ describe("Donations Router", () => {
         daoToken: daoToken.address,
       };
       await router.registerCause(registrationRequest);
-      const causeID : BigNumber = await router.causeId();
+      const causeID: BigNumber = await router.causeId();
       await router.connect(alice).addToQueue(causeID, exampleProposalId_1);
       const indexToRemove = await router.getFirstInQueue(causeID);
 
       expect(
-        router.connect(bob)
-        .removeFromQueue(causeID, exampleProposalId_1, indexToRemove)
+        router
+          .connect(bob)
+          .removeFromQueue(causeID, exampleProposalId_1, indexToRemove)
       ).to.be.revertedWith("unauthorized");
     });
     it("should fail if queue to remove has id that does not match", async () => {
@@ -1286,13 +1372,14 @@ describe("Donations Router", () => {
         daoToken: daoToken.address,
       };
       await router.registerCause(registrationRequest);
-      const causeID : BigNumber = await router.causeId();
+      const causeID: BigNumber = await router.causeId();
       await router.connect(alice).addToQueue(causeID, exampleProposalId_2);
       const indexToRemove = await router.getFirstInQueue(causeID);
 
       expect(
-        router.connect(alice)
-        .removeFromQueue(causeID, exampleProposalId_1, indexToRemove)
+        router
+          .connect(alice)
+          .removeFromQueue(causeID, exampleProposalId_1, indexToRemove)
       ).to.be.revertedWith("id does not match index item");
     });
   });

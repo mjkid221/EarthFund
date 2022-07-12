@@ -26,6 +26,8 @@ contract DonationsRouter is IDonationsRouter, Ownable, Queue {
 
   /// Thin wallet salt => thin wallet address
   mapping(bytes32 => address) public override deployedWallets;
+  // keccak(owner, token) => is registered
+  mapping(bytes32 => bool) public isRegistered;
 
   constructor(
     address _baseToken,
@@ -56,6 +58,13 @@ contract DonationsRouter is IDonationsRouter, Ownable, Queue {
   {
     require(_cause.owner != address(0), "invalid owner");
     require(_cause.daoToken != address(0), "invalid token");
+
+    bytes32 causeRegistrationHash = keccak256(
+      abi.encode(_cause.owner, _cause.daoToken)
+    );
+    require(!isRegistered[causeRegistrationHash], "cause exists");
+    isRegistered[causeRegistrationHash] = true;
+
     uint256 id = ++causeId; // Increments then returns, thus causeId starts at 1
 
     CauseRecord memory cause = CauseRecord({
@@ -138,7 +147,6 @@ contract DonationsRouter is IDonationsRouter, Ownable, Queue {
     CauseRecord memory cause = causeRecords[_walletId.causeId];
 
     require(msg.sender == cause.owner, "unauthorized");
-
     require(_proposalId != "", "invalid proposal id");
     uint128 queueToWithdraw = getFront(causeId);
     QueueItem memory item = getQueueItem(causeId, queueToWithdraw);
