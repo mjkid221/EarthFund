@@ -69,7 +69,7 @@ contract DonationsRouter is IDonationsRouter, Ownable, Queue {
 
         causeRecords[id] = cause;
 
-        emit RegisterCause(cause);
+        emit RegisterCause(_cause.owner, _cause.daoToken, id);
 
         address[] memory owners = new address[](1);
         owners[0] = _cause.owner;
