@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract ThinWallet is IThinWallet, Initializable, AccessControl {
   using SafeERC20 for IERC20;
+
   // Access Control Role Definitions
   bytes32 public constant TRANSFER_ROLE = keccak256("TRANSFER");
   bytes32 public constant TRANSFER_ADMIN_ROLE = keccak256("TRANSFER_ADMIN");
