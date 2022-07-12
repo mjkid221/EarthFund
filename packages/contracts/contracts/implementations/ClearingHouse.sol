@@ -9,8 +9,10 @@ import "./ERC20Singleton.sol";
 import "./Governor.sol";
 import "./StakingRewards.sol";
 import "../interfaces/IClearingHouse.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract ClearingHouse is IClearingHouse, Ownable, Pausable {
+  using SafeERC20 for ERC20;
   /*///////////////////////////////////////////////////////////////
                             STATE
   //////////////////////////////////////////////////////////////*/
@@ -82,11 +84,11 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
 
   modifier checkInvariants(ERC20Singleton _childDaoToken, uint256 _amount) {
     require(
-        _childDaoToken.totalSupply() + _amount <= maxSupply,
-        "exceeds max supply"
+      _childDaoToken.totalSupply() + _amount <= maxSupply,
+      "exceeds max supply"
     );
     if (msg.sender != owner()) {
-        require(_amount <= maxSwap, "exceeds max swap per tx");
+      require(_amount <= maxSwap, "exceeds max swap per tx");
     }
     _;
   }
@@ -183,7 +185,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     // transfer 1Earth from msg sender to this contract
     uint256 earthBalanceBefore = earthToken.balanceOf(address(this));
 
-    earthToken.transferFrom(msg.sender, address(this), _amount);
+    earthToken.safeTransferFrom(msg.sender, address(this), _amount);
 
     require(
       earthBalanceBefore + _amount == earthToken.balanceOf(address(this)),
@@ -209,7 +211,12 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
       "child dao token mint error"
     );
 
-    emit TokensSwapped(address(earthToken), address(childDaoToken), _amount, autoStake);
+    emit TokensSwapped(
+      address(earthToken),
+      address(childDaoToken),
+      _amount,
+      autoStake
+    );
   }
 
   function swapChildDaoForEarth(ERC20Singleton _childDaoToken, uint256 _amount)
@@ -228,7 +235,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     // transfer 1Earth from this contract to the msg sender
     uint256 earthBalanceBefore = earthToken.balanceOf(address(this));
 
-    earthToken.transfer(msg.sender, _amount);
+    earthToken.safeTransfer(msg.sender, _amount);
 
     require(
       earthBalanceBefore - _amount == earthToken.balanceOf(address(this)),
@@ -245,7 +252,12 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
       "child dao token burn error"
     );
 
-    emit TokensSwapped(address(childDaoToken), address(earthToken), _amount, autoStake);
+    emit TokensSwapped(
+      address(childDaoToken),
+      address(earthToken),
+      _amount,
+      autoStake
+    );
   }
 
   function swapChildDaoForChildDao(
