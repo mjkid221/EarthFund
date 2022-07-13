@@ -219,7 +219,7 @@ contract DonationsRouter is IDonationsRouter, Ownable, Queue {
     CauseRecord memory cause = causeRecords[_causeId];
     require(msg.sender == cause.owner, "unauthorized");
     bytes32 queueId = keccak256(abi.encode(_causeId, _proposalId));
-    enqueue(causeId, queueId);
+    enqueue(_causeId, queueId);
   }
 
   function removeFromQueue(
@@ -231,7 +231,7 @@ contract DonationsRouter is IDonationsRouter, Ownable, Queue {
     require(msg.sender == cause.owner, "unauthorized");
 
     bytes32 queueId = keccak256(abi.encode(_causeId, _proposalId));
-    QueueItem memory item = getQueueItem(causeId, _index);
+    QueueItem memory item = getQueueItem(_causeId, _index);
     require(item.id == queueId, "id does not match index item");
 
     dequeue(_causeId, _index);
