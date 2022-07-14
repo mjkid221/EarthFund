@@ -3,7 +3,8 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
-import { ethers } from "hardhat";
+import { deployments, ethers } from "hardhat";
+import { BigNumber } from "ethers";
 import { isAddress, keccak256, toUtf8Bytes } from "ethers/lib/utils";
 import { solidity } from "ethereum-waffle";
 
@@ -20,6 +21,8 @@ import {
   PublicResolver,
   Governor__factory,
   IClearingHouse,
+  IDonationsRouter,
+  ERC20
 } from "../typechain-types";
 
 chai.use(solidity);
@@ -28,7 +31,7 @@ const { expect } = chai;
 
 describe("Governor", () => {
   let deployer: SignerWithAddress, alice: SignerWithAddress;
-  let token: ERC20Singleton, governor: IGovernor;
+  let token: ERC20Singleton, governor: IGovernor, donationsRouter: IDonationsRouter;
   let ensRegistrar: IENSRegistrar, ensController: IENSController;
   let tokenId: string;
 
@@ -313,6 +316,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
           clearingHouse: ethers.constants.AddressZero,
+          donationsRouter: ethers.constants.AddressZero
         })
       ).to.be.revertedWith("invalid resolver address");
       await expect(
@@ -325,6 +329,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
           clearingHouse: ethers.constants.AddressZero,
+          donationsRouter: ethers.constants.AddressZero
         })
       ).to.be.revertedWith("invalid registry address");
       await expect(
@@ -337,6 +342,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
           clearingHouse: ethers.constants.AddressZero,
+          donationsRouter: ethers.constants.AddressZero
         })
       ).to.be.revertedWith("invalid registrar address");
       await expect(
@@ -349,6 +355,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
           clearingHouse: ethers.constants.AddressZero,
+          donationsRouter: ethers.constants.AddressZero
         })
       ).to.be.revertedWith("invalid factory address");
       await expect(
@@ -361,6 +368,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
           clearingHouse: ethers.constants.AddressZero,
+          donationsRouter: ethers.constants.AddressZero
         })
       ).to.be.revertedWith("invalid safe singleton address");
       await expect(
@@ -375,6 +383,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
           clearingHouse: ethers.constants.AddressZero,
+          donationsRouter: ethers.constants.AddressZero
         })
       ).to.be.revertedWith("invalid token singleton address");
       await expect(
@@ -389,6 +398,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
           parentDao: ethers.constants.AddressZero,
           clearingHouse: ethers.constants.AddressZero,
+          donationsRouter: ethers.constants.AddressZero
         })
       ).to.be.revertedWith("invalid owner");
       await expect(
@@ -403,10 +413,77 @@ describe("Governor", () => {
           erc20Singleton: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
           parentDao: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
           clearingHouse: ethers.constants.AddressZero,
+          donationsRouter: ethers.constants.AddressZero
         })
       ).to.be.revertedWith("invalid clearing house address");
+      await expect(
+        factory.deploy({
+          ensResolver: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          ensRegistry: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          ensRegistrar: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          gnosisFactory: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          gnosisSafeSingleton: ethers.utils.hexlify(
+            ethers.utils.randomBytes(20)
+          ),
+          erc20Singleton: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          parentDao: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          clearingHouse: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
+          donationsRouter: ethers.constants.AddressZero
+        })
+      ).to.be.revertedWith("invalid donations router address");
     });
   });
+  describe.only("Create Cause", () => {
+    let token : ERC20;
+    beforeEach(async () => {
+      await deployments.fixture([
+        "_EarthToken",
+        "_ERC20Singleton",
+        "_StakingRewards", 
+        "_ThinWallet", 
+        "_ClearingHouse", 
+        "_DonationsRouter",
+        "_Governor"
+      ]);
+      governor = await ethers.getContract("Governor");
+      donationsRouter = await ethers.getContract("DonationsRouter");
+      token = await ethers.getContract("EarthToken")
+    })
+    it("should create a cause successfully", async() => {      
+      expect(await donationsRouter.causeId()).to.eq(0);
+      const owner =  alice.address;
+      const rewardPercentage: BigNumber = BigNumber.from((10 ** 16).toString());
+      
+      await governor.createCause(
+        owner,
+        rewardPercentage,
+        token.address,
+      );
+      const causeId = await donationsRouter.causeId(); 
+      expect(causeId).to.eq(1);
+          
+      const cause = await donationsRouter.causeRecords(causeId);
+      expect(cause.owner).to.eq(owner);
+      expect(cause.rewardPercentage).to.eq(rewardPercentage);
+      expect(cause.daoToken).to.eq(token.address);
+      expect(await ethers.provider.getCode(cause.defaultWallet)).to.not.eq("0x")
+    });
+    it("should validate parameters", async() => {
+      const owner =  alice.address;
+      const rewardPercentage: BigNumber = BigNumber.from((10 ** 16).toString());
+
+      expect(governor.createCause(
+        ethers.constants.AddressZero,
+        rewardPercentage,
+        token.address,
+      )).to.be.revertedWith("invalid owner");
+      expect(governor.createCause(
+        owner,
+        rewardPercentage,
+        ethers.constants.AddressZero
+      )).to.be.revertedWith("invalid token");
+    })
+  })
 });
 
 // it("should ", async () => {throw new Error("implement");});
