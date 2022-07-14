@@ -10,6 +10,7 @@ import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
 import "./ERC20Singleton.sol";
 import "../interfaces/IClearingHouse.sol";
+import "../interfaces/IDonationsRouter.sol";
 import "../interfaces/IGovernor.sol";
 import "../vendors/IENSRegistrar.sol";
 
@@ -22,6 +23,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     address public override erc20Singleton;
     uint256 public override ensDomainNFTId;
     IClearingHouse public clearingHouse;
+    IDonationsRouter public donationsRouter;
 
     constructor(ConstructorParams memory _params) {
         require(
@@ -53,6 +55,10 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
             address(_params.clearingHouse) != address(0),
             "invalid clearing house address"
         );
+        require(
+            address(_params.donationsRouter) != address(0),
+            "invalid donations router address"
+        );
 
         ensResolver = _params.ensResolver;
         ensRegistry = _params.ensRegistry;
@@ -61,6 +67,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
         gnosisSafeSingleton = _params.gnosisSafeSingleton;
         erc20Singleton = _params.erc20Singleton;
         clearingHouse = _params.clearingHouse;
+        donationsRouter = _params.donationsRouter;
 
         transferOwnership(_params.parentDao);
     }
@@ -125,6 +132,18 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
         );
 
         emit ChildDaoCreated(safe, token, node);
+    }
+
+    function createCause(address _owner, uint256 _rewardPercentage, address _daoToken) 
+        external onlyOwner
+    {
+        require(_owner != address(0), "invalid owner");
+        require(_daoToken != address(0), "invalid token");
+        donationsRouter.registerCause(IDonationsRouter.CauseRegistrationRequest({
+            owner: _owner,
+            rewardPercentage: _rewardPercentage,
+            daoToken: _daoToken
+        }));
     }
 
     function _createGnosisSafe(bytes memory _initializer, uint256 _salt)

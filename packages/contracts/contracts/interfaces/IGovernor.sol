@@ -6,6 +6,7 @@ import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxyFactory.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "../vendors/IENSRegistrar.sol";
 import "./IClearingHouse.sol";
+import "./IDonationsRouter.sol";
 
 interface IGovernor {
     /// Structs
@@ -18,6 +19,7 @@ interface IGovernor {
         address erc20Singleton;
         address parentDao;
         IClearingHouse clearingHouse;
+        IDonationsRouter donationsRouter;
     }
 
     struct Token {
@@ -52,6 +54,16 @@ interface IGovernor {
         Token calldata _tokenData,
         Safe calldata _safeData,
         Subdomain calldata _subdomain
+    ) external;
+
+    /// @notice Creates a new cause for use with thin wallets that it controls
+    /// @param _owner owner of cause
+    /// @param _rewardPercentage of cause. /// A PRBMath 60.18 fixed point number. 1e16 == 1% and 1e18 == 100%
+    /// @param _daoToken of cause. 
+    function createCause(
+        address _owner,
+        uint256 _rewardPercentage,
+        address _daoToken
     ) external;
 
     /// @notice Transfers an ENS NFT into the contract for use with subdomains
