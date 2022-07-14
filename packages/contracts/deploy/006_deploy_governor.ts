@@ -31,6 +31,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
         erc20Singleton: (await ethers.getContract("ERC20Singleton")).address,
         parentDao: parentDao,
         clearingHouse: (await ethers.getContract("ClearingHouse")).address,
+        donationsRouter: (await ethers.getContract("DonationsRouter")).address
       },
     ],
     log: true,
