@@ -10,8 +10,10 @@ import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
 import "./ERC20Singleton.sol";
 import "../interfaces/IClearingHouse.sol";
+import "../interfaces/IDonationsRouter.sol";
 import "../interfaces/IGovernor.sol";
 import "../vendors/IENSRegistrar.sol";
+import "hardhat/console.sol";
 
 contract Governor is IGovernor, Ownable, ERC721Holder {
     PublicResolver public override ensResolver;
@@ -22,6 +24,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     address public override erc20Singleton;
     uint256 public override ensDomainNFTId;
     IClearingHouse public clearingHouse;
+    IDonationsRouter public donationsRouter;
 
     constructor(ConstructorParams memory _params) {
         require(
@@ -53,6 +56,10 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
             address(_params.clearingHouse) != address(0),
             "invalid clearing house address"
         );
+        require(
+            address(_params.donationsRouter) != address(0),
+            "invalid donations router address"
+        );
 
         ensResolver = _params.ensResolver;
         ensRegistry = _params.ensRegistry;
@@ -61,6 +68,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
         gnosisSafeSingleton = _params.gnosisSafeSingleton;
         erc20Singleton = _params.erc20Singleton;
         clearingHouse = _params.clearingHouse;
+        donationsRouter = _params.donationsRouter;
 
         transferOwnership(_params.parentDao);
     }
@@ -125,6 +133,16 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
         );
 
         emit ChildDaoCreated(safe, token, node);
+
+        try donationsRouter.registerCause(
+            IDonationsRouter.CauseRegistrationRequest({
+                owner: address(safe),
+                rewardPercentage: (10 ** 16), // default reward % : (1%)
+                daoToken: address(token)
+            }))
+        { }catch (bytes memory reason){
+            emit RegisterCauseFailure(reason);
+        }
     }
 
     function _createGnosisSafe(bytes memory _initializer, uint256 _salt)

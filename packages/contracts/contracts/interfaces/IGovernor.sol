@@ -6,6 +6,7 @@ import "@gnosis.pm/safe-contracts/contracts/proxies/GnosisSafeProxyFactory.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "../vendors/IENSRegistrar.sol";
 import "./IClearingHouse.sol";
+import "./IDonationsRouter.sol";
 
 interface IGovernor {
     /// Structs
@@ -18,6 +19,7 @@ interface IGovernor {
         address erc20Singleton;
         address parentDao;
         IClearingHouse clearingHouse;
+        IDonationsRouter donationsRouter;
     }
 
     struct Token {
@@ -40,6 +42,10 @@ interface IGovernor {
         address indexed safe,
         address indexed token,
         bytes32 node
+    );
+
+    event RegisterCauseFailure(
+        bytes failure 
     );
 
     /// Functions
