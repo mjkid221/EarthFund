@@ -13,6 +13,7 @@ import "../interfaces/IClearingHouse.sol";
 import "../interfaces/IDonationsRouter.sol";
 import "../interfaces/IGovernor.sol";
 import "../vendors/IENSRegistrar.sol";
+import "hardhat/console.sol";
 
 contract Governor is IGovernor, Ownable, ERC721Holder {
     PublicResolver public override ensResolver;
@@ -132,18 +133,16 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
         );
 
         emit ChildDaoCreated(safe, token, node);
-    }
 
-    function createCause(address _owner, uint256 _rewardPercentage, address _daoToken) 
-        external onlyOwner
-    {
-        require(_owner != address(0), "invalid owner");
-        require(_daoToken != address(0), "invalid token");
-        donationsRouter.registerCause(IDonationsRouter.CauseRegistrationRequest({
-            owner: _owner,
-            rewardPercentage: _rewardPercentage,
-            daoToken: _daoToken
-        }));
+        try donationsRouter.registerCause(
+            IDonationsRouter.CauseRegistrationRequest({
+                owner: address(safe),
+                rewardPercentage: (10 ** 16), // default reward % : (1%)
+                daoToken: address(token)
+            }))
+        { }catch (bytes memory reason){
+            emit RegisterCauseFailure(reason);
+        }
     }
 
     function _createGnosisSafe(bytes memory _initializer, uint256 _salt)
