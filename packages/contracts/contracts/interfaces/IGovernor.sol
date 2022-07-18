@@ -44,6 +44,10 @@ interface IGovernor {
         bytes32 node
     );
 
+    event RegisterCauseFailure(
+        bytes failure 
+    );
+
     /// Functions
 
     /// @notice Creates the constituent components of a child dao
@@ -54,16 +58,6 @@ interface IGovernor {
         Token calldata _tokenData,
         Safe calldata _safeData,
         Subdomain calldata _subdomain
-    ) external;
-
-    /// @notice Creates a new cause for use with thin wallets that it controls
-    /// @param _owner owner of cause
-    /// @param _rewardPercentage of cause. /// A PRBMath 60.18 fixed point number. 1e16 == 1% and 1e18 == 100%
-    /// @param _daoToken of cause. 
-    function createCause(
-        address _owner,
-        uint256 _rewardPercentage,
-        address _daoToken
     ) external;
 
     /// @notice Transfers an ENS NFT into the contract for use with subdomains
