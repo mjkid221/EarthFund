@@ -433,7 +433,7 @@ describe("Governor", () => {
       ).to.be.revertedWith("invalid donations router address");
     });
   });
-  describe.only("Create Cause", () => {
+  describe("Create Cause", () => {
     let token : ERC20;
     beforeEach(async () => {
       await deployments.fixture([
