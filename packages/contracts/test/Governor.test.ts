@@ -436,53 +436,36 @@ describe("Governor", () => {
   describe("Create Cause", () => {
     let token : ERC20;
     beforeEach(async () => {
-      await deployments.fixture([
-        "_EarthToken",
-        "_ERC20Singleton",
-        "_StakingRewards", 
-        "_ThinWallet", 
-        "_ClearingHouse", 
-        "_DonationsRouter",
-        "_Governor"
-      ]);
-      governor = await ethers.getContract("Governor");
+      [token, governor, ensController, ensRegistrar, tokenId] =
+        await setupNetwork(domain, deployer);
       donationsRouter = await ethers.getContract("DonationsRouter");
       token = await ethers.getContract("EarthToken")
     })
-    it("should create a cause successfully", async() => {      
-      expect(await donationsRouter.causeId()).to.eq(0);
-      const owner =  alice.address;
-      const rewardPercentage: BigNumber = BigNumber.from((10 ** 16).toString());
+    it("should create a cause successfully", async() => {
+      await ensRegistrar.approve(governor.address, tokenId);
+      await governor.addENSDomain(ethers.BigNumber.from(tokenId));
+
+      const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig([
+        alice.address,
+      ]);
+      const safeTx = await (
+        await governor.createChildDAO(_tokenData, _safeData, _subdomain)
+      ).wait();
       
-      await governor.createCause(
-        owner,
-        rewardPercentage,
-        token.address,
-      );
+      const event : any = (safeTx.events?.filter((x) => {return x.event == "ChildDaoCreated"}))?.[0].args;
+      const {safe , token, node} = event;
+
       const causeId = await donationsRouter.causeId(); 
       expect(causeId).to.eq(1);
           
       const cause = await donationsRouter.causeRecords(causeId);
-      expect(cause.owner).to.eq(owner);
+      const rewardPercentage: BigNumber = BigNumber.from((10 ** 16).toString());
+      
+      expect(cause.owner).to.eq(safe);
       expect(cause.rewardPercentage).to.eq(rewardPercentage);
-      expect(cause.daoToken).to.eq(token.address);
+      expect(cause.daoToken).to.eq(token);
       expect(await ethers.provider.getCode(cause.defaultWallet)).to.not.eq("0x")
     });
-    it("should validate parameters", async() => {
-      const owner =  alice.address;
-      const rewardPercentage: BigNumber = BigNumber.from((10 ** 16).toString());
-
-      expect(governor.createCause(
-        ethers.constants.AddressZero,
-        rewardPercentage,
-        token.address,
-      )).to.be.revertedWith("invalid owner");
-      expect(governor.createCause(
-        owner,
-        rewardPercentage,
-        ethers.constants.AddressZero
-      )).to.be.revertedWith("invalid token");
-    })
   })
 });
 
