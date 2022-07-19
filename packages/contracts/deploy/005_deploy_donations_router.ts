@@ -21,12 +21,18 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     params._owner = deployer;
     params._walletImplementation = (await ethers.getContract("ThinWallet")).address;
   } else {
-    params._stakingContract = (
+    params._stakingContract = process.env.STAKING_REWARDS_CONTRACT || (
       await ethers.getContract("StakingRewards")
-    ).address;
+    ).address || "";
     params._walletImplementation = (
       await ethers.getContract("ThinWallet")
-    ).address;
+    ).address || "";
+  }
+
+  if(!params._stakingContract || 
+    !params._walletImplementation) {
+    console.log("invalid params");
+    return;
   }
 
   await deploy("DonationsRouter", {
