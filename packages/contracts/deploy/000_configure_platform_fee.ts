@@ -10,7 +10,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployer, alice } = await getNamedAccounts();
 
   // ------------------Replace fee percentage -------------------------
-  const feePercentage = 1.25; // default: 1%
+  const feePercentage = 1; // default: 1%
   // --------------------------------------------------------------------------------
 
   console.log("Set platform fee");
