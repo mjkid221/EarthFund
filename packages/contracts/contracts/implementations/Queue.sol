@@ -46,6 +46,7 @@ abstract contract Queue {
             QueueItem memory item = getQueueItem(_causeId, currentTail);
             uint128 prev = item.previous;
             bytes32 id = item.id;
+            
             queueItems[keccak256(abi.encode(_causeId, currentTail))] = QueueItem({
                 next: newTail,
                 previous: prev,
