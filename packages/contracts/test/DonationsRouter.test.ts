@@ -49,7 +49,7 @@ interface QueueItem {
   isUnclaimed: boolean;
 }
 
-describe.only("Donations Router", () => {
+describe("Donations Router", () => {
   let deployer: SignerWithAddress,
     alice: SignerWithAddress,
     bob: SignerWithAddress,
@@ -1067,7 +1067,7 @@ describe.only("Donations Router", () => {
     });
   });
 
-  describe.only("Facilitate queue", () => {
+  describe("Facilitate queue", () => {
     const exampleProposalId_1 =
       "0xf345990c2f726e43bd821ebe52a3f3dca1e35145c131d559fdfcdec52dd0bfc2";
     const exampleProposalId_2 =
