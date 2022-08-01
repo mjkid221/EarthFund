@@ -1382,6 +1382,45 @@ describe("Donations Router", () => {
           .removeFromQueue(causeID, exampleProposalId_1, indexToRemove)
       ).to.be.revertedWith("id does not match index item");
     });
+    it("should check the queue item's queue id is correct", async() => {
+      const registrationRequest = {
+        owner: alice.address,
+        rewardPercentage: rewardPercentage,
+        daoToken: daoToken.address
+      };
+      await router.registerCause(registrationRequest);
+      const causeID: BigNumber = await router.causeId();
+      await router.connect(alice).addToQueue(causeID, exampleProposalId_1);
+
+      await router.connect(alice).addToQueue(causeID, exampleProposalId_2);
+
+      const firstIndex = await router.getFirstInQueue(causeID);
+      const firstQueue = await router.getQueueAtIndex(causeID, firstIndex);
+      const firstQueueId = firstQueue.id;
+
+      const secondIndex = firstQueue.next;
+      const secondQueue = await router.getQueueAtIndex(causeID, secondIndex);
+      const secondQueueId = secondQueue.id;
+
+      expect(firstQueueId).to.eq(
+        ethers.utils.keccak256(
+          abiCoder.encode(
+            ["uint256", "bytes32"],
+            [causeID.toString(), exampleProposalId_1]
+          )
+        )
+      );
+      expect(secondQueueId).to.eq(
+        ethers.utils.keccak256(
+          abiCoder.encode(
+            ["uint256", "bytes32"],
+            [causeID.toString(), exampleProposalId_2]
+          )
+        )
+      );
+      
+      expect(firstQueueId).to.not.eq(secondQueueId);
+    });
   });
   describe("Set platform fee", () => {
     beforeEach(async () => {
