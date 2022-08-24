@@ -39,7 +39,10 @@ contract DonationsProxy is IDonationsProxy {
   ) external payable {
     uint256 boughtAmount = buyToken.balanceOf(address(this));
     WETH.deposit{ value: amount }();
-    if (WETH.allowance(address(this), spender) < amount) {
+    if (WETH.allowance(address(this), spender) == 0) {
+      WETH.safeApprove(spender, type(uint256).max);
+    } else if (WETH.allowance(address(this), spender) < amount) {
+      WETH.safeApprove(spender, 0);
       WETH.safeApprove(spender, type(uint256).max);
     }
     (bool success, ) = swapTarget.call{ value: msg.value - amount }(
@@ -63,7 +66,10 @@ contract DonationsProxy is IDonationsProxy {
   ) external payable override {
     sellToken.safeTransferFrom(msg.sender, address(this), amount);
     uint256 boughtAmount = buyToken.balanceOf(address(this));
-    if (sellToken.allowance(address(this), spender) < amount) {
+    if (sellToken.allowance(address(this), spender) == 0) {
+      sellToken.safeApprove(spender, type(uint256).max);
+    } else if (sellToken.allowance(address(this), spender) < amount) {
+      sellToken.safeApprove(spender, 0);
       sellToken.safeApprove(spender, type(uint256).max);
     }
     (bool success, ) = swapTarget.call{ value: msg.value }(swapCallData);
