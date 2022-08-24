@@ -5,6 +5,13 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./IThinWallet.sol";
 
 interface IDonationsProxy {
+  /** ERRORS */
+
+  /// @notice reverts when a zero address is passed in as a potential admin or smart contract location
+  error CannotBeZeroAddress();
+  /// @notice reverts when the 0x token swap fails
+  error ZeroXSwapFailed();
+
   /**
     @notice emits when a user swaps a token to deposit into a thin wallet
     @param user the user who swapped the token

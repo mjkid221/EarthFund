@@ -21,6 +21,8 @@ contract DonationsProxy is IDonationsProxy {
   IWETH public immutable WETH;
 
   constructor(IWETH _weth, IERC20 _baseToken) {
+    if (address(_weth) == address(0) || address(_baseToken) == address(0))
+      revert CannotBeZeroAddress();
     WETH = _weth;
     _baseToken = _baseToken;
   }
@@ -34,7 +36,7 @@ contract DonationsProxy is IDonationsProxy {
     address spender,
     address payable swapTarget,
     bytes calldata swapCallData
-  ) external payable override {
+  ) external payable {
     uint256 boughtAmount = buyToken.balanceOf(address(this));
     WETH.deposit{ value: amount }();
     if (WETH.allowance(address(this), spender) < amount) {
@@ -43,7 +45,7 @@ contract DonationsProxy is IDonationsProxy {
     (bool success, ) = swapTarget.call{ value: msg.value - amount }(
       swapCallData
     );
-    require(success, "SWAP_CALL_FAILED");
+    if (!success) revert ZeroXSwapFailed();
     payable(msg.sender).transfer(address(this).balance);
     boughtAmount = buyToken.balanceOf(address(this)) - boughtAmount;
     emit SwapETH(msg.sender, amount, location);
@@ -65,7 +67,7 @@ contract DonationsProxy is IDonationsProxy {
       sellToken.safeApprove(spender, type(uint256).max);
     }
     (bool success, ) = swapTarget.call{ value: msg.value }(swapCallData);
-    require(success, "SWAP_CALL_FAILED");
+    if (!success) revert ZeroXSwapFailed();
     payable(msg.sender).transfer(address(this).balance);
     boughtAmount = buyToken.balanceOf(address(this)) - boughtAmount;
     emit SwapDeposit(msg.sender, amount, sellToken, location);
