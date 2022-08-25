@@ -28,6 +28,30 @@ contract DonationsProxy is IDonationsProxy {
 
   receive() external payable {}
 
+  function _swap(
+    ERC20 sellToken,
+    ERC20 buyToken,
+    uint256 amount,
+    address location,
+    address spender,
+    address payable swapTarget,
+    bytes calldata swapCallData,
+    uint256 protocolFee
+  ) internal {
+    uint256 boughtAmount = buyToken.balanceOf(address(this));
+    if (sellToken.allowance(address(this), spender) == 0) {
+      sellToken.safeApprove(spender, type(uint256).max);
+    } else if (sellToken.allowance(address(this), spender) < amount) {
+      sellToken.safeApprove(spender, 0);
+      sellToken.safeApprove(spender, type(uint256).max);
+    }
+    (bool success, ) = swapTarget.call{ value: protocolFee }(swapCallData);
+    if (!success) revert ZeroXSwapFailed();
+    payable(msg.sender).transfer(address(this).balance);
+    boughtAmount = buyToken.balanceOf(address(this)) - boughtAmount;
+    buyToken.safeTransfer(location, boughtAmount);
+  }
+
   function depositETH(
     ERC20 buyToken,
     uint256 amount,
@@ -37,22 +61,18 @@ contract DonationsProxy is IDonationsProxy {
     bytes calldata swapCallData
   ) external payable {
     if (buyToken != baseToken) revert IncorrectBuyToken();
-    uint256 boughtAmount = buyToken.balanceOf(address(this));
     WETH.deposit{ value: amount }();
-    if (WETH.allowance(address(this), spender) == 0) {
-      WETH.safeApprove(spender, type(uint256).max);
-    } else if (WETH.allowance(address(this), spender) < amount) {
-      WETH.safeApprove(spender, 0);
-      WETH.safeApprove(spender, type(uint256).max);
-    }
-    (bool success, ) = swapTarget.call{ value: msg.value - amount }(
-      swapCallData
-    );
-    if (!success) revert ZeroXSwapFailed();
-    payable(msg.sender).transfer(address(this).balance);
-    boughtAmount = buyToken.balanceOf(address(this)) - boughtAmount;
     emit SwapETH(msg.sender, amount, location);
-    buyToken.safeTransfer(location, boughtAmount);
+    _swap(
+      ERC20(address(WETH)),
+      buyToken,
+      amount,
+      location,
+      spender,
+      swapTarget,
+      swapCallData,
+      msg.value - amount
+    );
   }
 
   function depositERC20(
@@ -66,18 +86,16 @@ contract DonationsProxy is IDonationsProxy {
   ) external payable override {
     if (buyToken != baseToken) revert IncorrectBuyToken();
     sellToken.safeTransferFrom(msg.sender, address(this), amount);
-    uint256 boughtAmount = buyToken.balanceOf(address(this));
-    if (sellToken.allowance(address(this), spender) == 0) {
-      sellToken.safeApprove(spender, type(uint256).max);
-    } else if (sellToken.allowance(address(this), spender) < amount) {
-      sellToken.safeApprove(spender, 0);
-      sellToken.safeApprove(spender, type(uint256).max);
-    }
-    (bool success, ) = swapTarget.call{ value: msg.value }(swapCallData);
-    if (!success) revert ZeroXSwapFailed();
-    payable(msg.sender).transfer(address(this).balance);
-    boughtAmount = buyToken.balanceOf(address(this)) - boughtAmount;
+    _swap(
+      sellToken,
+      buyToken,
+      amount,
+      location,
+      spender,
+      swapTarget,
+      swapCallData,
+      msg.value
+    );
     emit SwapDeposit(msg.sender, amount, sellToken, location);
-    buyToken.safeTransfer(location, boughtAmount);
   }
 }
