@@ -59,8 +59,6 @@ describe.only("Donations Proxy", () => {
       {
         gasPrice: data.gasPrice,
         value: BigNumber.from(sellAmount),
-        //   .add(BigNumber.from(data.gasPrice))
-        //   .toString(),
       }
     );
     // there is variability in the amount that ends up being swapped, this gives the swap 2% leeway.
@@ -70,7 +68,7 @@ describe.only("Donations Proxy", () => {
     );
   });
 
-  it("should be able to swap and erc20 to usdt", async () => {
+  it("should be able to swap an erc20 to usdt", async () => {
     const sellAmount = parseEther("10").toString();
     expect(await USDTContract.balanceOf(deployer.address)).to.eq(0);
     const { data } = await zeroXAxios("/swap/v1/quote", {
@@ -99,5 +97,58 @@ describe.only("Donations Proxy", () => {
       data.buyAmount,
       Math.floor(data.buyAmount * 0.02)
     );
+  });
+
+  it("should not be able to swap an erc20 to another erc20", async () => {
+    const sellAmount = parseEther("10").toString();
+    const { data } = await zeroXAxios("/swap/v1/quote", {
+      params: {
+        buyToken: "WETH",
+        sellToken: "DAI",
+        sellAmount,
+      },
+    });
+    await DAIContract.approve(
+      donationsProxy.address,
+      ethers.constants.MaxUint256
+    );
+
+    await expect(
+      donationsProxy.depositERC20(
+        data.sellTokenAddress,
+        data.buyTokenAddress,
+        data.sellAmount,
+        deployer.address,
+        data.allowanceTarget,
+        data.to,
+        data.data
+      )
+    ).to.be.revertedWith("IncorrectBuyToken");
+  });
+
+  it("shouldn't be able to swap eth to erc20", async () => {
+    const sellAmount = parseEther("0.01").toString();
+    expect(await USDTContract.balanceOf(deployer.address)).to.eq(0);
+    const { data } = await zeroXAxios("/swap/v1/quote", {
+      params: {
+        buyToken: "DAI",
+        sellToken: "WETH",
+        sellAmount,
+      },
+    });
+    await expect(
+      donationsProxy.depositETH(
+        data.buyTokenAddress,
+        data.sellAmount,
+        deployer.address,
+        data.allowanceTarget,
+        data.to,
+        data.data,
+        {
+          gasPrice: data.gasPrice,
+          value: BigNumber.from(sellAmount),
+        }
+      )
+    ).to.be.revertedWith("IncorrectBuyToken");
   });
 });
