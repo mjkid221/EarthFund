@@ -11,6 +11,8 @@ interface IDonationsProxy {
   error CannotBeZeroAddress();
   /// @notice reverts when the 0x token swap fails
   error ZeroXSwapFailed();
+  /// @notice reverts when the user provides an incorrect buy token
+  error IncorrectBuyToken();
 
   /**
     @notice emits when a user swaps a token to deposit into a thin wallet
