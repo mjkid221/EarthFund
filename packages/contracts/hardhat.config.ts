@@ -18,11 +18,15 @@ const config: HardhatUserConfig = {
       chainId: 31337,
       forking: {
         url: process.env.MAINNET_URL || "",
-        blockNumber: Number(process.env.BLOCK_NUMBER) || 14452169,
+        blockNumber: Number(process.env.BLOCK_NUMBER) || 15406250,
       },
     },
     localhost: {
       chainId: 31337,
+      forking: {
+        url: process.env.MAINNET_URL || "",
+      },
+      saveDeployments: true,
     },
     goerli: {
       url: process.env.GOERLI_URL || "",
@@ -34,11 +38,11 @@ const config: HardhatUserConfig = {
       accounts:
         process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
     },
-    mainnet : {
+    mainnet: {
       url: process.env.MAINNET_URL || "",
-      accounts: 
-      process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
-    }
+      accounts:
+        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+    },
   },
   namedAccounts: {
     deployer: 0,

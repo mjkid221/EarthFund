@@ -68,70 +68,75 @@ describe.only("Donations Proxy", () => {
     it("should be able to swap eth to usdt", async () => {
       const sellAmount = parseEther("0.01").toString();
       expect(await USDTContract.balanceOf(deployer.address)).to.eq(0);
-      const { data } = await zeroXAxios("/swap/v1/quote", {
-        params: {
-          buyToken: "USDT",
-          sellToken: "WETH",
-          sellAmount,
-        },
-      });
+      const quote = {
+        to: "0xdef1c0ded9bec7f1a1670819833240f027b25eff",
+        data: "0xd9627aa40000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000002386f26fc100000000000000000000000000000000000000000000000000000000000000fb712900000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2000000000000000000000000dac17f958d2ee523a2206206994597c13d831ec7869584cd00000000000000000000000010000000000000000000000000000000000000110000000000000000000000000000000000000000000000d6715a944a6306cf2d",
+        buyTokenAddress: "0xdac17f958d2ee523a2206206994597c13d831ec7",
+        allowanceTarget: "0xdef1c0ded9bec7f1a1670819833240f027b25eff",
+        gasPrice: BigNumber.from("16651500000"),
+        buyAmount: BigNumber.from("16644955"),
+        sellAmount: BigNumber.from("10000000000000000"),
+      };
       await donationsProxy.depositETH(
-        data.buyTokenAddress,
-        data.sellAmount,
+        quote.buyTokenAddress,
+        quote.sellAmount,
         deployer.address,
-        data.allowanceTarget,
-        data.to,
-        data.data,
+        quote.allowanceTarget,
+        quote.to,
+        quote.data,
         {
-          gasPrice: data.gasPrice,
+          gasPrice: quote.gasPrice,
           value: BigNumber.from(sellAmount),
         }
       );
       // there is variability in the amount that ends up being swapped, this gives the swap 2% leeway.
       expect(
         await await USDTContract.balanceOf(deployer.address)
-      ).to.be.closeTo(data.buyAmount, Math.floor(data.buyAmount * 0.02));
+      ).to.be.closeTo(quote.buyAmount, 200000);
     });
 
     it("should be able to swap an erc20 to usdt", async () => {
-      const sellAmount = parseEther("10").toString();
       expect(await USDTContract.balanceOf(deployer.address)).to.eq(0);
-      const { data } = await zeroXAxios("/swap/v1/quote", {
-        params: {
-          buyToken: "USDT",
-          sellToken: "DAI",
-          sellAmount,
-        },
-      });
+      const quote = {
+        buyTokenAddress: "0xdac17f958d2ee523a2206206994597c13d831ec7",
+        sellTokenAddress: "0x6b175474e89094c44da98b954eedeac495271d0f",
+        allowanceTarget: "0xdef1c0ded9bec7f1a1670819833240f027b25eff",
+        sellAmount: BigNumber.from("10000000000000000000"),
+        buyAmount: BigNumber.from("9964573"),
+        to: "0xdef1c0ded9bec7f1a1670819833240f027b25eff",
+        data: "0xd9627aa400000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000008ac7230489e8000000000000000000000000000000000000000000000000000000000000009686df000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000006b175474e89094c44da98b954eedeac495271d0f000000000000000000000000dac17f958d2ee523a2206206994597c13d831ec7869584cd000000000000000000000000100000000000000000000000000000000000001100000000000000000000000000000000000000000000005311e3758c6306cf2f",
+      };
       await DAIContract.approve(
         donationsProxy.address,
         ethers.constants.MaxUint256
       );
 
       await donationsProxy.depositERC20(
-        data.sellTokenAddress,
-        data.buyTokenAddress,
-        data.sellAmount,
+        quote.sellTokenAddress,
+        quote.buyTokenAddress,
+        quote.sellAmount,
         deployer.address,
-        data.allowanceTarget,
-        data.to,
-        data.data
+        quote.allowanceTarget,
+        quote.to,
+        quote.data
       );
       // there is variability in the amount that ends up being swapped, this gives the swap 2% leeway.
       expect(
         await await USDTContract.balanceOf(deployer.address)
-      ).to.be.closeTo(data.buyAmount, Math.floor(data.buyAmount * 0.02));
+      ).to.be.closeTo(quote.buyAmount, 200000);
     });
 
     it("should not be able to swap an erc20 to another erc20", async () => {
       const sellAmount = parseEther("10").toString();
-      const { data } = await zeroXAxios("/swap/v1/quote", {
-        params: {
-          buyToken: "WETH",
-          sellToken: "DAI",
-          sellAmount,
-        },
-      });
+      const quote = {
+        to: "0xdef1c0ded9bec7f1a1670819833240f027b25eff",
+        data: "0x6af479b20000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000002386f26fc10000000000000000000000000000000000000000000000000000e7084819861ed4620000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002bc02aaa39b223fe8d0a0e5c4f27ead9083c756cc20001f46b175474e89094c44da98b954eedeac495271d0f000000000000000000000000000000000000000000869584cd00000000000000000000000010000000000000000000000000000000000000110000000000000000000000000000000000000000000000aef5c7cd916306d30c",
+        buyTokenAddress: "0x6b175474e89094c44da98b954eedeac495271d0f",
+        sellTokenAddress: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+        buyAmount: "16815793229329887000",
+        sellAmount: "10000000000000000",
+        allowanceTarget: "0xdef1c0ded9bec7f1a1670819833240f027b25eff",
+      };
       await DAIContract.approve(
         donationsProxy.address,
         ethers.constants.MaxUint256
@@ -139,13 +144,13 @@ describe.only("Donations Proxy", () => {
 
       await expect(
         donationsProxy.depositERC20(
-          data.sellTokenAddress,
-          data.buyTokenAddress,
-          data.sellAmount,
+          quote.sellTokenAddress,
+          quote.buyTokenAddress,
+          quote.sellAmount,
           deployer.address,
-          data.allowanceTarget,
-          data.to,
-          data.data
+          quote.allowanceTarget,
+          quote.to,
+          quote.data
         )
       ).to.be.revertedWith("IncorrectBuyToken");
     });
@@ -153,23 +158,25 @@ describe.only("Donations Proxy", () => {
     it("should not be able to swap eth to erc20", async () => {
       const sellAmount = parseEther("0.01").toString();
       expect(await USDTContract.balanceOf(deployer.address)).to.eq(0);
-      const { data } = await zeroXAxios("/swap/v1/quote", {
-        params: {
-          buyToken: "DAI",
-          sellToken: "WETH",
-          sellAmount,
-        },
-      });
+      const quote = {
+        to: "0xdef1c0ded9bec7f1a1670819833240f027b25eff",
+        data: "0xd9627aa400000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000008ac7230489e800000000000000000000000000000000000000000000000000000014ea828929065e000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000006b175474e89094c44da98b954eedeac495271d0f000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc2869584cd000000000000000000000000100000000000000000000000000000000000001100000000000000000000000000000000000000000000002b9822788e6306d30a",
+        gasPrice: "14375000000",
+        buyTokenAddress: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+        buyAmount: "5946814042452912",
+        sellAmount: "10000000000000000000",
+        allowanceTarget: "0xdef1c0ded9bec7f1a1670819833240f027b25eff",
+      };
       await expect(
         donationsProxy.depositETH(
-          data.buyTokenAddress,
-          data.sellAmount,
+          quote.buyTokenAddress,
+          quote.sellAmount,
           deployer.address,
-          data.allowanceTarget,
-          data.to,
-          data.data,
+          quote.allowanceTarget,
+          quote.to,
+          quote.data,
           {
-            gasPrice: data.gasPrice,
+            gasPrice: quote.gasPrice,
             value: BigNumber.from(sellAmount),
           }
         )
