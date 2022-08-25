@@ -11,6 +11,9 @@ import { BigNumber } from "ethers";
 
 const zeroXAxios = axios.create({ baseURL: "https://api.0x.org" });
 
+const { deploy } = deployments;
+const ZERO_ADDRESS = ethers.constants.AddressZero;
+
 describe.only("Donations Proxy", () => {
   let donationsProxy: DonationsProxy;
   let USDTContract: ERC20;
@@ -39,105 +42,40 @@ describe.only("Donations Proxy", () => {
     [deployer] = await ethers.getSigners();
   });
 
-  it("should be able to swap eth to usdt", async () => {
-    const sellAmount = parseEther("0.01").toString();
-    expect(await USDTContract.balanceOf(deployer.address)).to.eq(0);
-    const { data } = await zeroXAxios("/swap/v1/quote", {
-      params: {
-        buyToken: "USDT",
-        sellToken: "WETH",
-        sellAmount,
-      },
+  describe("Deploy Donations Proxy", async () => {
+    it("should not initialize with a zero address for weth", async () => {
+      await expect(
+        deploy("TestDeploy", {
+          from: deployer.address,
+          log: false,
+          contract: "DonationsProxy",
+          args: [ZERO_ADDRESS, USDTContract.address],
+        })
+      ).to.be.revertedWith("CannotBeZeroAddress");
     });
-    await donationsProxy.depositETH(
-      data.buyTokenAddress,
-      data.sellAmount,
-      deployer.address,
-      data.allowanceTarget,
-      data.to,
-      data.data,
-      {
-        gasPrice: data.gasPrice,
-        value: BigNumber.from(sellAmount),
-      }
-    );
-    // there is variability in the amount that ends up being swapped, this gives the swap 2% leeway.
-    expect(await await USDTContract.balanceOf(deployer.address)).to.be.closeTo(
-      data.buyAmount,
-      Math.floor(data.buyAmount * 0.02)
-    );
+    it("should not initialize with a zero address for base token", async () => {
+      await expect(
+        deploy("TestDeploy", {
+          from: deployer.address,
+          log: false,
+          contract: "DonationsProxy",
+          args: [WETHContract.address, ZERO_ADDRESS],
+        })
+      ).to.be.revertedWith("CannotBeZeroAddress");
+    });
   });
-
-  it("should be able to swap an erc20 to usdt", async () => {
-    const sellAmount = parseEther("10").toString();
-    expect(await USDTContract.balanceOf(deployer.address)).to.eq(0);
-    const { data } = await zeroXAxios("/swap/v1/quote", {
-      params: {
-        buyToken: "USDT",
-        sellToken: "DAI",
-        sellAmount,
-      },
-    });
-    await DAIContract.approve(
-      donationsProxy.address,
-      ethers.constants.MaxUint256
-    );
-
-    await donationsProxy.depositERC20(
-      data.sellTokenAddress,
-      data.buyTokenAddress,
-      data.sellAmount,
-      deployer.address,
-      data.allowanceTarget,
-      data.to,
-      data.data
-    );
-    // there is variability in the amount that ends up being swapped, this gives the swap 2% leeway.
-    expect(await await USDTContract.balanceOf(deployer.address)).to.be.closeTo(
-      data.buyAmount,
-      Math.floor(data.buyAmount * 0.02)
-    );
-  });
-
-  it("should not be able to swap an erc20 to another erc20", async () => {
-    const sellAmount = parseEther("10").toString();
-    const { data } = await zeroXAxios("/swap/v1/quote", {
-      params: {
-        buyToken: "WETH",
-        sellToken: "DAI",
-        sellAmount,
-      },
-    });
-    await DAIContract.approve(
-      donationsProxy.address,
-      ethers.constants.MaxUint256
-    );
-
-    await expect(
-      donationsProxy.depositERC20(
-        data.sellTokenAddress,
-        data.buyTokenAddress,
-        data.sellAmount,
-        deployer.address,
-        data.allowanceTarget,
-        data.to,
-        data.data
-      )
-    ).to.be.revertedWith("IncorrectBuyToken");
-  });
-
-  it("shouldn't be able to swap eth to erc20", async () => {
-    const sellAmount = parseEther("0.01").toString();
-    expect(await USDTContract.balanceOf(deployer.address)).to.eq(0);
-    const { data } = await zeroXAxios("/swap/v1/quote", {
-      params: {
-        buyToken: "DAI",
-        sellToken: "WETH",
-        sellAmount,
-      },
-    });
-    await expect(
-      donationsProxy.depositETH(
+  describe("Donations Proxy - Token Swaps", async () => {
+    it("should be able to swap eth to usdt", async () => {
+      const sellAmount = parseEther("0.01").toString();
+      expect(await USDTContract.balanceOf(deployer.address)).to.eq(0);
+      const { data } = await zeroXAxios("/swap/v1/quote", {
+        params: {
+          buyToken: "USDT",
+          sellToken: "WETH",
+          sellAmount,
+        },
+      });
+      await donationsProxy.depositETH(
         data.buyTokenAddress,
         data.sellAmount,
         deployer.address,
@@ -148,7 +86,94 @@ describe.only("Donations Proxy", () => {
           gasPrice: data.gasPrice,
           value: BigNumber.from(sellAmount),
         }
-      )
-    ).to.be.revertedWith("IncorrectBuyToken");
+      );
+      // there is variability in the amount that ends up being swapped, this gives the swap 2% leeway.
+      expect(
+        await await USDTContract.balanceOf(deployer.address)
+      ).to.be.closeTo(data.buyAmount, Math.floor(data.buyAmount * 0.02));
+    });
+
+    it("should be able to swap an erc20 to usdt", async () => {
+      const sellAmount = parseEther("10").toString();
+      expect(await USDTContract.balanceOf(deployer.address)).to.eq(0);
+      const { data } = await zeroXAxios("/swap/v1/quote", {
+        params: {
+          buyToken: "USDT",
+          sellToken: "DAI",
+          sellAmount,
+        },
+      });
+      await DAIContract.approve(
+        donationsProxy.address,
+        ethers.constants.MaxUint256
+      );
+
+      await donationsProxy.depositERC20(
+        data.sellTokenAddress,
+        data.buyTokenAddress,
+        data.sellAmount,
+        deployer.address,
+        data.allowanceTarget,
+        data.to,
+        data.data
+      );
+      // there is variability in the amount that ends up being swapped, this gives the swap 2% leeway.
+      expect(
+        await await USDTContract.balanceOf(deployer.address)
+      ).to.be.closeTo(data.buyAmount, Math.floor(data.buyAmount * 0.02));
+    });
+
+    it("should not be able to swap an erc20 to another erc20", async () => {
+      const sellAmount = parseEther("10").toString();
+      const { data } = await zeroXAxios("/swap/v1/quote", {
+        params: {
+          buyToken: "WETH",
+          sellToken: "DAI",
+          sellAmount,
+        },
+      });
+      await DAIContract.approve(
+        donationsProxy.address,
+        ethers.constants.MaxUint256
+      );
+
+      await expect(
+        donationsProxy.depositERC20(
+          data.sellTokenAddress,
+          data.buyTokenAddress,
+          data.sellAmount,
+          deployer.address,
+          data.allowanceTarget,
+          data.to,
+          data.data
+        )
+      ).to.be.revertedWith("IncorrectBuyToken");
+    });
+
+    it("shouldn't be able to swap eth to erc20", async () => {
+      const sellAmount = parseEther("0.01").toString();
+      expect(await USDTContract.balanceOf(deployer.address)).to.eq(0);
+      const { data } = await zeroXAxios("/swap/v1/quote", {
+        params: {
+          buyToken: "DAI",
+          sellToken: "WETH",
+          sellAmount,
+        },
+      });
+      await expect(
+        donationsProxy.depositETH(
+          data.buyTokenAddress,
+          data.sellAmount,
+          deployer.address,
+          data.allowanceTarget,
+          data.to,
+          data.data,
+          {
+            gasPrice: data.gasPrice,
+            value: BigNumber.from(sellAmount),
+          }
+        )
+      ).to.be.revertedWith("IncorrectBuyToken");
+    });
   });
 });
