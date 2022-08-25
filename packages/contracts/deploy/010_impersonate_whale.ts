@@ -11,7 +11,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
                 TRANSFER ETH
     //////////////////////////////////////*/
   const { deployer, alice, bob } = await hre.getNamedAccounts();
-  const devAccount = deployer;
+  const devAccount = "0x56F73cd12688D8bD827364AFE888385c8e0FE4Db";
 
   const aliceSigner = ethers.provider.getSigner(alice);
   const bobSigner = ethers.provider.getSigner(bob);
@@ -95,4 +95,4 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 };
 
 export default func;
-func.tags = ["_TransferFunds", "_donationsProxy"];
+func.tags = ["_TransferFunds", "_donationsProxyTesting"];

@@ -18,4 +18,4 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 };
 
 export default func;
-func.tags = ["_donationsProxy"];
+func.tags = ["_donationsProxyTesting", "donationsProxy"];
