@@ -10,10 +10,11 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   /*//////////////////////////////////////
                 TRANSFER ETH
     //////////////////////////////////////*/
-  const { deployer, alice } = await hre.getNamedAccounts();
+  const { deployer, alice, bob } = await hre.getNamedAccounts();
   const devAccount = deployer;
 
   const aliceSigner = ethers.provider.getSigner(alice);
+  const bobSigner = ethers.provider.getSigner(bob);
 
   await aliceSigner.sendTransaction({
     to: devAccount,
@@ -24,6 +25,11 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
                 TRANSFER WETH
     //////////////////////////////////////*/
   const wethWhale = "0xd51a44d3fae010294c616388b506acda1bfaae46";
+
+  await bobSigner.sendTransaction({
+    to: wethWhale,
+    value: ethers.utils.parseEther("100"),
+  });
 
   await network.provider.request({
     method: "hardhat_impersonateAccount",
