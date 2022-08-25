@@ -150,7 +150,7 @@ describe.only("Donations Proxy", () => {
       ).to.be.revertedWith("IncorrectBuyToken");
     });
 
-    it("shouldn't be able to swap eth to erc20", async () => {
+    it("should not be able to swap eth to erc20", async () => {
       const sellAmount = parseEther("0.01").toString();
       expect(await USDTContract.balanceOf(deployer.address)).to.eq(0);
       const { data } = await zeroXAxios("/swap/v1/quote", {
