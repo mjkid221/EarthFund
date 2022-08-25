@@ -23,9 +23,6 @@ const config: HardhatUserConfig = {
     },
     localhost: {
       chainId: 31337,
-      forking: {
-        url: process.env.MAINNET_URL || "",
-      },
       saveDeployments: true,
     },
     goerli: {

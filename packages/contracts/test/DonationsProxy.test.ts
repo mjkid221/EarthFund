@@ -9,8 +9,6 @@ import "dotenv/config";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { BigNumber } from "ethers";
 
-const zeroXAxios = axios.create({ baseURL: "https://api.0x.org" });
-
 const { deploy } = deployments;
 const ZERO_ADDRESS = ethers.constants.AddressZero;
 
