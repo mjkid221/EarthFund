@@ -26,7 +26,7 @@ describe.only("Donations Proxy", () => {
       throw new Error("WETH_ADDRESS required in env");
     if (!process.env.DAI_ADDRESS)
       throw new Error("DAI_ADDRESS required in env");
-    await deployments.fixture("_donationsProxy");
+    await deployments.fixture("_donationsProxyTesting");
     donationsProxy = await ethers.getContract("DonationsProxy");
     USDTContract = await ethers.getContractAt(
       "ERC20",
@@ -87,10 +87,11 @@ describe.only("Donations Proxy", () => {
           value: BigNumber.from(sellAmount),
         }
       );
-      // there is variability in the amount that ends up being swapped, this gives the swap 2% leeway.
+      // there is variability in the amount that ends up being swapped, this gives the swap 3% leeway.
+      // (3% is hardcoded due to underflow errors in decimal multiplication of BigNumbers in ethers)
       expect(
         await await USDTContract.balanceOf(deployer.address)
-      ).to.be.closeTo(quote.buyAmount, 200000);
+      ).to.be.closeTo(quote.buyAmount, 499348);
     });
 
     it("should be able to swap an erc20 to usdt", async () => {
