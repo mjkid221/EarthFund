@@ -44,6 +44,7 @@
     "@gnosis.pm/safe-deployments": "^1.11.0",
     "@openzeppelin/contracts": "^4.5.0",
     "@openzeppelin/contracts-upgradeable": "^4.5.2",
-    "@prb/math": "^2.5.0"
+    "@prb/math": "^2.5.0",
+    "axios": "^0.27.2"
   }
 }
