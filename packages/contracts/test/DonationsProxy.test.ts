@@ -3,8 +3,6 @@ import { parseEther } from "ethers/lib/utils";
 import { expect } from "chai";
 
 import { DonationsProxy, ERC20 } from "../typechain-types";
-
-import axios from "axios";
 import "dotenv/config";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { BigNumber } from "ethers";
@@ -12,7 +10,7 @@ import { BigNumber } from "ethers";
 const { deploy } = deployments;
 const ZERO_ADDRESS = ethers.constants.AddressZero;
 
-describe.only("Donations Proxy", () => {
+describe("Donations Proxy", () => {
   let donationsProxy: DonationsProxy;
   let USDTContract: ERC20;
   let WETHContract: ERC20;
