@@ -13,6 +13,10 @@ contract ERC20Singleton is
   ERC20Upgradeable,
   OwnableUpgradeable
 {
+  error MaxSupplyReached();
+
+  uint256 maxSupply;
+
   constructor() initializer {
     __ERC20_init("Singleton Base", "BASE");
     __Ownable_init();
@@ -22,14 +26,17 @@ contract ERC20Singleton is
   function initialize(
     bytes calldata _name,
     bytes calldata _symbol,
+    bytes calldata _maxSupply,
     address _owner
   ) external initializer {
     __ERC20_init(string(_name), string(_symbol));
     __Ownable_init();
+    maxSupply = uint256(bytes32(_maxSupply));
     transferOwnership(_owner);
   }
 
   function mint(address account, uint256 amount) external override onlyOwner {
+    if (this.totalSupply() + amount > maxSupply) revert MaxSupplyReached();
     _mint(account, amount);
   }
 

@@ -25,6 +25,7 @@ interface IGovernor {
   struct Token {
     bytes tokenName;
     bytes tokenSymbol;
+    bytes maxSupply;
   }
 
   struct Safe {

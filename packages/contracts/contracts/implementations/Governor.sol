@@ -108,7 +108,8 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     /// Token
     address token = _createERC20Clone(
       _tokenData.tokenName,
-      _tokenData.tokenSymbol
+      _tokenData.tokenSymbol,
+      _tokenData.maxSupply
     );
 
     /// Register the token in the clearing house contract
@@ -150,15 +151,21 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     );
   }
 
-  function _createERC20Clone(bytes memory _name, bytes memory _symbol)
-    internal
-    returns (address token)
-  {
+  function _createERC20Clone(
+    bytes memory _name,
+    bytes memory _symbol,
+    bytes memory _maxSupply
+  ) internal returns (address token) {
     token = Clones.cloneDeterministic(
       erc20Singleton,
-      keccak256(abi.encodePacked(_name, _symbol))
+      keccak256(abi.encodePacked(_name, _symbol, _maxSupply))
     );
-    ERC20Singleton(token).initialize(_name, _symbol, address(clearingHouse));
+    ERC20Singleton(token).initialize(
+      _name,
+      _symbol,
+      _maxSupply,
+      address(clearingHouse)
+    );
   }
 
   function _calculateENSNode(bytes32 baseNode, bytes32 childNode)

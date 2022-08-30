@@ -7,6 +7,7 @@ interface IERC20Singleton {
   function initialize(
     bytes calldata _name,
     bytes calldata _symbol,
+    bytes calldata _maxSupply,
     address _owner
   ) external;
 
