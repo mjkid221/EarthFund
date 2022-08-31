@@ -17,13 +17,11 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
                             STATE
   //////////////////////////////////////////////////////////////*/
 
-  mapping(ERC20Singleton => bool) public childDaoRegistry;
+  mapping(ERC20Singleton => CauseInformation) public causeInformation;
 
   ERC20 public immutable earthToken;
 
   Governor public governor;
-
-  bool public autoStake;
 
   StakingRewards public staking;
 
@@ -78,7 +76,10 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
   }
 
   modifier isChildDaoRegistered(ERC20Singleton _childDaoToken) {
-    require(childDaoRegistry[_childDaoToken], "invalid child dao address");
+    require(
+      causeInformation[_childDaoToken].childDaoRegistry,
+      "invalid child dao address"
+    );
     _;
   }
 
@@ -142,13 +143,13 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     );
 
     require(
-      childDaoRegistry[_childDaoToken] == false,
+      causeInformation[_childDaoToken].childDaoRegistry == false,
       "child dao already registered"
     );
 
     _childDaoToken.approve(address(staking), type(uint256).max);
 
-    childDaoRegistry[_childDaoToken] = true;
+    causeInformation[_childDaoToken].childDaoRegistry = true;
 
     emit ChildDaoRegistered(address(_childDaoToken));
   }
@@ -157,8 +158,8 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
                           STAKING LOGIC
     //////////////////////////////////////////////////////////////*/
 
-  function setAutoStake(bool _state) external onlyOwner {
-    autoStake = _state;
+  function setAutoStake(ERC20Singleton token, bool _state) external onlyOwner {
+    causeInformation[ERC20Singleton].autoStaking = _state;
   }
 
   function setStaking(StakingRewards _staking) external onlyOwner {
@@ -196,7 +197,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
 
     uint256 childDaoTotalSupplyBefore = childDaoToken.totalSupply();
 
-    if (autoStake) {
+    if (causeInformation[_childDaoToken].autoStaking) {
       // mint child dao tokens to this contract
       childDaoToken.mint(address(this), _amount);
 
@@ -215,7 +216,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
       address(earthToken),
       address(childDaoToken),
       _amount,
-      autoStake
+      causeInformation[childDaoToken].autoStaking
     );
   }
 
@@ -256,7 +257,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
       address(childDaoToken),
       address(earthToken),
       _amount,
-      autoStake
+      false
     );
   }
 
@@ -311,7 +312,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
       address(fromChildDaoToken),
       address(toChildDaoToken),
       _amount,
-      autoStake
+      causeInformation[toChildDaoToken].autoStaking
     );
   }
 
