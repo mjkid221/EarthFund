@@ -32,7 +32,6 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
   constructor(
     ERC20 _earthToken,
     StakingRewards _staking,
-    bool _autoStake,
     uint256 _maxSupply,
     uint256 _maxSwap,
     address _owner
@@ -44,11 +43,6 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     earthToken = _earthToken;
 
     staking = _staking;
-
-    // don't set auto stake if false, save gas
-    if (_autoStake) {
-      autoStake = _autoStake;
-    }
 
     if (_maxSupply > 0) {
       maxSupply = _maxSupply;
@@ -158,8 +152,8 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
                           STAKING LOGIC
     //////////////////////////////////////////////////////////////*/
 
-  function setAutoStake(ERC20Singleton token, bool _state) external onlyOwner {
-    causeInformation[ERC20Singleton].autoStaking = _state;
+  function setAutoStake(ERC20Singleton _token, bool _state) external onlyOwner {
+    causeInformation[_token].autoStaking = _state;
   }
 
   function setStaking(StakingRewards _staking) external onlyOwner {
