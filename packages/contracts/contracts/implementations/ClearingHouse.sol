@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import "./ERC20Singleton.sol";
 import "./Governor.sol";
+import "./DonationsRouter.sol";
 import "./StakingRewards.sol";
 import "../interfaces/IClearingHouse.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -22,6 +23,8 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
   ERC20 public immutable earthToken;
 
   Governor public governor;
+
+  DonationsRouter public donationsRouter;
 
   StakingRewards public staking;
 
@@ -66,6 +69,14 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
 
   modifier isGovernor() {
     require(msg.sender == address(governor), "caller is not the governor");
+    _;
+  }
+
+  modifier isDonationsRouterSet() {
+    require(
+      address(donationsRouter) != address(0),
+      "donations router is not set"
+    );
     _;
   }
 
@@ -120,6 +131,14 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     governor = _governor;
   }
 
+  function addDonationsRouter(DonationsRouter _donationsRouter)
+    external
+    whenNotPaused
+    onlyOwner
+  {
+    donationsRouter = _donationsRouter;
+  }
+
   function registerChildDao(ERC20Singleton _childDaoToken)
     external
     whenNotPaused
@@ -152,7 +171,15 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
                           STAKING LOGIC
     //////////////////////////////////////////////////////////////*/
 
-  function setAutoStake(ERC20Singleton _token, bool _state) external onlyOwner {
+  function setAutoStake(ERC20Singleton _token, bool _state)
+    external
+    isDonationsRouterSet
+  {
+    // Only have to retrieve the owner variable
+    (address owner, , , ) = donationsRouter.causeRecords(
+      causeInformation[_token].causeId
+    );
+    require(msg.sender == owner, "sender not owner");
     causeInformation[_token].autoStaking = _state;
   }
 
