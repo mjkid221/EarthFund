@@ -95,7 +95,8 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
   function createChildDAO(
     Token calldata _tokenData,
     Safe calldata _safeData,
-    Subdomain calldata _subdomain
+    Subdomain calldata _subdomain,
+    bool autoStaking
   ) external override onlyOwner {
     require(ensDomainNFTId > 0, "ENS domain unavailable");
 
@@ -113,7 +114,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     );
 
     /// Register the token in the clearing house contract
-    clearingHouse.registerChildDao(ERC20Singleton(token));
+    clearingHouse.registerChildDao(ERC20Singleton(token), autoStaking);
 
     // /// ENS Subdomain + Snapshot text record
     bytes32 node = _createENSSubdomain(

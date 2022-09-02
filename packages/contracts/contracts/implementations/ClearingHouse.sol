@@ -139,7 +139,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     donationsRouter = _donationsRouter;
   }
 
-  function registerChildDao(ERC20Singleton _childDaoToken)
+  function registerChildDao(ERC20Singleton _childDaoToken, bool _autoStaking)
     external
     whenNotPaused
     isGovernorSet
@@ -163,6 +163,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     _childDaoToken.approve(address(staking), type(uint256).max);
 
     causeInformation[_childDaoToken].childDaoRegistry = true;
+    if (_autoStaking) causeInformation[_childDaoToken].autoStaking = true;
 
     emit ChildDaoRegistered(address(_childDaoToken));
   }

@@ -40,8 +40,10 @@ interface IClearingHouse {
   /**
    * @notice Adds a child dao token to the register of swappable tokens
    * @param _childDaoToken The address of the child dao's ERC20 token contract
+   * @param _autoStaking whether the token has autostaking turned on by default
    */
-  function registerChildDao(ERC20Singleton _childDaoToken) external;
+  function registerChildDao(ERC20Singleton _childDaoToken, bool _autoStaking)
+    external;
 
   /**
    * @notice Updates the auto stake state, an only owner function
