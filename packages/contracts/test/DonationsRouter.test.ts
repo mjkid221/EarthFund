@@ -1382,11 +1382,11 @@ describe("Donations Router", () => {
           .removeFromQueue(causeID, exampleProposalId_1, indexToRemove)
       ).to.be.revertedWith("id does not match index item");
     });
-    it("should check the queue item's queue id is correct", async() => {
+    it("should check the queue item's queue id is correct", async () => {
       const registrationRequest = {
         owner: alice.address,
         rewardPercentage: rewardPercentage,
-        daoToken: daoToken.address
+        daoToken: daoToken.address,
       };
       await router.registerCause(registrationRequest);
       const causeID: BigNumber = await router.causeId();
@@ -1418,7 +1418,7 @@ describe("Donations Router", () => {
           )
         )
       );
-      
+
       expect(firstQueueId).to.not.eq(secondQueueId);
     });
   });

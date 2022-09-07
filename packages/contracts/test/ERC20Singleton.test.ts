@@ -23,7 +23,12 @@ describe("ERC20Singleton", () => {
   });
   it("should prevent initialization of the base singleton", async () => {
     await expect(
-      token.initialize(toUtf8Bytes(name), toUtf8Bytes(symbol), alice.address)
+      token.initialize(
+        toUtf8Bytes(name),
+        toUtf8Bytes(symbol),
+        toUtf8Bytes("10000"),
+        alice.address
+      )
     ).to.be.rejectedWith("Initializable: contract is already initialized");
   });
   it("should have the correct name and symbol", async () => {
