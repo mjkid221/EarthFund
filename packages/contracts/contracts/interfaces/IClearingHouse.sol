@@ -25,7 +25,6 @@ interface IClearingHouse {
   struct CauseInformation {
     bool childDaoRegistry;
     bool autoStaking;
-    uint256 causeId;
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -103,6 +102,11 @@ interface IClearingHouse {
    * @notice Unpauses the contract, an only owner function
    */
   function unpause() external;
+
+  function causeInformation(ERC20Singleton)
+    external
+    view
+    returns (bool childDaoRegistry, bool autoStaking);
 
   function earthToken() external view returns (ERC20);
 

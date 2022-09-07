@@ -24,6 +24,9 @@ contract DonationsRouter is IDonationsRouter, Ownable, Queue {
   /// Cause ID => Cause record
   mapping(uint256 => CauseRecord) public override causeRecords;
 
+  /// Token => CauseID
+  mapping(address => uint256) public override tokenCauseIds;
+
   /// Thin wallet salt => thin wallet address
   mapping(bytes32 => address) public override deployedWallets;
   // keccak(owner, token) => is registered
@@ -80,6 +83,7 @@ contract DonationsRouter is IDonationsRouter, Ownable, Queue {
 
     emit RegisterCause(_cause.owner, _cause.daoToken, id);
 
+    tokenCauseIds[_cause.daoToken] = id;
     address[] memory owners = new address[](1);
     owners[0] = _cause.owner;
     _deployWallet(

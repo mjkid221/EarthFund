@@ -153,6 +153,8 @@ interface IDonationsRouter {
 
   function causeId() external view returns (uint256 causeId);
 
+  function tokenCauseIds(address token) external view returns (uint256 causeId);
+
   function causeRecords(uint256 causeId)
     external
     view

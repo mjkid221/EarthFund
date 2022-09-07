@@ -13,7 +13,6 @@ import "../interfaces/IClearingHouse.sol";
 import "../interfaces/IDonationsRouter.sol";
 import "../interfaces/IGovernor.sol";
 import "../vendors/IENSRegistrar.sol";
-import "hardhat/console.sol";
 
 contract Governor is IGovernor, Ownable, ERC721Holder {
   PublicResolver public override ensResolver;

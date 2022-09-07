@@ -176,11 +176,10 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     external
     isDonationsRouterSet
   {
+    uint256 causeId = donationsRouter.tokenCauseIds(address(_token));
     // Only have to retrieve the owner variable
-    (address owner, , , ) = donationsRouter.causeRecords(
-      causeInformation[_token].causeId
-    );
-    require(msg.sender == owner, "sender not owner");
+    (address causeOwner, , , ) = donationsRouter.causeRecords(causeId);
+    require(msg.sender == causeOwner, "sender not owner");
     causeInformation[_token].autoStaking = _state;
   }
 
