@@ -1,7 +1,6 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 import { ethers } from "hardhat";
-import { IClearingHouse } from "../typechain-types";
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployments, getNamedAccounts } = hre;
@@ -16,7 +15,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   let maxSupply = process.env.MAX_SUPPLY;
   let maxSwap = process.env.MAX_SWAP;
 
-  if(process.env.CLEARING_HOUSE_AUTO_STAKE == "true"){
+  if (process.env.CLEARING_HOUSE_AUTO_STAKE == "true") {
     autoStake = true;
   }
   if (chainId == "31337") {
@@ -33,14 +32,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   await deploy("ClearingHouse", {
     from: deployer,
-    args: [
-      earthToken,
-      stakingRewards.address,
-      autoStake,
-      maxSupply,
-      maxSwap,
-      owner
-    ],
+    args: [earthToken, stakingRewards.address, maxSupply, maxSwap, owner],
     log: true,
   });
 };
