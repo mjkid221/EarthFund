@@ -1,7 +1,7 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { parseEther } from "ethers/lib/utils";
-import { deployments, ethers } from "hardhat";
+import { deployments, ethers, network } from "hardhat";
 import { BigNumber, Contract } from "ethers";
 import createChildDaoConfig from "../helpers/createChildDaoConfig";
 
@@ -21,7 +21,7 @@ import {
 
 const { deploy } = deployments;
 
-describe("Clearing House", function () {
+describe.only("Clearing House", function () {
   /*//////////////////////////////////////////////////////
                       TEST VARIABLES
   //////////////////////////////////////////////////////*/
@@ -321,6 +321,7 @@ describe("Clearing House", function () {
     let daoToken: Contract;
 
     beforeEach(async () => {
+      await setupTestEnv();
       await deploy("DAOToken", {
         from: alice.address,
         log: false,
@@ -333,7 +334,6 @@ describe("Clearing House", function () {
         rewardPercentage: BigNumber.from((10 ** 16).toString()), // 1%,
         daoToken: daoToken.address,
       });
-      await setupTestEnv();
 
       // transfer alice five hundred 1Earth tokens
       await earthToken.transfer(alice.address, ethers.utils.parseEther("500"));
@@ -482,17 +482,36 @@ describe("Clearing House", function () {
 
     it("should stake the dao tokens when auto stake is on", async () => {
       const swapAmount = 500;
+      const childDaoCauseID = await router.tokenCauseIds(childDaoToken.address);
+      const childDaoOwner = (await router.causeRecords(childDaoCauseID)).owner;
+
+      await network.provider.request({
+        method: "hardhat_impersonateAccount",
+        params: [childDaoOwner],
+      });
+
+      const signer = await ethers.provider.getSigner(childDaoOwner);
+
+      const tx = await deployer.sendTransaction({
+        to: childDaoOwner,
+        value: ethers.utils.parseEther("10.0"),
+      });
+
+      await tx.wait();
 
       // use alice, alice should have 500 earth tokens to start
       expect(await earthToken.balanceOf(alice.address)).to.be.eq(
         ethers.utils.parseEther(swapAmount.toString())
       );
       expect(
-        (await stakingRewards.userStakes(daoToken.address, alice.address))
+        (await stakingRewards.userStakes(childDaoToken.address, alice.address))
           .stakedAmount
       ).to.be.eq(0);
 
-      await clearingHouse.setAutoStake(daoToken.address, true);
+      await clearingHouse
+        .connect(signer)
+        .setAutoStake(childDaoToken.address, true);
+
       await clearingHouse
         .connect(alice)
         .swapEarthForChildDao(
