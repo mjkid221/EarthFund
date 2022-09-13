@@ -4,13 +4,14 @@ import { parseEther } from "ethers/lib/utils";
 import { deployments, ethers, network } from "hardhat";
 import { BigNumber, Contract } from "ethers";
 import createChildDaoConfig from "../helpers/createChildDaoConfig";
+import { ContractAddresses } from "../constants/contractAddresses";
 
 import setupNetwork from "../helpers/setupNetwork";
 import {
   ClearingHouse__factory,
   ERC20,
   ERC20Singleton,
-  IClearingHouse,
+  ClearingHouse,
   IENSRegistrar,
   IENSController,
   IDonationsRouter,
@@ -34,7 +35,7 @@ describe.only("Clearing House", function () {
     childDaoToken: ERC20Singleton,
     childDaoToken2: ERC20Singleton,
     earthToken: ERC20,
-    clearingHouse: IClearingHouse,
+    clearingHouse: ClearingHouse,
     stakingRewards: IStakingRewards,
     router: IDonationsRouter;
 
@@ -141,6 +142,29 @@ describe.only("Clearing House", function () {
           log: true,
         })
       ).to.be.revertedWith("invalid earth token address");
+    });
+
+    it("should revert when donations router is not set", async () => {
+      const deployment = await deploy("newClearingHouse", {
+        contract: "ClearingHouse",
+        from: deployer.address,
+        args: [
+          earthToken.address,
+          stakingRewards.address,
+          5,
+          5,
+          deployer.address,
+        ],
+        log: true,
+      });
+
+      const newClearingHouse = await ethers.getContractAt(
+        deployment.abi,
+        deployment.address
+      );
+      expect(
+        newClearingHouse.setAutoStake(childDaoToken.address, true)
+      ).to.be.revertedWith("donations router is not set");
     });
 
     it("should revert when deploying the clearing house contract with the zero address for the staking contract", async () => {
@@ -259,6 +283,29 @@ describe.only("Clearing House", function () {
           .connect(deployer)
           .registerChildDao(earthToken.address, false)
       ).to.be.revertedWith("cannot register 1Earth token");
+    });
+
+    it("should be able to register child dao with autostaking set to true", async () => {
+      const refOneDeployResult = await deploy("ReflectiveToken", {
+        from: deployer.address,
+        args: ["Reflective One", "REF1"],
+        log: true,
+      });
+
+      const reflectiveTokenOne = await ethers.getContractAt(
+        refOneDeployResult.abi,
+        refOneDeployResult.address
+      );
+
+      // transfer ownership of the reflective token contracts to the newly deployed clearing house contract
+      await reflectiveTokenOne
+        .connect(deployer)
+        .transferOwnership(clearingHouse.address);
+
+      // need to register the reflective tokens again in this newly deployed clearing house contract
+      await clearingHouse
+        .connect(deployer)
+        .registerChildDao(reflectiveTokenOne.address, true);
     });
 
     it("should revert when trying to register child dao token contract that is not owned by the clearing house", async () => {
@@ -452,6 +499,17 @@ describe.only("Clearing House", function () {
             ethers.utils.parseEther(swapAmount.toString())
           )
       ).to.be.revertedWith("not enough 1Earth tokens");
+    });
+
+    it("should not be able to update auto stake if not owner", async () => {
+      expect(
+        await (
+          await clearingHouse.causeInformation(daoToken.address)
+        ).autoStaking
+      ).to.be.eq(false);
+      expect(
+        clearingHouse.setAutoStake(daoToken.address, true)
+      ).to.be.revertedWith("sender not owner");
     });
 
     it("should update the auto stake state to true", async () => {
