@@ -1,7 +1,6 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 import { ethers } from "hardhat";
-import { IStakingRewards } from "../typechain-types";
 import convertToSeconds from "../helpers/convertToSeconds";
 
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
@@ -10,9 +9,9 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployer } = await getNamedAccounts();
   const chainId = await hre.getChainId();
 
-  let rewardToken : string = process.env.REWARD_TOKEN || '';
-  let owner : string = process.env.PARENT_DAO || deployer;
-  
+  let rewardToken: string = process.env.REWARD_TOKEN || "";
+  let owner: string = process.env.PARENT_DAO || deployer;
+
   if (chainId === "31337") {
     rewardToken = (await ethers.getContract("EarthToken")).address;
     owner = deployer;
@@ -21,23 +20,23 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     throw new Error("Invalid reward token");
   }
 
-  if (chainId === "31337"){
+  if (chainId === "31337") {
     await deploy("StakingRewards", {
       from: deployer,
       args: [
         rewardToken,
         owner,
-        ethers.BigNumber.from(convertToSeconds({ days: 0 }))
+        ethers.BigNumber.from(convertToSeconds({ days: 0 })),
       ],
       log: true,
     });
-  }else{
+  } else {
     await deploy("StakingRewards", {
       from: deployer,
       args: [
         rewardToken,
         owner,
-        ethers.BigNumber.from(convertToSeconds({ days: 30 }))
+        ethers.BigNumber.from(convertToSeconds({ days: 30 })),
       ],
       log: true,
     });
