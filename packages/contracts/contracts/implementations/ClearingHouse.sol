@@ -10,6 +10,8 @@ import "./Governor.sol";
 import "./DonationsRouter.sol";
 import "./StakingRewards.sol";
 import "../interfaces/IClearingHouse.sol";
+import "../library/SigRecovery.sol";
+
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract ClearingHouse is IClearingHouse, Ownable, Pausable {
@@ -193,7 +195,13 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
                             SWAP LOGIC
    //////////////////////////////////////////////////////////////*/
 
-  function swapEarthForChildDao(ERC20Singleton _childDaoToken, uint256 _amount)
+  function swapEarthForChildDao(
+    ERC20Singleton _childDaoToken,
+    uint256 _amount,
+    bytes memory _KYCId,
+    uint256 _expiry,
+    bytes memory _signature
+  )
     external
     whenNotPaused
     isChildDaoRegistered(_childDaoToken)
@@ -203,6 +211,9 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
       earthToken.balanceOf(msg.sender) >= _amount,
       "not enough 1Earth tokens"
     );
+    uint256 causeId = donationsRouter.tokenCauseIds(address(_childDaoToken));
+    require(block.timestamp <= _expiry, "swap approval expired");
+    require(recoverApproval(_KYCId, msg.sender, causeId, _expiry, _signature) == owner(), "invalid signature");
 
     // transfer 1Earth from msg sender to this contract
     uint256 earthBalanceBefore = earthToken.balanceOf(address(this));
@@ -245,7 +256,6 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     external
     whenNotPaused
     isChildDaoRegistered(_childDaoToken)
-    checkInvariants(_childDaoToken, _amount)
   {
     ERC20Singleton childDaoToken = _childDaoToken;
 
@@ -293,6 +303,9 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     isChildDaoRegistered(_toChildDaoToken)
     checkInvariants(_toChildDaoToken, _amount)
   {
+    uint256 causeId = donationsRouter.tokenCauseIds(address(_toChildDaoToken));
+    require(block.timestamp <= _expiry, "swap approval expired");
+    require(recoverApproval(_KYCId, msg.sender, causeId, _expiry, _signature) == owner(), "invalid signature");
     require(
       _fromChildDaoToken != _toChildDaoToken,
       "cannot swap the same token"
