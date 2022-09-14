@@ -18,6 +18,7 @@ const createChildDaoConfig = async (
     tokenName: toUtf8Bytes(tokenName),
     tokenSymbol: toUtf8Bytes(tokenSymbol),
     maxSupply: toUtf8Bytes("10000"),
+    relase: toUtf8Bytes("1663140034"),
   },
   _safeData: {
     initializer:
