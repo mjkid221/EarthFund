@@ -139,12 +139,11 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     donationsRouter = _donationsRouter;
   }
 
-  function registerChildDao(ERC20Singleton _childDaoToken, bool _autoStaking)
-    external
-    whenNotPaused
-    isGovernorSet
-    isGovernor
-  {
+  function registerChildDao(
+    ERC20Singleton _childDaoToken,
+    bool _autoStaking,
+    uint256 _release
+  ) external whenNotPaused isGovernorSet isGovernor {
     require(
       address(_childDaoToken) != address(earthToken),
       "cannot register 1Earth token"
@@ -163,6 +162,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     _childDaoToken.approve(address(staking), type(uint256).max);
 
     causeInformation[_childDaoToken].childDaoRegistry = true;
+    causeInformation[_childDaoToken].release = _release;
     if (_autoStaking) causeInformation[_childDaoToken].autoStaking = true;
 
     emit ChildDaoRegistered(address(_childDaoToken));
@@ -199,6 +199,10 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     isChildDaoRegistered(_childDaoToken)
     checkInvariants(_childDaoToken, _amount)
   {
+    require(
+      block.timestamp > causeInformation[_childDaoToken].release,
+      "cause release has not passed"
+    );
     require(
       earthToken.balanceOf(msg.sender) >= _amount,
       "not enough 1Earth tokens"

@@ -25,6 +25,7 @@ interface IClearingHouse {
   struct CauseInformation {
     bool childDaoRegistry;
     bool autoStaking;
+    uint256 release;
   }
 
   /*///////////////////////////////////////////////////////////////
