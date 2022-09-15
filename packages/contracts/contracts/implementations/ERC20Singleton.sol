@@ -26,12 +26,12 @@ contract ERC20Singleton is
   function initialize(
     bytes calldata _name,
     bytes calldata _symbol,
-    bytes calldata _maxSupply,
+    uint256 _maxSupply,
     address _owner
   ) external initializer {
     __ERC20_init(string(_name), string(_symbol));
     __Ownable_init();
-    maxSupply = uint256(bytes32(_maxSupply));
+    maxSupply = _maxSupply;
     transferOwnership(_owner);
   }
 

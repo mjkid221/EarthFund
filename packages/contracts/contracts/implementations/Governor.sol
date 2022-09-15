@@ -115,8 +115,8 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     clearingHouse.registerChildDao(
       ERC20Singleton(token),
       autoStaking,
-      uint256(bytes32(_tokenData.maxSupply)),
-      uint256(bytes32(_tokenData.release))
+      uint256(_tokenData.maxSupply),
+      uint256(_tokenData.release)
     );
     /// ENS Subdomain + Snapshot text record
     bytes32 node = _createENSSubdomain(
@@ -157,7 +157,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
   function _createERC20Clone(
     bytes memory _name,
     bytes memory _symbol,
-    bytes memory _maxSupply
+    uint256 _maxSupply
   ) internal returns (address token) {
     token = Clones.cloneDeterministic(
       erc20Singleton,
