@@ -15,7 +15,7 @@ interface IClearingHouse {
 
   event SetSwapFee(uint256 oldFee, uint256 newFee);
 
-  event MaxSupplySet(uint256 maxSupply);
+  event MaxSupplySet(uint256 maxSupply, ERC20Singleton token);
 
   event MaxSwapSet(uint256 maxSwap);
 
@@ -26,6 +26,7 @@ interface IClearingHouse {
     bool childDaoRegistry;
     bool autoStaking;
     uint256 release;
+    uint256 maxSupply;
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -41,9 +42,15 @@ interface IClearingHouse {
    * @notice Adds a child dao token to the register of swappable tokens
    * @param _childDaoToken The address of the child dao's ERC20 token contract
    * @param _autoStaking whether the token has autostaking turned on by default
+   * @param _maxSupply the max supply of the cause's token
+   * @param _release minimum time to start utilising the child dao
    */
-  function registerChildDao(ERC20Singleton _childDaoToken, bool _autoStaking)
-    external;
+  function registerChildDao(
+    ERC20Singleton _childDaoToken,
+    bool _autoStaking,
+    uint256 _maxSupply,
+    uint256 _release
+  ) external;
 
   /**
    * @notice Updates the auto stake state, an only owner function
@@ -88,7 +95,7 @@ interface IClearingHouse {
 
   /// @notice Sets the maximum amount of cause tokens that can be minted
   /// @param _maxSupply  the new maximum supply
-  function setMaxSupply(uint256 _maxSupply) external;
+  function setMaxSupply(uint256 _maxSupply, ERC20Singleton _token) external;
 
   /// @notice Sets the maximum amount a given account can swap for
   /// @param _maxSwap  the new maximum swap amount
@@ -107,13 +114,16 @@ interface IClearingHouse {
   function causeInformation(ERC20Singleton)
     external
     view
-    returns (bool childDaoRegistry, bool autoStaking);
+    returns (
+      bool childDaoRegistry,
+      bool autoStaking,
+      uint256 release,
+      uint256 maxSupply
+    );
 
   function earthToken() external view returns (ERC20);
 
   function staking() external view returns (StakingRewards);
-
-  function maxSupply() external view returns (uint256 maxSupply);
 
   function maxSwap() external view returns (uint256 maxSwap);
 }

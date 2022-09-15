@@ -28,14 +28,11 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
 
   StakingRewards public staking;
 
-  uint256 public override maxSupply;
-
   uint256 public override maxSwap;
 
   constructor(
     ERC20 _earthToken,
     StakingRewards _staking,
-    uint256 _maxSupply,
     uint256 _maxSwap,
     address _owner
   ) {
@@ -46,10 +43,6 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     earthToken = _earthToken;
 
     staking = _staking;
-
-    if (_maxSupply > 0) {
-      maxSupply = _maxSupply;
-    }
 
     if (_maxSwap > 0) {
       maxSwap = _maxSwap;
@@ -90,7 +83,8 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
 
   modifier checkInvariants(ERC20Singleton _childDaoToken, uint256 _amount) {
     require(
-      _childDaoToken.totalSupply() + _amount <= maxSupply,
+      _childDaoToken.totalSupply() + _amount <=
+        causeInformation[_childDaoToken].maxSupply,
       "exceeds max supply"
     );
     if (msg.sender != owner()) {
@@ -103,14 +97,14 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
                           SUPPLY LOGIC
   //////////////////////////////////////////////////////////////*/
 
-  function setMaxSupply(uint256 _maxSupply)
+  function setMaxSupply(uint256 _maxSupply, ERC20Singleton _token)
     external
     override
     whenNotPaused
     onlyOwner
   {
-    maxSupply = _maxSupply;
-    emit MaxSupplySet(_maxSupply);
+    causeInformation[_token].maxSupply = _maxSupply;
+    emit MaxSupplySet(_maxSupply, _token);
   }
 
   function setMaxSwap(uint256 _maxSwap)
@@ -142,6 +136,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
   function registerChildDao(
     ERC20Singleton _childDaoToken,
     bool _autoStaking,
+    uint256 _maxSupply,
     uint256 _release
   ) external whenNotPaused isGovernorSet isGovernor {
     require(
@@ -162,7 +157,9 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     _childDaoToken.approve(address(staking), type(uint256).max);
 
     causeInformation[_childDaoToken].childDaoRegistry = true;
-    causeInformation[_childDaoToken].release = _release;
+    if (_release != 0) causeInformation[_childDaoToken].release = _release;
+    if (_maxSupply != 0)
+      causeInformation[_childDaoToken].maxSupply = _maxSupply;
     if (_autoStaking) causeInformation[_childDaoToken].autoStaking = true;
 
     emit ChildDaoRegistered(address(_childDaoToken));
@@ -249,7 +246,6 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     external
     whenNotPaused
     isChildDaoRegistered(_childDaoToken)
-    checkInvariants(_childDaoToken, _amount)
   {
     ERC20Singleton childDaoToken = _childDaoToken;
 
