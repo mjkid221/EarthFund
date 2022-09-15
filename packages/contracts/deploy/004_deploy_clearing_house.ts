@@ -32,7 +32,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 
   await deploy("ClearingHouse", {
     from: deployer,
-    args: [earthToken, stakingRewards.address, maxSupply, maxSwap, owner],
+    args: [earthToken, stakingRewards.address, maxSwap, owner],
     log: true,
   });
 };

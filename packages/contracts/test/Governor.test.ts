@@ -90,7 +90,8 @@ describe("Governor", () => {
             {
               tokenName: toUtf8Bytes("Test"),
               tokenSymbol: toUtf8Bytes("TEST"),
-              maxSupply: toUtf8Bytes("10000"),
+              maxSupply: 1000,
+              release: 0,
             },
             { initializer: toUtf8Bytes("test") },
             {
