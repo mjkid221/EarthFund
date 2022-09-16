@@ -17,7 +17,7 @@ interface IClearingHouse {
 
   event MaxSupplySet(uint256 maxSupply, ERC20Singleton token);
 
-  event MaxSwapSet(uint256 maxSwap);
+  event MaxSwapSet(uint256 maxSwap, ERC20Singleton token);
 
   /*///////////////////////////////////////////////////////////////
                             EVENTS
@@ -27,6 +27,7 @@ interface IClearingHouse {
     bool autoStaking;
     uint256 release;
     uint256 maxSupply;
+    uint256 maxSwap;
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -43,12 +44,14 @@ interface IClearingHouse {
    * @param _childDaoToken The address of the child dao's ERC20 token contract
    * @param _autoStaking whether the token has autostaking turned on by default
    * @param _maxSupply the max supply of the cause's token
+   * @param _maxSwap the max that can be swapped of the cause's token
    * @param _release minimum time to start utilising the child dao
    */
   function registerChildDao(
     ERC20Singleton _childDaoToken,
     bool _autoStaking,
     uint256 _maxSupply,
+    uint256 _maxSwap,
     uint256 _release
   ) external;
 
@@ -95,11 +98,13 @@ interface IClearingHouse {
 
   /// @notice Sets the maximum amount of cause tokens that can be minted
   /// @param _maxSupply  the new maximum supply
+  /// @param _token the token the maximum is being set for
   function setMaxSupply(uint256 _maxSupply, ERC20Singleton _token) external;
 
   /// @notice Sets the maximum amount a given account can swap for
   /// @param _maxSwap  the new maximum swap amount
-  function setMaxSwap(uint256 _maxSwap) external;
+  /// @param _token the token the maximum is being set for
+  function setMaxSwap(uint256 _maxSwap, ERC20Singleton _token) external;
 
   /**
    * @notice Pauses the contract, an only owner function
@@ -118,12 +123,11 @@ interface IClearingHouse {
       bool childDaoRegistry,
       bool autoStaking,
       uint256 release,
-      uint256 maxSupply
+      uint256 maxSupply,
+      uint256 maxSwap
     );
 
   function earthToken() external view returns (ERC20);
 
   function staking() external view returns (StakingRewards);
-
-  function maxSwap() external view returns (uint256 maxSwap);
 }

@@ -3,7 +3,7 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
-import { deployments, ethers } from "hardhat";
+import { ethers } from "hardhat";
 import { BigNumber } from "ethers";
 import { isAddress, keccak256, toUtf8Bytes } from "ethers/lib/utils";
 import { solidity } from "ethereum-waffle";
@@ -12,7 +12,6 @@ import ContractAddresses from "../constants/contractAddresses";
 import createChildDaoConfig from "../helpers/createChildDaoConfig";
 import setupNetwork from "../helpers/setupNetwork";
 import {
-  IENSController,
   ERC20Singleton,
   IGovernor,
   IGnosisSafe,
@@ -22,7 +21,6 @@ import {
   Governor__factory,
   IClearingHouse,
   IDonationsRouter,
-  ERC20,
 } from "../typechain-types";
 
 chai.use(solidity);
@@ -31,10 +29,8 @@ const { expect } = chai;
 
 describe("Governor", () => {
   let deployer: SignerWithAddress, alice: SignerWithAddress;
-  let token: ERC20Singleton,
-    governor: IGovernor,
-    donationsRouter: IDonationsRouter;
-  let ensRegistrar: IENSRegistrar, ensController: IENSController;
+  let governor: IGovernor, donationsRouter: IDonationsRouter;
+  let ensRegistrar: IENSRegistrar;
   let tokenId: string;
 
   const domain = "earthfundTurboTestDomain31337";
@@ -44,8 +40,10 @@ describe("Governor", () => {
   });
   describe("Add ENS Domain to Dao Governor", () => {
     beforeEach(async () => {
-      [token, governor, ensController, ensRegistrar, tokenId] =
-        await setupNetwork(domain, deployer);
+      [, governor, , ensRegistrar, tokenId] = await setupNetwork(
+        domain,
+        deployer
+      );
     });
     it("should transfer the ENS nft and set the label", async () => {
       expect(await ensRegistrar.ownerOf(ethers.BigNumber.from(tokenId))).to.eq(
@@ -91,6 +89,7 @@ describe("Governor", () => {
               tokenName: toUtf8Bytes("Test"),
               tokenSymbol: toUtf8Bytes("TEST"),
               maxSupply: 1000,
+              maxSwap: 1000,
               release: 0,
             },
             { initializer: toUtf8Bytes("test") },
@@ -107,8 +106,10 @@ describe("Governor", () => {
   });
   describe("Withdraw ENS Domain from the Dao Governor", () => {
     beforeEach(async () => {
-      [token, governor, ensController, ensRegistrar, tokenId] =
-        await setupNetwork(domain, deployer);
+      [, governor, , ensRegistrar, tokenId] = await setupNetwork(
+        domain,
+        deployer
+      );
       await ensRegistrar.approve(governor.address, tokenId);
       await governor.addENSDomain(ethers.BigNumber.from(tokenId));
     });
@@ -133,8 +134,10 @@ describe("Governor", () => {
     let safe: IGnosisSafe;
 
     beforeEach(async () => {
-      [token, governor, ensController, ensRegistrar, tokenId] =
-        await setupNetwork(domain, deployer);
+      [, governor, , ensRegistrar, tokenId] = await setupNetwork(
+        domain,
+        deployer
+      );
 
       await ensRegistrar.approve(governor.address, tokenId);
       await governor.addENSDomain(tokenId);
@@ -165,8 +168,10 @@ describe("Governor", () => {
     let childToken: ERC20Singleton, clearingHouse: IClearingHouse;
 
     before(async () => {
-      [token, governor, ensController, ensRegistrar, tokenId] =
-        await setupNetwork(domain, deployer);
+      [, governor, , ensRegistrar, tokenId] = await setupNetwork(
+        domain,
+        deployer
+      );
 
       await ensRegistrar.approve(governor.address, tokenId);
       await governor.addENSDomain(tokenId);
@@ -226,8 +231,10 @@ describe("Governor", () => {
     let childNode: string, safe: string;
     let ensRegistry: IENSRegistry, ensResolver: PublicResolver;
     before(async () => {
-      [token, governor, ensController, ensRegistrar, tokenId] =
-        await setupNetwork(domain, deployer);
+      [, governor, , ensRegistrar, tokenId] = await setupNetwork(
+        domain,
+        deployer
+      );
       ensRegistry = await ethers.getContractAt(
         "IENSRegistry",
         ContractAddresses["31337"].ENSRegistry
@@ -295,8 +302,10 @@ describe("Governor", () => {
   });
   describe("General requirements", () => {
     beforeEach(async () => {
-      [token, governor, ensController, ensRegistrar, tokenId] =
-        await setupNetwork(domain, deployer);
+      [, governor, , ensRegistrar, tokenId] = await setupNetwork(
+        domain,
+        deployer
+      );
     });
 
     it("should revert create dao if there isn't an NFT in the contract", async () => {
@@ -440,12 +449,10 @@ describe("Governor", () => {
     });
   });
   describe("Create Cause", () => {
-    let token: ERC20;
     beforeEach(async () => {
-      [token, governor, ensController, ensRegistrar, tokenId] =
+      [, governor, , ensRegistrar, tokenId] =
         await setupNetwork(domain, deployer);
       donationsRouter = await ethers.getContract("DonationsRouter");
-      token = await ethers.getContract("EarthToken");
     });
     it("should create a cause successfully", async () => {
       await ensRegistrar.approve(governor.address, tokenId);
@@ -461,7 +468,7 @@ describe("Governor", () => {
       const event: any = safeTx.events?.filter((x) => {
         return x.event == "ChildDaoCreated";
       })?.[0].args;
-      const { safe, token, node } = event;
+      const { safe, token } = event;
 
       const causeId = await donationsRouter.causeId();
       expect(causeId).to.eq(1);

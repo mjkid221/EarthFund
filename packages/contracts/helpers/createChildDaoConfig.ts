@@ -1,4 +1,4 @@
-import { BigNumber, ethers } from "ethers";
+import { ethers } from "ethers";
 import { parseEther, toUtf8Bytes } from "ethers/lib/utils";
 
 import createGnosisSetupTx from "./createGnosisSetupTx";
@@ -18,6 +18,7 @@ const createChildDaoConfig = async (
     tokenName: toUtf8Bytes(tokenName),
     tokenSymbol: toUtf8Bytes(tokenSymbol),
     maxSupply: parseEther("10000"),
+    maxSwap: parseEther("10000"),
     release: 0,
   },
   _safeData: {

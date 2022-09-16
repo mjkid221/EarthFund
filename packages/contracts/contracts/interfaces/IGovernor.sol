@@ -26,6 +26,7 @@ interface IGovernor {
     bytes tokenName;
     bytes tokenSymbol;
     uint256 maxSupply;
+    uint256 maxSwap;
     uint256 release;
   }
 

@@ -116,6 +116,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
       ERC20Singleton(token),
       autoStaking,
       uint256(_tokenData.maxSupply),
+      uint256(_tokenData.maxSwap),
       uint256(_tokenData.release)
     );
     /// ENS Subdomain + Snapshot text record

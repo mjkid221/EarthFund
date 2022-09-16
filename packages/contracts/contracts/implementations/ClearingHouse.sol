@@ -27,12 +27,9 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
 
   StakingRewards public staking;
 
-  uint256 public override maxSwap;
-
   constructor(
     ERC20 _earthToken,
     StakingRewards _staking,
-    uint256 _maxSwap,
     address _owner
   ) {
     require(address(_earthToken) != address(0), "invalid earth token address");
@@ -42,10 +39,6 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     earthToken = _earthToken;
 
     staking = _staking;
-
-    if (_maxSwap > 0) {
-      maxSwap = _maxSwap;
-    }
 
     _transferOwnership(_owner);
   }
@@ -87,7 +80,10 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
       "exceeds max supply"
     );
     if (msg.sender != owner()) {
-      require(_amount <= maxSwap, "exceeds max swap per tx");
+      require(
+        _amount <= causeInformation[_childDaoToken].maxSwap,
+        "exceeds max swap per tx"
+      );
     }
     _;
   }
@@ -106,14 +102,14 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     emit MaxSupplySet(_maxSupply, _token);
   }
 
-  function setMaxSwap(uint256 _maxSwap)
+  function setMaxSwap(uint256 _maxSwap, ERC20Singleton _token)
     external
     override
     whenNotPaused
     onlyOwner
   {
-    maxSwap = _maxSwap;
-    emit MaxSwapSet(_maxSwap);
+    causeInformation[_token].maxSwap = _maxSwap;
+    emit MaxSwapSet(_maxSwap, _token);
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -136,6 +132,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     ERC20Singleton _childDaoToken,
     bool _autoStaking,
     uint256 _maxSupply,
+    uint256 _maxSwap,
     uint256 _release
   ) external whenNotPaused isGovernorSet isGovernor {
     require(
