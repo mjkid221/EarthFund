@@ -96,6 +96,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     external
     override
     whenNotPaused
+    isDonationsRouterSet
   {
     checkIfCauseOwner(_token);
     causeInformation[_token].maxSupply = _maxSupply;
@@ -106,7 +107,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     external
     override
     whenNotPaused
-    onlyOwner
+    isDonationsRouterSet
   {
     checkIfCauseOwner(_token);
     causeInformation[_token].maxSwap = _maxSwap;
@@ -151,13 +152,16 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
       "child dao already registered"
     );
 
+    require(_maxSupply != 0, "max supply cannot be 0");
+
+    require(_maxSwap != 0, "max swap cannot be 0");
+
     _childDaoToken.approve(address(staking), type(uint256).max);
 
     causeInformation[_childDaoToken].childDaoRegistry = true;
     if (_release != 0) causeInformation[_childDaoToken].release = _release;
-    if (_maxSupply != 0)
-      causeInformation[_childDaoToken].maxSupply = _maxSupply;
-    if (_maxSwap != 0) causeInformation[_childDaoToken].maxSwap = _maxSwap;
+    causeInformation[_childDaoToken].maxSupply = _maxSupply;
+    causeInformation[_childDaoToken].maxSwap = _maxSwap;
     if (_autoStaking) causeInformation[_childDaoToken].autoStaking = true;
 
     emit ChildDaoRegistered(address(_childDaoToken));
