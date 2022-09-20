@@ -67,6 +67,12 @@ interface IGovernor {
     bytes32 node
   );
 
+  event ZodiacModuleEnabled(
+    address indexed safe,
+    address indexed module,
+    uint256 oracleTemplateId
+  );
+
   event RegisterCauseFailure(bytes failure);
 
   /// Functions

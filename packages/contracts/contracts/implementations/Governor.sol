@@ -14,6 +14,7 @@ import "../interfaces/IDonationsRouter.sol";
 import "../interfaces/IGovernor.sol";
 import "../vendors/IENSRegistrar.sol";
 import "../interfaces/IModuleProxyFactory.sol";
+import "../vendors/IGnosisSafe.sol";
 
 import "@reality.eth/contracts/development/contracts/IRealityETH.sol";
 
@@ -131,7 +132,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
       donationsRouter.registerCause(
         IDonationsRouter.CauseRegistrationRequest({
           owner: address(safe),
-          rewardPercentage: (10**16), // default reward % : (1%)
+          rewardPercentage: (10**16), // default reward % : (1%
           daoToken: address(token)
         })
       )
@@ -146,8 +147,12 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     uint256 safeDeploymentSalt
   ) internal returns (address safe) {
     // Create safe
-    address[] memory initialOwners = new address[](1);
-    initialOwners[0] = address(this);
+    address[] memory initialOwners = new address[](safeData.owners.length + 1);
+    uint256 i;
+    for (i = 0; i < safeData.owners.length; ++i) {
+      initialOwners[i] = safeData.owners[i];
+    }
+    initialOwners[initialOwners.length - 1] = address(this);
     safe = address(
       gnosisFactory.createProxyWithNonce(
         gnosisSafeSingleton,
@@ -181,32 +186,93 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     // Deploy zodiac module
     address module = IModuleProxyFactory(zodiacData.zodiacFactory).deployModule(
       zodiacData.moduleMasterCopy,
-      abi.encodeWithSignature(
-        "setUp(address,address,address,address,uint32,uint32,uint32,uint256,uint256,address)",
-        safe,
-        safe,
-        safe,
-        zodiacData.oracle,
-        zodiacData.timeout,
-        zodiacData.cooldown,
-        zodiacData.expiration,
-        zodiacData.bond,
-        templateId,
-        zodiacData.arbitrator
-      ),
+      _getZodiacInitializer(safe, templateId, zodiacData),
       uint256(keccak256(abi.encode(safeDeploymentSalt)))
     );
+
     // Enable module on safe
-    // safe.execTransaction(safe.enableModule)
+    IGnosisSafe(safe).execTransaction(
+      safe,
+      0,
+      abi.encodeWithSignature("enableModule(address)", module),
+      IGnosisSafe.Operation.Call,
+      0,
+      0,
+      tx.gasprice,
+      address(0),
+      payable(msg.sender),
+      _getApprovedHashSignature()
+    );
     // Transfer safe control to dao (How to set threshold?)
-    // safe.execTransaction(trans)
+    // Remove this contract as an owner
+    IGnosisSafe(safe).execTransaction(
+      safe,
+      0,
+      abi.encodeWithSignature(
+        "removeOwner(address,address,uint256)",
+        initialOwners[initialOwners.length - 2],
+        initialOwners[initialOwners.length - 1],
+        safeData.threshold
+      ),
+      IGnosisSafe.Operation.Call,
+      0,
+      0,
+      tx.gasprice,
+      address(0),
+      payable(msg.sender),
+      _getApprovedHashSignature()
+    );
+    emit ZodiacModuleEnabled(safe, module, templateId);
+  }
+
+  function _getApprovedHashSignature()
+    internal
+    view
+    returns (bytes memory signature)
+  {
+    signature = abi.encode(
+      uint8(1),
+      bytes32(uint256(uint160(address(this)))),
+      bytes32(0)
+    );
+  }
+
+  function _getZodiacInitializer(
+    address safe,
+    uint256 templateId,
+    ZodiacParams memory zodiacData
+  ) internal pure returns (bytes memory initializer) {
+    initializer = abi.encodeWithSignature(
+      "setUp(address,address,address,address,uint32,uint32,uint32,uint256,uint256,address)",
+      safe,
+      safe,
+      safe,
+      zodiacData.oracle,
+      zodiacData.timeout,
+      zodiacData.cooldown,
+      zodiacData.expiration,
+      zodiacData.bond,
+      templateId,
+      zodiacData.arbitrator
+    );
   }
 
   function _getSafeInitializer(SafeCreationParams memory safeData)
     internal
+    pure
     returns (bytes memory initData)
   {
-    // return abi.encode
+    initData = abi.encodeWithSignature(
+      "setup(address[],uint256,address,bytes,address,address,uint256,address)",
+      safeData.owners,
+      safeData.threshold,
+      safeData.to,
+      safeData.data,
+      safeData.fallbackHandler,
+      safeData.paymentToken,
+      safeData.payment,
+      safeData.paymentReceiver
+    );
   }
 
   function _createERC20Clone(bytes memory _name, bytes memory _symbol)
