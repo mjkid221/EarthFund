@@ -173,11 +173,29 @@ describe.only("Clearing House", function () {
                   CREATING CHILD DAO TESTS
   //////////////////////////////////////////////////////*/
   describe("Creating Child DAO", () => {
+    let reflectiveTokenOne: Contract;
+
     beforeEach(async () => {
       await setupTestEnv();
 
       // make the deployer account the governor in the clearing house contract for testing purposes
       await clearingHouse.connect(deployer).addGovernor(deployer.address);
+
+      const refOneDeployResult = await deploy("ReflectiveToken", {
+        from: deployer.address,
+        args: ["Reflective One", "REF1"],
+        log: true,
+      });
+
+      const reflectiveTokenOne = await ethers.getContractAt(
+        refOneDeployResult.abi,
+        refOneDeployResult.address
+      );
+
+      // transfer ownership of the reflective token contracts to the newly deployed clearing house contract
+      await reflectiveTokenOne
+        .connect(deployer)
+        .transferOwnership(clearingHouse.address);
     });
 
     it("should make the clearing house contract the owner of the child dao token contract", async () => {
@@ -232,22 +250,6 @@ describe.only("Clearing House", function () {
     });
 
     it("should not be able to register cause with 0 max supply", async () => {
-      const refOneDeployResult = await deploy("ReflectiveToken", {
-        from: deployer.address,
-        args: ["Reflective One", "REF1"],
-        log: true,
-      });
-
-      const reflectiveTokenOne = await ethers.getContractAt(
-        refOneDeployResult.abi,
-        refOneDeployResult.address
-      );
-
-      // transfer ownership of the reflective token contracts to the newly deployed clearing house contract
-      await reflectiveTokenOne
-        .connect(deployer)
-        .transferOwnership(clearingHouse.address);
-
       // need to register the reflective tokens again in this newly deployed clearing house contract
       await expect(
         clearingHouse
@@ -257,22 +259,6 @@ describe.only("Clearing House", function () {
     });
 
     it("should not be able to register cause with 0 max swap", async () => {
-      const refOneDeployResult = await deploy("ReflectiveToken", {
-        from: deployer.address,
-        args: ["Reflective One", "REF1"],
-        log: true,
-      });
-
-      const reflectiveTokenOne = await ethers.getContractAt(
-        refOneDeployResult.abi,
-        refOneDeployResult.address
-      );
-
-      // transfer ownership of the reflective token contracts to the newly deployed clearing house contract
-      await reflectiveTokenOne
-        .connect(deployer)
-        .transferOwnership(clearingHouse.address);
-
       // need to register the reflective tokens again in this newly deployed clearing house contract
       await expect(
         clearingHouse
@@ -282,22 +268,6 @@ describe.only("Clearing House", function () {
     });
 
     it("should be able to register child dao with autostaking set to true", async () => {
-      const refOneDeployResult = await deploy("ReflectiveToken", {
-        from: deployer.address,
-        args: ["Reflective One", "REF1"],
-        log: true,
-      });
-
-      const reflectiveTokenOne = await ethers.getContractAt(
-        refOneDeployResult.abi,
-        refOneDeployResult.address
-      );
-
-      // transfer ownership of the reflective token contracts to the newly deployed clearing house contract
-      await reflectiveTokenOne
-        .connect(deployer)
-        .transferOwnership(clearingHouse.address);
-
       // need to register the reflective tokens again in this newly deployed clearing house contract
       await clearingHouse
         .connect(deployer)
@@ -305,22 +275,6 @@ describe.only("Clearing House", function () {
     });
 
     it("should be able to register a child dao with a release time", async () => {
-      const refOneDeployResult = await deploy("ReflectiveToken", {
-        from: deployer.address,
-        args: ["Reflective One", "REF1"],
-        log: true,
-      });
-
-      const reflectiveTokenOne = await ethers.getContractAt(
-        refOneDeployResult.abi,
-        refOneDeployResult.address
-      );
-
-      // transfer ownership of the reflective token contracts to the newly deployed clearing house contract
-      await reflectiveTokenOne
-        .connect(deployer)
-        .transferOwnership(clearingHouse.address);
-
       // need to register the reflective tokens again in this newly deployed clearing house contract
       await clearingHouse
         .connect(deployer)
@@ -341,24 +295,10 @@ describe.only("Clearing House", function () {
     });
 
     it("should revert when trying to register child dao token contract that is not owned by the clearing house", async () => {
-      let reflectiveToken: ReflectiveToken;
-
-      // deploy reflective token for testing
-      const refDeployResult = await deploy("ReflectiveToken", {
-        from: deployer.address,
-        args: ["Reflective", "REF"],
-        log: true,
-      });
-
-      reflectiveToken = await ethers.getContractAt(
-        refDeployResult.abi,
-        refDeployResult.address
-      );
-
       await expect(
         clearingHouse
           .connect(deployer)
-          .registerChildDao(reflectiveToken.address, false, 10000, 10000, 0)
+          .registerChildDao(reflectiveTokenOne.address, false, 10000, 10000, 0)
       ).to.be.revertedWith("token not owned by contract");
     });
 
