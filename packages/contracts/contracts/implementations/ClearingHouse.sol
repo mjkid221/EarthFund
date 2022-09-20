@@ -96,8 +96,8 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     external
     override
     whenNotPaused
-    onlyOwner
   {
+    checkIfCauseOwner(_token);
     causeInformation[_token].maxSupply = _maxSupply;
     emit MaxSupplySet(_maxSupply, _token);
   }
@@ -108,6 +108,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     whenNotPaused
     onlyOwner
   {
+    checkIfCauseOwner(_token);
     causeInformation[_token].maxSwap = _maxSwap;
     emit MaxSwapSet(_maxSwap, _token);
   }
@@ -166,14 +167,18 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
                           STAKING LOGIC
     //////////////////////////////////////////////////////////////*/
 
+  function checkIfCauseOwner(ERC20Singleton _token) internal {
+    (address causeOwner, , , ) = donationsRouter.causeRecords(
+      donationsRouter.tokenCauseIds(address(_token))
+    );
+    require(msg.sender == causeOwner, "sender not owner");
+  }
+
   function setAutoStake(ERC20Singleton _token, bool _state)
     external
     isDonationsRouterSet
   {
-    uint256 causeId = donationsRouter.tokenCauseIds(address(_token));
-    // Only have to retrieve the owner variable
-    (address causeOwner, , , ) = donationsRouter.causeRecords(causeId);
-    require(msg.sender == causeOwner, "sender not owner");
+    checkIfCauseOwner(_token);
     causeInformation[_token].autoStaking = _state;
   }
 
