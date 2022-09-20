@@ -156,6 +156,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     if (_release != 0) causeInformation[_childDaoToken].release = _release;
     if (_maxSupply != 0)
       causeInformation[_childDaoToken].maxSupply = _maxSupply;
+    if (_maxSwap != 0) causeInformation[_childDaoToken].maxSwap = _maxSwap;
     if (_autoStaking) causeInformation[_childDaoToken].autoStaking = true;
 
     emit ChildDaoRegistered(address(_childDaoToken));

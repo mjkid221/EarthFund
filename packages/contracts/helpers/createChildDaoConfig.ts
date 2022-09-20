@@ -18,7 +18,7 @@ const createChildDaoConfig = async (
     tokenName: toUtf8Bytes(tokenName),
     tokenSymbol: toUtf8Bytes(tokenSymbol),
     maxSupply: parseEther("10000"),
-    maxSwap: parseEther("10000"),
+    maxSwap: parseEther("7500"),
     release: 0,
   },
   _safeData: {

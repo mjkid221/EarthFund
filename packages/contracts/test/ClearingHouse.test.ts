@@ -129,7 +129,6 @@ describe.only("Clearing House", function () {
           args: [
             ethers.constants.AddressZero,
             stakingRewards.address,
-            0,
             deployer.address,
           ],
           log: true,
@@ -141,7 +140,7 @@ describe.only("Clearing House", function () {
       const deployment = await deploy("newClearingHouse", {
         contract: "ClearingHouse",
         from: deployer.address,
-        args: [earthToken.address, stakingRewards.address, 5, deployer.address],
+        args: [earthToken.address, stakingRewards.address, deployer.address],
         log: true,
       });
 
@@ -162,7 +161,6 @@ describe.only("Clearing House", function () {
           args: [
             earthToken.address,
             ethers.constants.AddressZero,
-            0,
             deployer.address,
           ],
           log: true,
@@ -937,7 +935,6 @@ describe.only("Clearing House", function () {
         args: [
           reflectiveTokenThree.address,
           stakingRewards.address,
-          ethers.utils.parseEther("5000"),
           deployer.address,
         ],
         log: true,
@@ -1396,7 +1393,7 @@ describe.only("Clearing House", function () {
           .swapChildDaoForChildDao(
             childDaoToken.address,
             childDaoToken2.address,
-            parseEther("6000")
+            parseEther("9000")
           )
       ).to.be.revertedWith("exceeds max swap per tx");
     });
@@ -1426,7 +1423,7 @@ describe.only("Clearing House", function () {
         clearingHouse.setMaxSwap(parseEther("1000"), childDaoToken.address)
       )
         .to.emit(clearingHouse, "MaxSwapSet")
-        .withArgs(parseEther("1000"));
+        .withArgs(parseEther("1000"), childDaoToken.address);
     });
   });
 
