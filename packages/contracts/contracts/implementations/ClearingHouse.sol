@@ -4,7 +4,6 @@ pragma solidity 0.8.13;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-
 import "./ERC20Singleton.sol";
 import "./Governor.sol";
 import "./DonationsRouter.sol";
@@ -30,15 +29,9 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
 
   StakingRewards public staking;
 
-  uint256 public override maxSupply;
-
-  uint256 public override maxSwap;
-
   constructor(
     ERC20 _earthToken,
     StakingRewards _staking,
-    uint256 _maxSupply,
-    uint256 _maxSwap,
     address _owner
   ) {
     require(address(_earthToken) != address(0), "invalid earth token address");
@@ -48,14 +41,6 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     earthToken = _earthToken;
 
     staking = _staking;
-
-    if (_maxSupply > 0) {
-      maxSupply = _maxSupply;
-    }
-
-    if (_maxSwap > 0) {
-      maxSwap = _maxSwap;
-    }
 
     _transferOwnership(_owner);
   }
@@ -92,11 +77,15 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
 
   modifier checkInvariants(ERC20Singleton _childDaoToken, uint256 _amount) {
     require(
-      _childDaoToken.totalSupply() + _amount <= maxSupply,
+      _childDaoToken.totalSupply() + _amount <=
+        causeInformation[_childDaoToken].maxSupply,
       "exceeds max supply"
     );
     if (msg.sender != owner()) {
-      require(_amount <= maxSwap, "exceeds max swap per tx");
+      require(
+        _amount <= causeInformation[_childDaoToken].maxSwap,
+        "exceeds max swap per tx"
+      );
     }
     _;
   }
@@ -105,24 +94,26 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
                           SUPPLY LOGIC
   //////////////////////////////////////////////////////////////*/
 
-  function setMaxSupply(uint256 _maxSupply)
+  function setMaxSupply(uint256 _maxSupply, ERC20Singleton _token)
     external
     override
     whenNotPaused
-    onlyOwner
+    isDonationsRouterSet
   {
-    maxSupply = _maxSupply;
-    emit MaxSupplySet(_maxSupply);
+    checkIfCauseOwner(_token);
+    causeInformation[_token].maxSupply = _maxSupply;
+    emit MaxSupplySet(_maxSupply, _token);
   }
 
-  function setMaxSwap(uint256 _maxSwap)
+  function setMaxSwap(uint256 _maxSwap, ERC20Singleton _token)
     external
     override
     whenNotPaused
-    onlyOwner
+    isDonationsRouterSet
   {
-    maxSwap = _maxSwap;
-    emit MaxSwapSet(_maxSwap);
+    checkIfCauseOwner(_token);
+    causeInformation[_token].maxSwap = _maxSwap;
+    emit MaxSwapSet(_maxSwap, _token);
   }
 
   /*///////////////////////////////////////////////////////////////
@@ -141,12 +132,13 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     donationsRouter = _donationsRouter;
   }
 
-  function registerChildDao(ERC20Singleton _childDaoToken, bool _autoStaking)
-    external
-    whenNotPaused
-    isGovernorSet
-    isGovernor
-  {
+  function registerChildDao(
+    ERC20Singleton _childDaoToken,
+    bool _autoStaking,
+    uint256 _maxSupply,
+    uint256 _maxSwap,
+    uint256 _release
+  ) external whenNotPaused isGovernorSet isGovernor {
     require(
       address(_childDaoToken) != address(earthToken),
       "cannot register 1Earth token"
@@ -162,9 +154,16 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
       "child dao already registered"
     );
 
+    require(_maxSupply != 0, "max supply cannot be 0");
+
+    require(_maxSwap != 0, "max swap cannot be 0");
+
     _childDaoToken.approve(address(staking), type(uint256).max);
 
     causeInformation[_childDaoToken].childDaoRegistry = true;
+    if (_release != 0) causeInformation[_childDaoToken].release = _release;
+    causeInformation[_childDaoToken].maxSupply = _maxSupply;
+    causeInformation[_childDaoToken].maxSwap = _maxSwap;
     if (_autoStaking) causeInformation[_childDaoToken].autoStaking = true;
 
     emit ChildDaoRegistered(address(_childDaoToken));
@@ -174,14 +173,18 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
                           STAKING LOGIC
     //////////////////////////////////////////////////////////////*/
 
+  function checkIfCauseOwner(ERC20Singleton _token) internal {
+    (address causeOwner, , , ) = donationsRouter.causeRecords(
+      donationsRouter.tokenCauseIds(address(_token))
+    );
+    require(msg.sender == causeOwner, "sender not owner");
+  }
+
   function setAutoStake(ERC20Singleton _token, bool _state)
     external
     isDonationsRouterSet
   {
-    uint256 causeId = donationsRouter.tokenCauseIds(address(_token));
-    // Only have to retrieve the owner variable
-    (address causeOwner, , , ) = donationsRouter.causeRecords(causeId);
-    require(msg.sender == causeOwner, "sender not owner");
+    checkIfCauseOwner(_token);
     causeInformation[_token].autoStaking = _state;
   }
 
@@ -207,6 +210,10 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     isChildDaoRegistered(_childDaoToken)
     checkInvariants(_childDaoToken, _amount)
   {
+    require(
+      block.timestamp > causeInformation[_childDaoToken].release,
+      "cause release has not passed"
+    );
     require(
       earthToken.balanceOf(msg.sender) >= _amount,
       "not enough 1Earth tokens"
