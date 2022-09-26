@@ -196,8 +196,6 @@ describe("Clearing House", function () {
       await reflectiveTokenOne
         .connect(deployer)
         .transferOwnership(clearingHouse.address);
-
-      console.log(reflectiveTokenOne.address);
     });
 
     it("should make the clearing house contract the owner of the child dao token contract", async () => {
