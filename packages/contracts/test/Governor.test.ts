@@ -22,7 +22,7 @@ import {
   Governor__factory,
   IClearingHouse,
   IDonationsRouter,
-  ERC20
+  ERC20,
 } from "../typechain-types";
 
 chai.use(solidity);
@@ -31,7 +31,9 @@ const { expect } = chai;
 
 describe("Governor", () => {
   let deployer: SignerWithAddress, alice: SignerWithAddress;
-  let token: ERC20Singleton, governor: IGovernor, donationsRouter: IDonationsRouter;
+  let token: ERC20Singleton,
+    governor: IGovernor,
+    donationsRouter: IDonationsRouter;
   let ensRegistrar: IENSRegistrar, ensController: IENSController;
   let tokenId: string;
 
@@ -89,7 +91,7 @@ describe("Governor", () => {
               tokenName: toUtf8Bytes("Test"),
               tokenSymbol: toUtf8Bytes("TEST"),
             },
-            { initializer: toUtf8Bytes("test") },
+            createChildDaoConfig([ethers.constants.AddressZero])._safeData,
             {
               subdomain: toUtf8Bytes("subtest"),
               snapshotKey: toUtf8Bytes("a"),
@@ -133,9 +135,10 @@ describe("Governor", () => {
 
       await ensRegistrar.approve(governor.address, tokenId);
       await governor.addENSDomain(tokenId);
-      const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig([
+      const { _tokenData, _safeData, _subdomain } = createChildDaoConfig([
         alice.address,
       ]);
+
       const safeTx = await (
         await governor.createChildDAO(_tokenData, _safeData, _subdomain)
       ).wait();
@@ -316,7 +319,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
           clearingHouse: ethers.constants.AddressZero,
-          donationsRouter: ethers.constants.AddressZero
+          donationsRouter: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid resolver address");
       await expect(
@@ -329,7 +332,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
           clearingHouse: ethers.constants.AddressZero,
-          donationsRouter: ethers.constants.AddressZero
+          donationsRouter: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid registry address");
       await expect(
@@ -342,7 +345,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
           clearingHouse: ethers.constants.AddressZero,
-          donationsRouter: ethers.constants.AddressZero
+          donationsRouter: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid registrar address");
       await expect(
@@ -355,7 +358,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
           clearingHouse: ethers.constants.AddressZero,
-          donationsRouter: ethers.constants.AddressZero
+          donationsRouter: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid factory address");
       await expect(
@@ -368,7 +371,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
           clearingHouse: ethers.constants.AddressZero,
-          donationsRouter: ethers.constants.AddressZero
+          donationsRouter: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid safe singleton address");
       await expect(
@@ -383,7 +386,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
           clearingHouse: ethers.constants.AddressZero,
-          donationsRouter: ethers.constants.AddressZero
+          donationsRouter: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid token singleton address");
       await expect(
@@ -398,7 +401,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
           parentDao: ethers.constants.AddressZero,
           clearingHouse: ethers.constants.AddressZero,
-          donationsRouter: ethers.constants.AddressZero
+          donationsRouter: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid owner");
       await expect(
@@ -413,7 +416,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
           parentDao: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
           clearingHouse: ethers.constants.AddressZero,
-          donationsRouter: ethers.constants.AddressZero
+          donationsRouter: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid clearing house address");
       await expect(
@@ -428,20 +431,20 @@ describe("Governor", () => {
           erc20Singleton: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
           parentDao: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
           clearingHouse: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
-          donationsRouter: ethers.constants.AddressZero
+          donationsRouter: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid donations router address");
     });
   });
   describe("Create Cause", () => {
-    let token : ERC20;
+    let token: ERC20;
     beforeEach(async () => {
       [token, governor, ensController, ensRegistrar, tokenId] =
         await setupNetwork(domain, deployer);
       donationsRouter = await ethers.getContract("DonationsRouter");
-      token = await ethers.getContract("EarthToken")
-    })
-    it("should create a cause successfully", async() => {
+      token = await ethers.getContract("EarthToken");
+    });
+    it("should create a cause successfully", async () => {
       await ensRegistrar.approve(governor.address, tokenId);
       await governor.addENSDomain(ethers.BigNumber.from(tokenId));
 
@@ -451,22 +454,26 @@ describe("Governor", () => {
       const safeTx = await (
         await governor.createChildDAO(_tokenData, _safeData, _subdomain)
       ).wait();
-      
-      const event : any = (safeTx.events?.filter((x) => {return x.event == "ChildDaoCreated"}))?.[0].args;
-      const {safe , token, node} = event;
 
-      const causeId = await donationsRouter.causeId(); 
+      const event: any = safeTx.events?.filter((x) => {
+        return x.event == "ChildDaoCreated";
+      })?.[0].args;
+      const { safe, token, node } = event;
+
+      const causeId = await donationsRouter.causeId();
       expect(causeId).to.eq(1);
-          
+
       const cause = await donationsRouter.causeRecords(causeId);
       const rewardPercentage: BigNumber = BigNumber.from((10 ** 16).toString());
-      
+
       expect(cause.owner).to.eq(safe);
       expect(cause.rewardPercentage).to.eq(rewardPercentage);
       expect(cause.daoToken).to.eq(token);
-      expect(await ethers.provider.getCode(cause.defaultWallet)).to.not.eq("0x")
+      expect(await ethers.provider.getCode(cause.defaultWallet)).to.not.eq(
+        "0x"
+      );
     });
-  })
+  });
 });
 
 // it("should ", async () => {throw new Error("implement");});

@@ -18,6 +18,8 @@ import "../vendors/IGnosisSafe.sol";
 
 import "@reality.eth/contracts/development/contracts/IRealityETH.sol";
 
+import "hardhat/console.sol";
+
 contract Governor is IGovernor, Ownable, ERC721Holder {
   PublicResolver public override ensResolver;
   ENSRegistry public override ensRegistry;
@@ -75,6 +77,8 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
 
     transferOwnership(_params.parentDao);
   }
+
+  receive() external payable {}
 
   function addENSDomain(uint256 _domainNFTId) external override onlyOwner {
     require(ensDomainNFTId == 0, "ens domain already set");
@@ -198,7 +202,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
       IGnosisSafe.Operation.Call,
       0,
       0,
-      tx.gasprice,
+      0,
       address(0),
       payable(msg.sender),
       _getApprovedHashSignature()
@@ -217,7 +221,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
       IGnosisSafe.Operation.Call,
       0,
       0,
-      tx.gasprice,
+      0,
       address(0),
       payable(msg.sender),
       _getApprovedHashSignature()
@@ -230,10 +234,10 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     view
     returns (bytes memory signature)
   {
-    signature = abi.encode(
-      uint8(1),
+    signature = abi.encodePacked(
       bytes32(uint256(uint160(address(this)))),
-      bytes32(0)
+      bytes32(0),
+      uint8(1)
     );
   }
 
@@ -243,17 +247,19 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     ZodiacParams memory zodiacData
   ) internal pure returns (bytes memory initializer) {
     initializer = abi.encodeWithSignature(
-      "setUp(address,address,address,address,uint32,uint32,uint32,uint256,uint256,address)",
-      safe,
-      safe,
-      safe,
-      zodiacData.oracle,
-      zodiacData.timeout,
-      zodiacData.cooldown,
-      zodiacData.expiration,
-      zodiacData.bond,
-      templateId,
-      zodiacData.arbitrator
+      "setUp(bytes)",
+      abi.encode(
+        safe,
+        safe,
+        safe,
+        zodiacData.oracle,
+        zodiacData.timeout,
+        zodiacData.cooldown,
+        zodiacData.expiration,
+        zodiacData.bond,
+        templateId,
+        zodiacData.arbitrator == address(0) ? safe : zodiacData.arbitrator
+      )
     );
   }
 

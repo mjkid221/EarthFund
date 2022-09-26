@@ -43,6 +43,7 @@ interface IGovernor {
     string template; // If this.length > 0, it will be used to create a new template
     address arbitrator; // Should probably be kleros general court, or earthfund dao safe.
   }
+
   struct SafeCreationParams {
     address[] owners;
     uint256 threshold;
