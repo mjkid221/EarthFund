@@ -251,8 +251,6 @@ describe("Clearing House", function () {
 
     it("should not be able to register cause with 0 max supply", async () => {
       // need to register the reflective tokens again in this newly deployed clearing house contract
-      console.log("I'M HERE I WILL KILL YOU I AM OUTSIDE");
-      console.log(reflectiveTokenOne);
       await expect(
         clearingHouse
           .connect(deployer)
