@@ -19,7 +19,7 @@ import {
 
 const { deploy } = deployments;
 
-describe.only("Clearing House", function () {
+describe("Clearing House", function () {
   /*//////////////////////////////////////////////////////
                       TEST VARIABLES
   //////////////////////////////////////////////////////*/
@@ -187,7 +187,7 @@ describe.only("Clearing House", function () {
         log: true,
       });
 
-      const reflectiveTokenOne = await ethers.getContractAt(
+      reflectiveTokenOne = await ethers.getContractAt(
         refOneDeployResult.abi,
         refOneDeployResult.address
       );
@@ -295,10 +295,20 @@ describe.only("Clearing House", function () {
     });
 
     it("should revert when trying to register child dao token contract that is not owned by the clearing house", async () => {
+      const refTwoDeployResult = await deploy("ReflectiveToken", {
+        from: deployer.address,
+        args: ["Reflective Two", "REF2"],
+        log: true,
+      });
+      const reflectiveTokenTwo = await ethers.getContractAt(
+        refTwoDeployResult.abi,
+        refTwoDeployResult.address
+      );
+
       await expect(
         clearingHouse
           .connect(deployer)
-          .registerChildDao(reflectiveTokenOne.address, false, 10000, 10000, 0)
+          .registerChildDao(reflectiveTokenTwo.address, false, 10000, 10000, 0)
       ).to.be.revertedWith("token not owned by contract");
     });
 
