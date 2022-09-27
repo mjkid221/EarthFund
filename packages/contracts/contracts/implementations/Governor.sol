@@ -18,8 +18,6 @@ import "../vendors/IGnosisSafe.sol";
 
 import "@reality.eth/contracts/development/contracts/IRealityETH.sol";
 
-import "hardhat/console.sol";
-
 contract Governor is IGovernor, Ownable, ERC721Holder {
   PublicResolver public override ensResolver;
   ENSRegistry public override ensRegistry;
