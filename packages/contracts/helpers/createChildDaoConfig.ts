@@ -2,6 +2,7 @@ import { ethers } from "ethers";
 import { toUtf8Bytes } from "ethers/lib/utils";
 
 import ContractAddresses from "../constants/contractAddresses";
+import { IGovernor } from "../typechain-types";
 
 const createChildDaoConfig = (
   owners: string[],

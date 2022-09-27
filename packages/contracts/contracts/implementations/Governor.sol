@@ -150,7 +150,6 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     ZodiacParams memory zodiacData,
     uint256 safeDeploymentSalt
   ) internal returns (address safe) {
-    // Create safe
     address[] memory initialOwners = new address[](safeData.owners.length + 1);
     uint256 i;
     for (i = 0; i < safeData.owners.length; ++i) {
@@ -176,25 +175,22 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
       )
     );
 
-    // Create reality template if needed
     uint256 templateId;
     if (bytes(zodiacData.template).length > 0) {
-      // Create new template in the oracle
       templateId = IRealityETH(zodiacData.oracle).createTemplate(
         zodiacData.template
       );
     } else {
-      // Use existing template. ID's start at 0;
+      // @dev reality template IDs start at 0;
       templateId = zodiacData.templateId;
     }
-    // Deploy zodiac module
+
     address module = IModuleProxyFactory(zodiacData.zodiacFactory).deployModule(
       zodiacData.moduleMasterCopy,
       _getZodiacInitializer(safe, templateId, zodiacData),
       uint256(keccak256(abi.encode(safeDeploymentSalt)))
     );
 
-    // Enable module on safe
     IGnosisSafe(safe).execTransaction(
       safe,
       0,
@@ -207,8 +203,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
       payable(msg.sender),
       _getApprovedHashSignature()
     );
-    // Transfer safe control to dao (How to set threshold?)
-    // Remove this contract as an owner
+
     IGnosisSafe(safe).execTransaction(
       safe,
       0,
