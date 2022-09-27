@@ -20,6 +20,7 @@ contract ERC20Singleton is
   constructor() initializer {
     __ERC20_init("Singleton Base", "BASE");
     __Ownable_init();
+    maxSupply = 1 ether;
     transferOwnership(address(1));
   }
 
@@ -36,7 +37,9 @@ contract ERC20Singleton is
   }
 
   function mint(address account, uint256 amount) external override onlyOwner {
-    if (this.totalSupply() + amount > maxSupply) revert MaxSupplyReached();
+    if (this.totalSupply() + amount > maxSupply) {
+      revert MaxSupplyReached();
+    }
     _mint(account, amount);
   }
 

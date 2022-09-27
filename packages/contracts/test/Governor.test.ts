@@ -182,7 +182,7 @@ describe("Governor", () => {
       );
 
       const daoTx = await (
-        await governor.createChildDAO(_tokenData, _safeData, _subdomain, false)
+        await governor.createChildDAO(_tokenData, _safeData, _subdomain, true)
       ).wait();
 
       expect(
@@ -450,8 +450,10 @@ describe("Governor", () => {
   });
   describe("Create Cause", () => {
     beforeEach(async () => {
-      [, governor, , ensRegistrar, tokenId] =
-        await setupNetwork(domain, deployer);
+      [, governor, , ensRegistrar, tokenId] = await setupNetwork(
+        domain,
+        deployer
+      );
       donationsRouter = await ethers.getContract("DonationsRouter");
     });
     it("should create a cause successfully", async () => {
