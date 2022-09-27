@@ -15,6 +15,8 @@ interface IGnosisSafe {
   /// @return Array of Safe owners.
   function getOwners() external view returns (address[] memory);
 
+  function isModuleEnabled(address module) external view returns (bool);
+
   /// @dev Allows to execute a Safe transaction confirmed by required number of owners and then pays the account that submitted the transaction.
   ///      Note: The fees are always transferred, even if the user transaction fails.
   /// @param to Destination address of Safe transaction.
