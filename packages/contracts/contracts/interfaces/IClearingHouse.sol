@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identefier: MIT
 pragma solidity 0.8.13;
 
 import "../implementations/ERC20Singleton.sol";
@@ -25,6 +25,7 @@ interface IClearingHouse {
   struct CauseInformation {
     bool childDaoRegistry;
     bool autoStaking;
+    bool kycEnabled;
     uint256 release;
     uint256 maxSupply;
     uint256 maxSwap;
@@ -50,6 +51,7 @@ interface IClearingHouse {
   function registerChildDao(
     ERC20Singleton _childDaoToken,
     bool _autoStaking,
+    bool _kycEnabled,
     uint256 _maxSupply,
     uint256 _maxSwap,
     uint256 _release
@@ -72,9 +74,17 @@ interface IClearingHouse {
    * @notice Swaps a user's 1Earth tokens for a specific child dao's tokens
    * @param _childDaoToken The address of the child dao's ERC20 token contract
    * @param _amount The amount of 1Earth tokens being swapped
+   * @param _KYCId The unique ID for the individual that has been KYCed
+   * @param _expiry The expiry of the approval from the administrator
+   * @param _signature The signed approval from an admin that the user can undergo this transaction
    */
-  function swapEarthForChildDao(ERC20Singleton _childDaoToken, uint256 _amount)
-    external;
+  function swapEarthForChildDao(
+    ERC20Singleton _childDaoToken,
+    uint256 _amount,
+    bytes memory _KYCId,
+    uint256 _expiry,
+    bytes memory _signature
+  ) external;
 
   /**
    * @notice Swaps a user's tokens for a specific child dao for 1Earth tokens
@@ -122,6 +132,7 @@ interface IClearingHouse {
     returns (
       bool childDaoRegistry,
       bool autoStaking,
+      bool kycEnabled,
       uint256 release,
       uint256 maxSupply,
       uint256 maxSwap

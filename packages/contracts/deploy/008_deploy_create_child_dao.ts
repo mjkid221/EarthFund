@@ -67,12 +67,17 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     config.childDaoConfig.snapshotKey,
     config.childDaoConfig.snapshotValue,
     config.childDaoConfig.chainId.toString(),
-    config.childDaoConfig.safeThreshold
+    config.childDaoConfig.safeThreshold,
+    config.childDaoConfig.maxSupply,
+    config.childDaoConfig.maxSwap,
+    config.childDaoConfig.release,
+    config.childDaoConfig.autoStaking,
+    config.childDaoConfig.kycRequired
   );
 
   // call create child dao on the governor contract using the created config
   const createChildDaoTx = await (
-    await governor.createChildDAO(_tokenData, _safeData, _subdomain, false)
+    await governor.createChildDAO(_tokenData, _safeData, _subdomain)
   ).wait();
 
   const childDaoSafe = await ethers.getContractAt(

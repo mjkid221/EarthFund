@@ -114,10 +114,11 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     /// Register the token in the clearing house contract
     clearingHouse.registerChildDao(
       ERC20Singleton(token),
-      autoStaking,
-      uint256(_tokenData.maxSupply),
-      uint256(_tokenData.maxSwap),
-      uint256(_tokenData.release)
+      _tokenData.autoStaking,
+      _tokenData.kycRequired,
+      _tokenData.maxSupply,
+      _tokenData.maxSwap,
+      _tokenData.release
     );
     /// ENS Subdomain + Snapshot text record
     bytes32 node = _createENSSubdomain(

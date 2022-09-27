@@ -4,14 +4,14 @@ pragma solidity 0.8.13;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
 import "./ERC20Singleton.sol";
 import "./Governor.sol";
 import "./DonationsRouter.sol";
 import "./StakingRewards.sol";
 import "../interfaces/IClearingHouse.sol";
 import "../library/SigRecovery.sol";
-
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract ClearingHouse is IClearingHouse, Ownable, Pausable {
   using SafeERC20 for ERC20;
@@ -20,6 +20,15 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
   //////////////////////////////////////////////////////////////*/
 
   mapping(ERC20Singleton => CauseInformation) public causeInformation;
+
+  // Mapping from CauseID to a mapping from KYC to the amount that user has withdrawn
+  mapping(uint256 => mapping(bytes => uint256)) claimableAmount;
+
+  // Mapping from CauseID to the maximum amount that a user can withdra
+  mapping(uint256 => uint256) maxAmount;
+
+  // Mapping from Cause ID to KYC ID to amount withdrawn
+  mapping(uint256 => mapping(bytes => uint256)) withdrawnAmount;
 
   ERC20 public immutable earthToken;
 
@@ -135,6 +144,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
   function registerChildDao(
     ERC20Singleton _childDaoToken,
     bool _autoStaking,
+    bool _kycEnabled,
     uint256 _maxSupply,
     uint256 _maxSwap,
     uint256 _release
@@ -161,10 +171,12 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     _childDaoToken.approve(address(staking), type(uint256).max);
 
     causeInformation[_childDaoToken].childDaoRegistry = true;
+
     if (_release != 0) causeInformation[_childDaoToken].release = _release;
     causeInformation[_childDaoToken].maxSupply = _maxSupply;
     causeInformation[_childDaoToken].maxSwap = _maxSwap;
     if (_autoStaking) causeInformation[_childDaoToken].autoStaking = true;
+    if (_kycEnabled) causeInformation[_childDaoToken].kycEnabled = true;
 
     emit ChildDaoRegistered(address(_childDaoToken));
   }
@@ -219,8 +231,21 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
       "not enough 1Earth tokens"
     );
     uint256 causeId = donationsRouter.tokenCauseIds(address(_childDaoToken));
-    require(block.timestamp <= _expiry, "swap approval expired");
-    require(recoverApproval(_KYCId, msg.sender, causeId, _expiry, _signature) == owner(), "invalid signature");
+    require(block.timestamp <= _expiry, "ewap approval expired");
+    require(
+      SigRecovery.recoverApproval(
+        _KYCId,
+        msg.sender,
+        causeId,
+        _expiry,
+        _signature
+      ) == owner(),
+      "invalid signature"
+    );
+    require(
+      withdrawnAmount[causeId][_KYCId] + _amount <= maxAmount[causeId],
+      "user amount exceeded"
+    );
 
     // transfer 1Earth from msg sender to this contract
     uint256 earthBalanceBefore = earthToken.balanceOf(address(this));
@@ -310,9 +335,6 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     isChildDaoRegistered(_toChildDaoToken)
     checkInvariants(_toChildDaoToken, _amount)
   {
-    uint256 causeId = donationsRouter.tokenCauseIds(address(_toChildDaoToken));
-    require(block.timestamp <= _expiry, "swap approval expired");
-    require(recoverApproval(_KYCId, msg.sender, causeId, _expiry, _signature) == owner(), "invalid signature");
     require(
       _fromChildDaoToken != _toChildDaoToken,
       "cannot swap the same token"

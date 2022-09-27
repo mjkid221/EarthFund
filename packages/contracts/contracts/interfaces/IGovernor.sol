@@ -28,6 +28,8 @@ interface IGovernor {
     uint256 maxSupply;
     uint256 maxSwap;
     uint256 release;
+    bool autoStaking;
+    bool kycRequired; 
   }
 
   struct Safe {

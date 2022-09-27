@@ -12,14 +12,21 @@ const createChildDaoConfig = async (
   snapshotKey = "A",
   snapshotValue = "B",
   chainId = "31337",
-  safeThreshold = 1
+  safeThreshold = 1,
+  maxSupply = 1000,
+  maxSwap = 7500,
+  release = 0,
+  autoStaking = false,
+  kycRequired = false
 ) => ({
   _tokenData: {
     tokenName: toUtf8Bytes(tokenName),
     tokenSymbol: toUtf8Bytes(tokenSymbol),
-    maxSupply: parseEther("10000"),
-    maxSwap: parseEther("7500"),
-    release: 0,
+    maxSupply: parseEther(String(maxSupply)),
+    maxSwap: parseEther(String(maxSwap)),
+    release,
+    autoStaking,
+    kycRequired,
   },
   _safeData: {
     initializer:
