@@ -91,14 +91,15 @@ describe("Governor", () => {
               maxSupply: 1000,
               maxSwap: 1000,
               release: 0,
+              autoStaking: false,
+              kycRequired: false,
             },
             { initializer: toUtf8Bytes("test") },
             {
               subdomain: toUtf8Bytes("subtest"),
               snapshotKey: toUtf8Bytes("a"),
               snapshotValue: toUtf8Bytes("B"),
-            },
-            false
+            }
           )
         ).to.be.revertedWith("ENS domain unavailable");
       });
@@ -145,7 +146,7 @@ describe("Governor", () => {
         alice.address,
       ]);
       const safeTx = await (
-        await governor.createChildDAO(_tokenData, _safeData, _subdomain, false)
+        await governor.createChildDAO(_tokenData, _safeData, _subdomain)
       ).wait();
       safe = await ethers.getContractAt(
         "IGnosisSafe",
@@ -182,7 +183,7 @@ describe("Governor", () => {
       );
 
       const daoTx = await (
-        await governor.createChildDAO(_tokenData, _safeData, _subdomain, false)
+        await governor.createChildDAO(_tokenData, _safeData, _subdomain)
       ).wait();
 
       expect(
@@ -267,7 +268,7 @@ describe("Governor", () => {
       ).to.eq(ethers.constants.AddressZero);
 
       const daoTx = await (
-        await governor.createChildDAO(_tokenData, _safeData, _subdomain, false)
+        await governor.createChildDAO(_tokenData, _safeData, _subdomain)
       ).wait();
 
       childNode = daoTx.events?.find(
@@ -287,7 +288,7 @@ describe("Governor", () => {
         alice.address,
       ]);
       await expect(
-        governor.createChildDAO(_tokenData, _safeData, _subdomain, false)
+        governor.createChildDAO(_tokenData, _safeData, _subdomain )
       ).to.be.rejectedWith("ERC1167: create2 failed");
     });
     it("should set the ETH address for the subdomain to the Gnosis safe", async () => {
@@ -313,7 +314,7 @@ describe("Governor", () => {
         alice.address,
       ]);
       await expect(
-        governor.createChildDAO(_tokenData, _safeData, _subdomain, false)
+        governor.createChildDAO(_tokenData, _safeData, _subdomain )
       ).to.be.rejectedWith("ENS domain unavailable");
     });
     it("should revert deployment if parameters are bad", async () => {
@@ -450,8 +451,10 @@ describe("Governor", () => {
   });
   describe("Create Cause", () => {
     beforeEach(async () => {
-      [, governor, , ensRegistrar, tokenId] =
-        await setupNetwork(domain, deployer);
+      [, governor, , ensRegistrar, tokenId] = await setupNetwork(
+        domain,
+        deployer
+      );
       donationsRouter = await ethers.getContract("DonationsRouter");
     });
     it("should create a cause successfully", async () => {
@@ -462,7 +465,7 @@ describe("Governor", () => {
         alice.address,
       ]);
       const safeTx = await (
-        await governor.createChildDAO(_tokenData, _safeData, _subdomain, false)
+        await governor.createChildDAO(_tokenData, _safeData, _subdomain)
       ).wait();
 
       const event: any = safeTx.events?.filter((x) => {

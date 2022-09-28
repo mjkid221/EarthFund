@@ -1,6 +1,6 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
-import { parseEther } from "ethers/lib/utils";
+import { parseEther, toUtf8Bytes } from "ethers/lib/utils";
 import { deployments, ethers, network } from "hardhat";
 import { BigNumber, Contract } from "ethers";
 import createChildDaoConfig from "../helpers/createChildDaoConfig";
@@ -54,7 +54,7 @@ describe("Clearing House", function () {
       alice.address,
     ]);
     const createChildDaoTx = await (
-      await governor.createChildDAO(_tokenData, _safeData, _subdomain, false)
+      await governor.createChildDAO(_tokenData, _safeData, _subdomain)
     ).wait();
     childDaoToken = await ethers.getContractAt(
       "ERC20Singleton",
@@ -79,12 +79,7 @@ describe("Clearing House", function () {
       );
 
       const createChildDaoTx2 = await (
-        await governor.createChildDAO(
-          _tokenData2,
-          _safeData2,
-          _subdomain2,
-          false
-        )
+        await governor.createChildDAO(_tokenData2, _safeData2, _subdomain2)
       ).wait();
       childDaoToken2 = await ethers.getContractAt(
         "ERC20Singleton",
@@ -229,7 +224,14 @@ describe("Clearing House", function () {
       await expect(
         clearingHouse
           .connect(deployer)
-          .registerChildDao(childDaoToken.address, false, 10000, 10000, 0)
+          .registerChildDao(
+            childDaoToken.address,
+            false,
+            false,
+            10000,
+            10000,
+            0
+          )
       ).to.be.revertedWith("governor not set");
     });
 
@@ -237,7 +239,14 @@ describe("Clearing House", function () {
       await expect(
         clearingHouse
           .connect(alice)
-          .registerChildDao(childDaoToken.address, false, 10000, 10000, 0)
+          .registerChildDao(
+            childDaoToken.address,
+            false,
+            false,
+            10000,
+            10000,
+            0
+          )
       ).to.be.revertedWith("caller is not the governor");
     });
 
@@ -245,7 +254,7 @@ describe("Clearing House", function () {
       await expect(
         clearingHouse
           .connect(deployer)
-          .registerChildDao(earthToken.address, false, 10000, 10000, 0)
+          .registerChildDao(earthToken.address, false, false, 10000, 10000, 0)
       ).to.be.revertedWith("cannot register 1Earth token");
     });
 
@@ -254,7 +263,14 @@ describe("Clearing House", function () {
       await expect(
         clearingHouse
           .connect(deployer)
-          .registerChildDao(reflectiveTokenOne.address, true, 0, 10000, 0)
+          .registerChildDao(
+            reflectiveTokenOne.address,
+            true,
+            false,
+            0,
+            10000,
+            0
+          )
       ).to.be.revertedWith("max supply cannot be 0");
     });
 
@@ -263,7 +279,14 @@ describe("Clearing House", function () {
       await expect(
         clearingHouse
           .connect(deployer)
-          .registerChildDao(reflectiveTokenOne.address, true, 10000, 0, 0)
+          .registerChildDao(
+            reflectiveTokenOne.address,
+            true,
+            false,
+            10000,
+            0,
+            0
+          )
       ).to.be.revertedWith("max swap cannot be 0");
     });
 
@@ -271,7 +294,14 @@ describe("Clearing House", function () {
       // need to register the reflective tokens again in this newly deployed clearing house contract
       await clearingHouse
         .connect(deployer)
-        .registerChildDao(reflectiveTokenOne.address, true, 10000, 10000, 0);
+        .registerChildDao(
+          reflectiveTokenOne.address,
+          true,
+          false,
+          10000,
+          10000,
+          0
+        );
     });
 
     it("should be able to register a child dao with a release time", async () => {
@@ -281,6 +311,7 @@ describe("Clearing House", function () {
         .registerChildDao(
           reflectiveTokenOne.address,
           true,
+          false,
           10000,
           10000,
           parseEther("10")
@@ -290,7 +321,13 @@ describe("Clearing House", function () {
           .release
       ).to.be.eq(parseEther("10"));
       await expect(
-        clearingHouse.swapEarthForChildDao(reflectiveTokenOne.address, 10)
+        clearingHouse.swapEarthForChildDao(
+          reflectiveTokenOne.address,
+          10,
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
+        )
       ).to.be.revertedWith("cause release has not passed");
     });
 
@@ -308,7 +345,14 @@ describe("Clearing House", function () {
       await expect(
         clearingHouse
           .connect(deployer)
-          .registerChildDao(reflectiveTokenTwo.address, false, 10000, 10000, 0)
+          .registerChildDao(
+            reflectiveTokenTwo.address,
+            false,
+            false,
+            10000,
+            10000,
+            0
+          )
       ).to.be.revertedWith("token not owned by contract");
     });
 
@@ -316,7 +360,14 @@ describe("Clearing House", function () {
       await expect(
         clearingHouse
           .connect(deployer)
-          .registerChildDao(childDaoToken.address, false, 10000, 10000, 0)
+          .registerChildDao(
+            childDaoToken.address,
+            false,
+            false,
+            10000,
+            10000,
+            0
+          )
       ).to.be.revertedWith("child dao already registered");
     });
   });
@@ -418,7 +469,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther(swapAmount.toString())
+          ethers.utils.parseEther(swapAmount.toString()),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
       await checkBalancesAfterDaoTokenSwap(swapAmount);
     });
@@ -430,7 +484,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther(swapAmount.toString())
+          ethers.utils.parseEther(swapAmount.toString()),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
       await checkBalancesAfterDaoTokenSwap(swapAmount);
     });
@@ -442,7 +499,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther(swapAmount.toString())
+          ethers.utils.parseEther(swapAmount.toString()),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
       await checkBalancesAfterDaoTokenSwap(swapAmount);
     });
@@ -454,7 +514,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther(swapAmount.toString())
+          ethers.utils.parseEther(swapAmount.toString()),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
       await checkBalancesAfterDaoTokenSwap(swapAmount);
     });
@@ -466,7 +529,10 @@ describe("Clearing House", function () {
           .connect(alice)
           .swapEarthForChildDao(
             deployer.address,
-            ethers.utils.parseEther(swapAmount.toString())
+            ethers.utils.parseEther(swapAmount.toString()),
+            toUtf8Bytes("0"),
+            0,
+            toUtf8Bytes("0")
           )
       ).to.be.revertedWith("invalid child dao address");
     });
@@ -478,7 +544,10 @@ describe("Clearing House", function () {
           .connect(alice)
           .swapEarthForChildDao(
             childDaoToken.address,
-            ethers.utils.parseEther(swapAmount.toString())
+            ethers.utils.parseEther(swapAmount.toString()),
+            toUtf8Bytes("0"),
+            0,
+            toUtf8Bytes("0")
           )
       ).to.be.revertedWith("not enough 1Earth tokens");
     });
@@ -552,7 +621,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther(swapAmount.toString())
+          ethers.utils.parseEther(swapAmount.toString()),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
       expect(await earthToken.balanceOf(alice.address)).to.be.eq(0);
       expect(
@@ -623,7 +695,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther("500")
+          ethers.utils.parseEther("500"),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
     });
 
@@ -760,7 +835,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther("500")
+          ethers.utils.parseEther("500"),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
 
       // swap five hundred 1Earth tokens to child dao 2 tokens for alice
@@ -768,7 +846,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken2.address,
-          ethers.utils.parseEther("500")
+          ethers.utils.parseEther("500"),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
     });
 
@@ -1032,6 +1113,7 @@ describe("Clearing House", function () {
         .registerChildDao(
           reflectiveTokenOne.address,
           false,
+          false,
           parseEther("10000"),
           parseEther("10000"),
           0
@@ -1040,6 +1122,7 @@ describe("Clearing House", function () {
         .connect(deployer)
         .registerChildDao(
           reflectiveTokenTwo.address,
+          false,
           false,
           parseEther("10000"),
           parseEther("10000"),
@@ -1063,7 +1146,10 @@ describe("Clearing House", function () {
           .connect(alice)
           .swapEarthForChildDao(
             reflectiveTokenOne.address,
-            ethers.utils.parseEther(swapAmount.toString())
+            ethers.utils.parseEther(swapAmount.toString()),
+            toUtf8Bytes("0"),
+            0,
+            toUtf8Bytes("0")
           )
       ).to.be.revertedWith("1Earth token transfer failed");
 
@@ -1105,6 +1191,7 @@ describe("Clearing House", function () {
         .registerChildDao(
           reflectiveTokenOne.address,
           false,
+          false,
           parseEther("10000"),
           parseEther("10000"),
           0
@@ -1113,6 +1200,7 @@ describe("Clearing House", function () {
         .connect(deployer)
         .registerChildDao(
           reflectiveTokenTwo.address,
+          false,
           false,
           parseEther("10000"),
           parseEther("10000"),
@@ -1125,7 +1213,10 @@ describe("Clearing House", function () {
           .connect(alice)
           .swapEarthForChildDao(
             reflectiveTokenOne.address,
-            ethers.utils.parseEther(swapAmount.toString())
+            ethers.utils.parseEther(swapAmount.toString()),
+            toUtf8Bytes("0"),
+            0,
+            toUtf8Bytes("0")
           )
       ).to.be.revertedWith("child dao token mint error");
 
@@ -1134,7 +1225,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther(swapAmount.toString())
+          ethers.utils.parseEther(swapAmount.toString()),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
 
       // try to swap child dao tokens for reflective token one tokens
@@ -1164,10 +1258,24 @@ describe("Clearing House", function () {
       // register the two ref tokens in the clearing house contract
       await clearingHouse
         .connect(deployer)
-        .registerChildDao(reflectiveTokenOne.address, false, 10000, 10000, 0);
+        .registerChildDao(
+          reflectiveTokenOne.address,
+          false,
+          false,
+          10000,
+          10000,
+          0
+        );
       await clearingHouse
         .connect(deployer)
-        .registerChildDao(reflectiveTokenTwo.address, false, 10000, 10000, 0);
+        .registerChildDao(
+          reflectiveTokenTwo.address,
+          false,
+          false,
+          10000,
+          10000,
+          0
+        );
 
       const swapAmount = 1;
 
@@ -1176,7 +1284,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther(swapAmount.toString())
+          ethers.utils.parseEther(swapAmount.toString()),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
 
       await reflectiveTokenOne.mint(
@@ -1233,7 +1344,14 @@ describe("Clearing House", function () {
       await expect(
         clearingHouse
           .connect(deployer)
-          .registerChildDao(childDaoToken.address, false, 10000, 10000, 0)
+          .registerChildDao(
+            childDaoToken.address,
+            false,
+            false,
+            10000,
+            10000,
+            0
+          )
       ).to.be.revertedWith("Pausable: paused");
 
       // unpause and try to finish action
@@ -1242,7 +1360,14 @@ describe("Clearing House", function () {
       await expect(
         clearingHouse
           .connect(deployer)
-          .registerChildDao(childDaoToken.address, false, 10000, 10000, 0)
+          .registerChildDao(
+            childDaoToken.address,
+            false,
+            false,
+            10000,
+            10000,
+            0
+          )
       ).to.be.revertedWith("child dao already registered");
     });
 
@@ -1253,7 +1378,10 @@ describe("Clearing House", function () {
           .connect(deployer)
           .swapEarthForChildDao(
             childDaoToken.address,
-            ethers.utils.parseEther(swapAmount.toString())
+            ethers.utils.parseEther(swapAmount.toString()),
+            toUtf8Bytes("0"),
+            0,
+            toUtf8Bytes("0")
           )
       ).to.be.revertedWith("Pausable: paused");
 
@@ -1274,7 +1402,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther(swapAmount.toString())
+          ethers.utils.parseEther(swapAmount.toString()),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
 
       expect(await earthToken.balanceOf(alice.address)).to.be.eq(
@@ -1316,7 +1447,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther(swapAmount.toString())
+          ethers.utils.parseEther(swapAmount.toString()),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
 
       expect(await earthToken.balanceOf(alice.address)).to.be.eq(
@@ -1375,7 +1509,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther(swapAmount.toString())
+          ethers.utils.parseEther(swapAmount.toString()),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
 
       expect(await earthToken.balanceOf(alice.address)).to.be.eq(
@@ -1436,7 +1573,13 @@ describe("Clearing House", function () {
       await expect(
         clearingHouse
           .connect(alice)
-          .swapEarthForChildDao(childDaoToken.address, parseEther("100000000"))
+          .swapEarthForChildDao(
+            childDaoToken.address,
+            parseEther("100000000"),
+            toUtf8Bytes("0"),
+            0,
+            toUtf8Bytes("0")
+          )
       ).to.be.revertedWith("exceeds max supply");
     });
 
@@ -1444,12 +1587,21 @@ describe("Clearing House", function () {
       await expect(
         clearingHouse
           .connect(alice)
-          .swapEarthForChildDao(childDaoToken.address, parseEther("10000"))
+          .swapEarthForChildDao(
+            childDaoToken.address,
+            parseEther("10000"),
+            toUtf8Bytes("0"),
+            0,
+            toUtf8Bytes("0")
+          )
       ).to.be.revertedWith("exceeds max swap per tx");
 
       await clearingHouse.swapEarthForChildDao(
         childDaoToken.address,
-        parseEther("6000")
+        parseEther("6000"),
+        toUtf8Bytes("0"),
+        0,
+        toUtf8Bytes("0")
       );
 
       await childDaoToken.transfer(alice.address, parseEther("6000"));
@@ -1469,7 +1621,10 @@ describe("Clearing House", function () {
       expect(await childDaoToken.balanceOf(deployer.address)).to.eq(0);
       await clearingHouse.swapEarthForChildDao(
         childDaoToken.address,
-        parseEther("10000")
+        parseEther("10000"),
+        toUtf8Bytes("0"),
+        0,
+        toUtf8Bytes("0")
       );
       expect(await childDaoToken.balanceOf(deployer.address)).to.be.eq(
         parseEther("10000")
@@ -1480,7 +1635,10 @@ describe("Clearing House", function () {
       await expect(
         clearingHouse.swapEarthForChildDao(
           childDaoToken.address,
-          parseEther("100000000")
+          parseEther("100000000"),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         )
       ).to.be.revertedWith("exceeds max supply");
     });
