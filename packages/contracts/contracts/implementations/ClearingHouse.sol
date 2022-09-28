@@ -231,21 +231,20 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
       "not enough 1Earth tokens"
     );
     uint256 causeId = donationsRouter.tokenCauseIds(address(_childDaoToken));
-    require(block.timestamp <= _expiry, "ewap approval expired");
-    require(
-      SigRecovery.recoverApproval(
-        _KYCId,
-        msg.sender,
-        causeId,
-        _expiry,
-        _signature
-      ) == owner(),
-      "invalid signature"
-    );
-    require(
-      withdrawnAmount[causeId][_KYCId] + _amount <= maxAmount[causeId],
-      "user amount exceeded"
-    );
+    if (causeInformation[_childDaoToken].kycEnabled) {
+      if (block.timestamp < _expiry) revert ApprovalExpired();
+      if (
+        SigRecovery.recoverApproval(
+          _KYCId,
+          msg.sender,
+          causeId,
+          _expiry,
+          _signature
+        ) != owner()
+      ) revert InvalidSignature();
+      if (withdrawnAmount[causeId][_KYCId] + _amount > maxAmount[causeId])
+        revert UserAmountExceeded();
+    }
 
     // transfer 1Earth from msg sender to this contract
     uint256 earthBalanceBefore = earthToken.balanceOf(address(this));

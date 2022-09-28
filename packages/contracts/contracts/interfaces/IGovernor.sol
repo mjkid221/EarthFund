@@ -60,8 +60,7 @@ interface IGovernor {
   function createChildDAO(
     Token calldata _tokenData,
     Safe calldata _safeData,
-    Subdomain calldata _subdomain,
-    bool autoStaking
+    Subdomain calldata _subdomain
   ) external;
 
   /// @notice Transfers an ENS NFT into the contract for use with subdomains
