@@ -200,6 +200,14 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     causeInformation[_token].autoStaking = _state;
   }
 
+  function setKYCEnabled(ERC20Singleton _token, bool _state)
+    external
+    isDonationsRouterSet
+  {
+    checkIfCauseOwner(_token);
+    causeInformation[_token].kycEnabled = _state;
+  }
+
   function setStaking(StakingRewards _staking) external onlyOwner {
     require(address(_staking) != address(0), "invalid staking address");
 
@@ -231,7 +239,8 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
       "not enough 1Earth tokens"
     );
     uint256 causeId = donationsRouter.tokenCauseIds(address(_childDaoToken));
-    if (causeInformation[_childDaoToken].kycEnabled) {
+    CauseInformation memory cause = causeInformation[_childDaoToken];
+    if (cause.kycEnabled) {
       if (block.timestamp < _expiry) revert ApprovalExpired();
       if (
         SigRecovery.recoverApproval(
@@ -242,7 +251,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
           _signature
         ) != owner()
       ) revert InvalidSignature();
-      if (withdrawnAmount[causeId][_KYCId] + _amount > maxAmount[causeId])
+      if (withdrawnAmount[causeId][_KYCId] + _amount > cause.maxSwap)
         revert UserAmountExceeded();
     }
 
