@@ -241,7 +241,7 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
     uint256 causeId = donationsRouter.tokenCauseIds(address(_childDaoToken));
     CauseInformation memory cause = causeInformation[_childDaoToken];
     if (cause.kycEnabled) {
-      if (block.timestamp < _expiry) revert ApprovalExpired();
+      if (block.timestamp > _expiry && _expiry != 0) revert ApprovalExpired();
       if (
         SigRecovery.recoverApproval(
           _KYCId,
@@ -251,10 +251,12 @@ contract ClearingHouse is IClearingHouse, Ownable, Pausable {
           _signature
         ) != owner()
       ) revert InvalidSignature();
-      if (withdrawnAmount[causeId][_KYCId] + _amount > cause.maxSwap)
+      if ((withdrawnAmount[causeId][_KYCId] + _amount) > cause.maxSwap) {
         revert UserAmountExceeded();
+      }
     }
 
+    withdrawnAmount[causeId][_KYCId] += _amount;
     // transfer 1Earth from msg sender to this contract
     uint256 earthBalanceBefore = earthToken.balanceOf(address(this));
 

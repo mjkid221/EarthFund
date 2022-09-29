@@ -304,6 +304,20 @@ describe("Clearing House", function () {
         );
     });
 
+    it("should be able to register child dao with kyc enabled set to true", async () => {
+      // need to register the reflective tokens again in this newly deployed clearing house contract
+      await clearingHouse
+        .connect(deployer)
+        .registerChildDao(
+          reflectiveTokenOne.address,
+          false,
+          true,
+          10000,
+          10000,
+          0
+        );
+    });
+
     it("should be able to register a child dao with a release time", async () => {
       // need to register the reflective tokens again in this newly deployed clearing house contract
       await clearingHouse
@@ -1107,6 +1121,16 @@ describe("Clearing House", function () {
         .connect(deployer)
         .transferOwnership(clearingHouse.address);
 
+      const registrationRequest = {
+        owner: deployer.address,
+        rewardPercentage: 1,
+        daoToken: reflectiveTokenOne.address,
+      };
+
+      await clearingHouse.addDonationsRouter(router.address);
+
+      await router.registerCause(registrationRequest);
+
       // need to register the reflective tokens again in this newly deployed clearing house contract
       await clearingHouse
         .connect(deployer)
@@ -1118,6 +1142,7 @@ describe("Clearing House", function () {
           parseEther("10000"),
           0
         );
+
       await clearingHouse
         .connect(deployer)
         .registerChildDao(
@@ -1678,14 +1703,14 @@ describe("Clearing House", function () {
         .connect(signer)
         .setKYCEnabled(childDaoToken.address, true);
       // transfer alice five hundred 1Earth tokens
-      await earthToken.transfer(alice.address, ethers.utils.parseEther("500"));
+      await earthToken.transfer(alice.address, ethers.utils.parseEther("2000"));
       // approve the clearing house contract in the earth token contract for alice
       await earthToken
         .connect(alice)
         .approve(clearingHouse.address, ethers.constants.MaxUint256);
     });
 
-    it("should be able to create signature", async () => {
+    it("should be able to create signature and swap earth for child dao", async () => {
       const sigValues = {
         KYCId: "test",
         user: alice.address,
@@ -1708,6 +1733,82 @@ describe("Clearing House", function () {
         );
 
       expect(await childDaoToken.balanceOf(alice.address)).to.eq(1000);
+    });
+    it("should revert if expiry has passed", async () => {
+      const sigValues = {
+        KYCId: "test",
+        user: alice.address,
+        causeId: childDaoCauseID,
+        expiry: 1, // 1 second after 1970 would be expired, it ignores expiry if it is 0
+      } as SigValues;
+      const args = Object.values(sigValues) as [string, string, number, number];
+      const signature = await createKYCSignature(deployer, ...args);
+
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapEarthForChildDao(
+            childDaoToken.address,
+            parseEther("1000"),
+            toUtf8Bytes(sigValues.KYCId),
+            sigValues.expiry,
+            signature
+          )
+      ).to.be.revertedWith("ApprovalExpired");
+    });
+    it("should revert if signed by invalid address", async () => {
+      const sigValues = {
+        KYCId: "test",
+        user: alice.address,
+        causeId: childDaoCauseID,
+        expiry: 0,
+      } as SigValues;
+      const args = Object.values(sigValues) as [string, string, number, number];
+      const signature = await createKYCSignature(alice, ...args);
+
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapEarthForChildDao(
+            childDaoToken.address,
+            parseEther("1000"),
+            toUtf8Bytes(sigValues.KYCId),
+            sigValues.expiry,
+            signature
+          )
+      ).to.be.revertedWith("InvalidSignature");
+    });
+    it("should revert if user attempts to withdraw more than max swap amount", async () => {
+      const sigValues = {
+        KYCId: "test",
+        user: alice.address,
+        causeId: childDaoCauseID,
+        expiry: 0,
+      } as SigValues;
+      const args = Object.values(sigValues) as [string, string, number, number];
+      const signature = await createKYCSignature(deployer, ...args);
+
+      await clearingHouse
+        .connect(alice)
+        .swapEarthForChildDao(
+          childDaoToken.address,
+          parseEther("1000"),
+          toUtf8Bytes(sigValues.KYCId),
+          sigValues.expiry,
+          signature
+        );
+
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapEarthForChildDao(
+            childDaoToken.address,
+            parseEther("1000"),
+            toUtf8Bytes(sigValues.KYCId),
+            sigValues.expiry,
+            signature
+          )
+      ).to.be.revertedWith("UserAmountExceeded");
     });
   });
 
