@@ -2,7 +2,7 @@ import { ethers, deployments, network } from "hardhat";
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { ERC20Singleton } from "../typechain-types";
+import { ERC20Singleton  } from "../typechain-types";
 import { parseEther } from "@ethersproject/units";
 import { toUtf8Bytes } from "ethers/lib/utils";
 
@@ -12,12 +12,12 @@ const { expect } = chai;
 const mintAmount = parseEther("50");
 
 describe("ERC20Singleton", () => {
-  let deployer: SignerWithAddress, alice: SignerWithAddress;
+  let alice: SignerWithAddress;
   let token: ERC20Singleton;
   const name = "Singleton Base";
   const symbol = "BASE";
   beforeEach(async () => {
-    [deployer, alice] = await ethers.getSigners();
+    [, alice] = await ethers.getSigners();
     await deployments.fixture(["_ERC20Singleton"]);
     token = await ethers.getContract("ERC20Singleton");
   });

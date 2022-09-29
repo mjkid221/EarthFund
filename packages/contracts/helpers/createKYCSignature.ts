@@ -5,18 +5,18 @@ import { ethers } from "ethers";
  * @param KYCId the unique ID of a KYCed individual
  * @param user the address that is being approved
  * @param causeId the ID representing the cause on the smart contract
- * @param expiry the unix time that this approval will expire 
+ * @param expiry the unix time that this approval will expire
  */
 const createKYCSignature = (
   signer: ethers.Signer,
   KYCId: string,
   user: string,
-  causeId: string,
+  causeId: number,
   expiry: number
 ): Promise<string> => {
   const messageHash = ethers.utils.keccak256(
     ethers.utils.defaultAbiCoder.encode(
-      ["string", "address", "unit256", "uint256"],
+      ["string", "address", "uint256", "uint256"],
       [KYCId, user, causeId, expiry]
     )
   );

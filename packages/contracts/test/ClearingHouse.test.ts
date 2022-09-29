@@ -3,8 +3,8 @@ import { expect } from "chai";
 import { parseEther, toUtf8Bytes } from "ethers/lib/utils";
 import { deployments, ethers, network } from "hardhat";
 import { BigNumber, Contract } from "ethers";
+import { createKYCSignature } from "../helpers/createKYCSignature";
 import createChildDaoConfig from "../helpers/createChildDaoConfig";
-
 import setupNetwork from "../helpers/setupNetwork";
 import {
   ERC20,
@@ -1641,6 +1641,73 @@ describe("Clearing House", function () {
           toUtf8Bytes("0")
         )
       ).to.be.revertedWith("exceeds max supply");
+    });
+  });
+  describe("KYC Approval", () => {
+    let childDaoCauseID: number;
+
+    interface SigValues {
+      KYCId: string;
+      user: string;
+      causeId: number;
+      expiry: number;
+    }
+
+    beforeEach(async () => {
+      await setupTestEnv();
+      await clearingHouse.connect(deployer).addGovernor(deployer.address);
+      childDaoCauseID = (
+        await router.tokenCauseIds(childDaoToken.address)
+      ).toNumber();
+      const childDaoOwner = (await router.causeRecords(childDaoCauseID)).owner;
+
+      await network.provider.request({
+        method: "hardhat_impersonateAccount",
+        params: [childDaoOwner],
+      });
+
+      const signer = ethers.provider.getSigner(childDaoOwner);
+
+      const tx = await deployer.sendTransaction({
+        to: childDaoOwner,
+        value: ethers.utils.parseEther("10.0"),
+      });
+
+      await tx.wait();
+      await clearingHouse
+        .connect(signer)
+        .setKYCEnabled(childDaoToken.address, true);
+      // transfer alice five hundred 1Earth tokens
+      await earthToken.transfer(alice.address, ethers.utils.parseEther("500"));
+      // approve the clearing house contract in the earth token contract for alice
+      await earthToken
+        .connect(alice)
+        .approve(clearingHouse.address, ethers.constants.MaxUint256);
+    });
+
+    it("should be able to create signature", async () => {
+      const sigValues = {
+        KYCId: "test",
+        user: alice.address,
+        causeId: childDaoCauseID,
+        expiry: 0,
+      } as SigValues;
+      const args = Object.values(sigValues) as [string, string, number, number];
+      const signature = await createKYCSignature(deployer, ...args);
+
+      expect(await childDaoToken.balanceOf(alice.address)).to.eq(0);
+
+      await clearingHouse
+        .connect(alice)
+        .swapEarthForChildDao(
+          childDaoToken.address,
+          1000,
+          toUtf8Bytes(sigValues.KYCId),
+          sigValues.expiry,
+          signature
+        );
+
+      expect(await childDaoToken.balanceOf(alice.address)).to.eq(1000);
     });
   });
 
