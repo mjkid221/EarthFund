@@ -5,11 +5,12 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { ERC20Singleton  } from "../typechain-types";
 import { parseEther } from "@ethersproject/units";
 import { toUtf8Bytes } from "ethers/lib/utils";
+import { BigNumber } from "ethers";
 
 chai.use(chaiAsPromised);
 const { expect } = chai;
 
-const mintAmount = parseEther("50");
+const mintAmount = parseEther("0.5");
 
 describe("ERC20Singleton", () => {
   let alice: SignerWithAddress;
@@ -26,7 +27,7 @@ describe("ERC20Singleton", () => {
       token.initialize(
         toUtf8Bytes(name),
         toUtf8Bytes(symbol),
-        toUtf8Bytes("10000"),
+        parseEther("1000"),
         alice.address
       )
     ).to.be.rejectedWith("Initializable: contract is already initialized");

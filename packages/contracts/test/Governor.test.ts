@@ -288,7 +288,7 @@ describe("Governor", () => {
         alice.address,
       ]);
       await expect(
-        governor.createChildDAO(_tokenData, _safeData, _subdomain )
+        governor.createChildDAO(_tokenData, _safeData, _subdomain)
       ).to.be.rejectedWith("ERC1167: create2 failed");
     });
     it("should set the ETH address for the subdomain to the Gnosis safe", async () => {
@@ -314,7 +314,7 @@ describe("Governor", () => {
         alice.address,
       ]);
       await expect(
-        governor.createChildDAO(_tokenData, _safeData, _subdomain )
+        governor.createChildDAO(_tokenData, _safeData, _subdomain)
       ).to.be.rejectedWith("ENS domain unavailable");
     });
     it("should revert deployment if parameters are bad", async () => {
