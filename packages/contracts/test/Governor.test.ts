@@ -179,7 +179,16 @@ describe("Governor", () => {
       const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig(
         [alice.address],
         tokenName,
-        tokenSymbol
+        tokenSymbol,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        true
       );
 
       const daoTx = await (
