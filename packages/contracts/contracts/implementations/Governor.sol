@@ -95,7 +95,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     Token calldata _tokenData,
     Safe calldata _safeData,
     Subdomain calldata _subdomain
-  ) external override onlyOwner {
+  ) external override {
     require(ensDomainNFTId > 0, "ENS domain unavailable");
 
     /// Gnosis multi sig
