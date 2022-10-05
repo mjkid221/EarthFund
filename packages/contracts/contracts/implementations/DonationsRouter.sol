@@ -152,12 +152,13 @@ contract DonationsRouter is IDonationsRouter, Ownable, Queue {
 
     require(msg.sender == cause.owner, "unauthorized");
     require(_proposalId != "", "invalid proposal id");
-    uint128 queueToWithdraw = getFront(causeId);
-    QueueItem memory item = getQueueItem(causeId, queueToWithdraw);
+    uint128 queueToWithdraw = getFront(_walletId.causeId);
+    QueueItem memory item = getQueueItem(_walletId.causeId, queueToWithdraw);
     if (
-      item.isUnclaimed && item.id == keccak256(abi.encode(causeId, _proposalId))
+      item.isUnclaimed &&
+      item.id == keccak256(abi.encode(_walletId.causeId, _proposalId))
     ) {
-      dequeue(causeId);
+      dequeue(_walletId.causeId);
     } else {
       revert("not head of queue");
     }
