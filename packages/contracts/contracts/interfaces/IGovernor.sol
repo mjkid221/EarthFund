@@ -29,7 +29,12 @@ interface IGovernor {
     uint256 maxSwap;
     uint256 release;
     bool autoStaking;
-    bool kycRequired; 
+    bool kycRequired;
+    uint256 mintingAmount;
+    uint256 rewardPercentage;
+    bytes KYCId;
+    uint256 expiry;
+    bytes signature;
   }
 
   struct Safe {
