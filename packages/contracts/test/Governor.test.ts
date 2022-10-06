@@ -4,11 +4,17 @@ import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
 import { deployments, ethers } from "hardhat";
-import { BigNumber } from "ethers";
-import { isAddress, keccak256, toUtf8Bytes } from "ethers/lib/utils";
+import { BigNumber, providers } from "ethers";
+import {
+  isAddress,
+  keccak256,
+  solidityKeccak256,
+  solidityPack,
+  toUtf8Bytes,
+} from "ethers/lib/utils";
 import { solidity } from "ethereum-waffle";
 
-import ContractAddresses from "../constants/contractAddresses";
+import ContractAddresses, { mainnet } from "../constants/contractAddresses";
 import createChildDaoConfig from "../helpers/createChildDaoConfig";
 import setupNetwork from "../helpers/setupNetwork";
 import {
@@ -22,8 +28,11 @@ import {
   Governor__factory,
   IClearingHouse,
   IDonationsRouter,
-  ERC20
+  ERC20,
+  IRealityETH,
+  IZodiacModule,
 } from "../typechain-types";
+import { AddressOne } from "@gnosis.pm/safe-contracts";
 
 chai.use(solidity);
 chai.use(chaiAsPromised);
@@ -31,7 +40,9 @@ const { expect } = chai;
 
 describe("Governor", () => {
   let deployer: SignerWithAddress, alice: SignerWithAddress;
-  let token: ERC20Singleton, governor: IGovernor, donationsRouter: IDonationsRouter;
+  let token: ERC20Singleton,
+    governor: IGovernor,
+    donationsRouter: IDonationsRouter;
   let ensRegistrar: IENSRegistrar, ensController: IENSController;
   let tokenId: string;
 
@@ -89,7 +100,7 @@ describe("Governor", () => {
               tokenName: toUtf8Bytes("Test"),
               tokenSymbol: toUtf8Bytes("TEST"),
             },
-            { initializer: toUtf8Bytes("test") },
+            createChildDaoConfig([ethers.constants.AddressZero])._safeData,
             {
               subdomain: toUtf8Bytes("subtest"),
               snapshotKey: toUtf8Bytes("a"),
@@ -133,9 +144,10 @@ describe("Governor", () => {
 
       await ensRegistrar.approve(governor.address, tokenId);
       await governor.addENSDomain(tokenId);
-      const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig([
+      const { _tokenData, _safeData, _subdomain } = createChildDaoConfig([
         alice.address,
       ]);
+
       const safeTx = await (
         await governor.createChildDAO(_tokenData, _safeData, _subdomain)
       ).wait();
@@ -316,7 +328,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
           clearingHouse: ethers.constants.AddressZero,
-          donationsRouter: ethers.constants.AddressZero
+          donationsRouter: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid resolver address");
       await expect(
@@ -329,7 +341,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
           clearingHouse: ethers.constants.AddressZero,
-          donationsRouter: ethers.constants.AddressZero
+          donationsRouter: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid registry address");
       await expect(
@@ -342,7 +354,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
           clearingHouse: ethers.constants.AddressZero,
-          donationsRouter: ethers.constants.AddressZero
+          donationsRouter: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid registrar address");
       await expect(
@@ -355,7 +367,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
           clearingHouse: ethers.constants.AddressZero,
-          donationsRouter: ethers.constants.AddressZero
+          donationsRouter: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid factory address");
       await expect(
@@ -368,7 +380,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
           clearingHouse: ethers.constants.AddressZero,
-          donationsRouter: ethers.constants.AddressZero
+          donationsRouter: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid safe singleton address");
       await expect(
@@ -383,7 +395,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.constants.AddressZero,
           parentDao: ethers.constants.AddressZero,
           clearingHouse: ethers.constants.AddressZero,
-          donationsRouter: ethers.constants.AddressZero
+          donationsRouter: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid token singleton address");
       await expect(
@@ -398,7 +410,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
           parentDao: ethers.constants.AddressZero,
           clearingHouse: ethers.constants.AddressZero,
-          donationsRouter: ethers.constants.AddressZero
+          donationsRouter: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid owner");
       await expect(
@@ -413,7 +425,7 @@ describe("Governor", () => {
           erc20Singleton: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
           parentDao: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
           clearingHouse: ethers.constants.AddressZero,
-          donationsRouter: ethers.constants.AddressZero
+          donationsRouter: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid clearing house address");
       await expect(
@@ -428,20 +440,20 @@ describe("Governor", () => {
           erc20Singleton: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
           parentDao: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
           clearingHouse: ethers.utils.hexlify(ethers.utils.randomBytes(20)),
-          donationsRouter: ethers.constants.AddressZero
+          donationsRouter: ethers.constants.AddressZero,
         })
       ).to.be.revertedWith("invalid donations router address");
     });
   });
   describe("Create Cause", () => {
-    let token : ERC20;
+    let token: ERC20;
     beforeEach(async () => {
       [token, governor, ensController, ensRegistrar, tokenId] =
         await setupNetwork(domain, deployer);
       donationsRouter = await ethers.getContract("DonationsRouter");
-      token = await ethers.getContract("EarthToken")
-    })
-    it("should create a cause successfully", async() => {
+      token = await ethers.getContract("EarthToken");
+    });
+    it("should create a cause successfully", async () => {
       await ensRegistrar.approve(governor.address, tokenId);
       await governor.addENSDomain(ethers.BigNumber.from(tokenId));
 
@@ -451,22 +463,149 @@ describe("Governor", () => {
       const safeTx = await (
         await governor.createChildDAO(_tokenData, _safeData, _subdomain)
       ).wait();
-      
-      const event : any = (safeTx.events?.filter((x) => {return x.event == "ChildDaoCreated"}))?.[0].args;
-      const {safe , token, node} = event;
 
-      const causeId = await donationsRouter.causeId(); 
+      const event: any = safeTx.events?.filter((x) => {
+        return x.event == "ChildDaoCreated";
+      })?.[0].args;
+      const { safe, token, node } = event;
+
+      const causeId = await donationsRouter.causeId();
       expect(causeId).to.eq(1);
-          
+
       const cause = await donationsRouter.causeRecords(causeId);
       const rewardPercentage: BigNumber = BigNumber.from((10 ** 16).toString());
-      
+
       expect(cause.owner).to.eq(safe);
       expect(cause.rewardPercentage).to.eq(rewardPercentage);
       expect(cause.daoToken).to.eq(token);
-      expect(await ethers.provider.getCode(cause.defaultWallet)).to.not.eq("0x")
+      expect(await ethers.provider.getCode(cause.defaultWallet)).to.not.eq(
+        "0x"
+      );
     });
-  })
+  });
+
+  describe("Zodiac module", () => {
+    let tokenData: IGovernor.TokenStruct,
+      safeData: IGovernor.SafeStruct,
+      subdomain: IGovernor.SubdomainStruct;
+    beforeEach(async () => {
+      [token, governor, ensController, ensRegistrar, tokenId] =
+        await setupNetwork(domain, deployer);
+
+      await ensRegistrar.approve(governor.address, tokenId);
+      await governor.addENSDomain(tokenId);
+      const { _tokenData, _safeData, _subdomain } = createChildDaoConfig([
+        alice.address,
+      ]);
+      tokenData = _tokenData;
+      safeData = _safeData;
+      subdomain = _subdomain;
+    });
+    it("should emit an event with the zodiac module details", async () => {
+      const moduleAddress = "0xb61673afCb924D6a2C294896e28DaCc12B6dFc82";
+      expect(await ethers.provider.getCode(moduleAddress)).to.eq("0x");
+
+      const reality: IRealityETH = await ethers.getContractAt(
+        "IRealityETH",
+        ContractAddresses["1"].RealityOracle
+      );
+      expect(await reality.template_hashes(71)).to.eq(
+        "0x0000000000000000000000000000000000000000000000000000000000000000"
+      );
+      await expect(governor.createChildDAO(tokenData, safeData, subdomain))
+        .to.emit(governor, "ZodiacModuleEnabled")
+        .withArgs(
+          ethers.utils.getAddress("0x51Db5638094666e8C01D37411A4672cC1341D3A7"),
+          moduleAddress,
+          71
+        );
+    });
+    it("should deploy a gnosis zodiac module", async () => {
+      const moduleAddress = "0xb61673afCb924D6a2C294896e28DaCc12B6dFc82";
+      expect(await ethers.provider.getCode(moduleAddress)).to.eq("0x");
+
+      const reality: IRealityETH = await ethers.getContractAt(
+        "IRealityETH",
+        ContractAddresses["1"].RealityOracle
+      );
+      expect(await reality.template_hashes(71)).to.eq(
+        "0x0000000000000000000000000000000000000000000000000000000000000000"
+      );
+      await governor.createChildDAO(tokenData, safeData, subdomain);
+
+      expect(await ethers.provider.getCode(moduleAddress)).to.not.eq("0x");
+    });
+    it("should enable the module on the safe", async () => {
+      const safeTx = await (
+        await governor.createChildDAO(tokenData, safeData, subdomain)
+      ).wait();
+      const module: IGnosisSafe = await ethers.getContractAt(
+        "IGnosisSafe",
+        safeTx.events?.find((el) => el.event === "ChildDaoCreated")?.args?.safe
+      );
+      expect(
+        await module.isModuleEnabled(
+          safeTx.events?.find((el) => el.event === "ZodiacModuleEnabled")?.args
+            ?.module
+        )
+      ).to.eq(true);
+    });
+    it("should remove the governor from the safe", async () => {
+      const tx = await (
+        await governor.createChildDAO(tokenData, safeData, subdomain)
+      ).wait();
+      const safe: IGnosisSafe = await ethers.getContractAt(
+        "IGnosisSafe",
+        tx.events?.find((el) => el.event === "ChildDaoCreated")?.args?.safe
+      );
+      expect(await safe.isOwner(governor.address)).to.eq(false);
+    });
+    it("should create a reality.eth template if required", async () => {
+      const reality: IRealityETH = await ethers.getContractAt(
+        "IRealityETH",
+        ContractAddresses["1"].RealityOracle
+      );
+      expect(await reality.template_hashes(71)).to.eq(
+        "0x0000000000000000000000000000000000000000000000000000000000000000"
+      );
+      await governor.createChildDAO(tokenData, safeData, subdomain);
+      expect(await reality.template_hashes(71)).to.eq(
+        keccak256(toUtf8Bytes(safeData.zodiac.template))
+      );
+    });
+    it("should reuse an existing reality.eth template if provided", async () => {
+      const reality: IRealityETH = await ethers.getContractAt(
+        "IRealityETH",
+        ContractAddresses["1"].RealityOracle
+      );
+      expect(await reality.template_hashes(70)).to.not.eq(
+        "0x0000000000000000000000000000000000000000000000000000000000000000"
+      );
+      safeData.zodiac.template = "";
+      safeData.zodiac.templateId = 70;
+      const safeTx = await (
+        await governor.createChildDAO(tokenData, safeData, subdomain)
+      ).wait();
+      const module: IZodiacModule = await ethers.getContractAt(
+        "IZodiacModule",
+        safeTx.events?.find((el) => el.event === "ZodiacModuleEnabled")?.args
+          ?.module
+      );
+
+      expect(await module.template()).to.eq(70);
+    });
+
+    it("should set the safe threshold correctly", async () => {
+      const tx = await (
+        await governor.createChildDAO(tokenData, safeData, subdomain)
+      ).wait();
+      const safe: IGnosisSafe = await ethers.getContractAt(
+        "IGnosisSafe",
+        tx.events?.find((el) => el.event === "ChildDaoCreated")?.args?.safe
+      );
+      expect(await safe.getThreshold()).to.eq(safeData.safe.threshold);
+    });
+  });
 });
 
 // it("should ", async () => {throw new Error("implement");});

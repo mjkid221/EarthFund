@@ -13,7 +13,10 @@ import "../interfaces/IClearingHouse.sol";
 import "../interfaces/IDonationsRouter.sol";
 import "../interfaces/IGovernor.sol";
 import "../vendors/IENSRegistrar.sol";
-import "hardhat/console.sol";
+import "../interfaces/IModuleProxyFactory.sol";
+import "../vendors/IGnosisSafe.sol";
+
+import "@reality.eth/contracts/development/contracts/IRealityETH.sol";
 
 contract Governor is IGovernor, Ownable, ERC721Holder {
   PublicResolver public override ensResolver;
@@ -73,6 +76,8 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     transferOwnership(_params.parentDao);
   }
 
+  receive() external payable {}
+
   function addENSDomain(uint256 _domainNFTId) external override onlyOwner {
     require(ensDomainNFTId == 0, "ens domain already set");
     ensDomainNFTId = _domainNFTId;
@@ -101,7 +106,8 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
 
     /// Gnosis multi sig
     address safe = _createGnosisSafe(
-      _safeData.initializer,
+      _safeData.safe,
+      _safeData.zodiac,
       uint256(keccak256(abi.encodePacked(_subdomain.subdomain, address(this))))
     );
 
@@ -128,7 +134,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
       donationsRouter.registerCause(
         IDonationsRouter.CauseRegistrationRequest({
           owner: address(safe),
-          rewardPercentage: (10**16), // default reward % : (1%)
+          rewardPercentage: (10**16), // default reward % : (1%
           daoToken: address(token)
         })
       )
@@ -137,16 +143,134 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     }
   }
 
-  function _createGnosisSafe(bytes memory _initializer, uint256 _salt)
-    internal
-    returns (address safe)
-  {
+  function _createGnosisSafe(
+    SafeCreationParams memory safeData,
+    ZodiacParams memory zodiacData,
+    uint256 safeDeploymentSalt
+  ) internal returns (address safe) {
+    address[] memory initialOwners = new address[](safeData.owners.length + 1);
+    uint256 i;
+    for (i = 0; i < safeData.owners.length; ++i) {
+      initialOwners[i] = safeData.owners[i];
+    }
+    initialOwners[initialOwners.length - 1] = address(this);
     safe = address(
       gnosisFactory.createProxyWithNonce(
         gnosisSafeSingleton,
-        _initializer,
-        _salt
+        _getSafeInitializer(
+          SafeCreationParams({
+            owners: initialOwners,
+            threshold: 1,
+            to: safeData.to,
+            data: "",
+            fallbackHandler: safeData.fallbackHandler,
+            paymentToken: safeData.paymentToken,
+            payment: safeData.payment,
+            paymentReceiver: safeData.paymentReceiver
+          })
+        ),
+        safeDeploymentSalt
       )
+    );
+
+    uint256 templateId;
+    if (bytes(zodiacData.template).length > 0) {
+      templateId = IRealityETH(zodiacData.oracle).createTemplate(
+        zodiacData.template
+      );
+    } else {
+      // @dev reality template IDs start at 0;
+      templateId = zodiacData.templateId;
+    }
+
+    address module = IModuleProxyFactory(zodiacData.zodiacFactory).deployModule(
+      zodiacData.moduleMasterCopy,
+      _getZodiacInitializer(safe, templateId, zodiacData),
+      uint256(keccak256(abi.encode(safeDeploymentSalt)))
+    );
+
+    IGnosisSafe(safe).execTransaction(
+      safe,
+      0,
+      abi.encodeWithSignature("enableModule(address)", module),
+      IGnosisSafe.Operation.Call,
+      0,
+      0,
+      0,
+      address(0),
+      payable(msg.sender),
+      _getApprovedHashSignature()
+    );
+
+    IGnosisSafe(safe).execTransaction(
+      safe,
+      0,
+      abi.encodeWithSignature(
+        "removeOwner(address,address,uint256)",
+        initialOwners[initialOwners.length - 2],
+        initialOwners[initialOwners.length - 1],
+        safeData.threshold
+      ),
+      IGnosisSafe.Operation.Call,
+      0,
+      0,
+      0,
+      address(0),
+      payable(msg.sender),
+      _getApprovedHashSignature()
+    );
+    emit ZodiacModuleEnabled(safe, module, templateId);
+  }
+
+  function _getApprovedHashSignature()
+    internal
+    view
+    returns (bytes memory signature)
+  {
+    signature = abi.encodePacked(
+      bytes32(uint256(uint160(address(this)))),
+      bytes32(0),
+      uint8(1)
+    );
+  }
+
+  function _getZodiacInitializer(
+    address safe,
+    uint256 templateId,
+    ZodiacParams memory zodiacData
+  ) internal pure returns (bytes memory initializer) {
+    initializer = abi.encodeWithSignature(
+      "setUp(bytes)",
+      abi.encode(
+        safe,
+        safe,
+        safe,
+        zodiacData.oracle,
+        zodiacData.timeout,
+        zodiacData.cooldown,
+        zodiacData.expiration,
+        zodiacData.bond,
+        templateId,
+        zodiacData.arbitrator == address(0) ? safe : zodiacData.arbitrator
+      )
+    );
+  }
+
+  function _getSafeInitializer(SafeCreationParams memory safeData)
+    internal
+    pure
+    returns (bytes memory initData)
+  {
+    initData = abi.encodeWithSignature(
+      "setup(address[],uint256,address,bytes,address,address,uint256,address)",
+      safeData.owners,
+      safeData.threshold,
+      safeData.to,
+      safeData.data,
+      safeData.fallbackHandler,
+      safeData.paymentToken,
+      safeData.payment,
+      safeData.paymentReceiver
     );
   }
 
@@ -196,6 +320,4 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
 
     ensResolver.setText(childNode, string(_key), string(_value));
   }
-
-  // TODO: allow subdomains to change their text records
 }
