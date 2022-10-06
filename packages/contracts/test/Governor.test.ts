@@ -21,6 +21,7 @@ import {
   Governor__factory,
   IClearingHouse,
   IDonationsRouter,
+  EarthToken,
 } from "../typechain-types";
 
 chai.use(solidity);
@@ -83,24 +84,29 @@ describe("Governor", () => {
       expect(await governor.ensDomainNFTId()).to.eq(tokenId);
 
       it("should revert on child creation if an NFT isn't set", async () => {
-        await expect(
-          governor.createChildDAO(
-            {
-              tokenName: toUtf8Bytes("Test"),
-              tokenSymbol: toUtf8Bytes("TEST"),
-              maxSupply: 1000,
-              maxSwap: 1000,
-              release: 0,
-              autoStaking: false,
-              kycRequired: false,
-            },
-            { initializer: toUtf8Bytes("test") },
-            {
-              subdomain: toUtf8Bytes("subtest"),
-              snapshotKey: toUtf8Bytes("a"),
-              snapshotValue: toUtf8Bytes("B"),
-            }
-          )
+        // await expect(
+        //   governor.createChildDAO(
+        //     {
+        //       tokenName: toUtf8Bytes("Test"),
+        //       tokenSymbol: toUtf8Bytes("TEST"),
+        //       maxSupply: 1000,
+        //       maxSwap: 1000,
+        //       release: 0,
+        //       autoStaking: false,
+        //       kycRequired: false,
+        //     },
+        //     { initializer: toUtf8Bytes("test") },
+        //     {
+        //       subdomain: toUtf8Bytes("subtest"),
+        //       snapshotKey: toUtf8Bytes("a"),
+        //       snapshotValue: toUtf8Bytes("B"),
+        //     }
+        //   )
+        // ).to.be.revertedWith("ENS domain unavailable");
+        const { _tokenData, _safeData, _subdomain } =
+          await createChildDaoConfig([alice.address]);
+        expect(
+          governor.createChildDAO(_tokenData, _safeData, _subdomain)
         ).to.be.revertedWith("ENS domain unavailable");
       });
     });
@@ -133,7 +139,7 @@ describe("Governor", () => {
   });
   describe("Gnosis Safe", () => {
     let safe: IGnosisSafe;
-
+    let earthToken: EarthToken;
     beforeEach(async () => {
       [, governor, , ensRegistrar, tokenId] = await setupNetwork(
         domain,
@@ -145,6 +151,12 @@ describe("Governor", () => {
       const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig([
         alice.address,
       ]);
+      earthToken = await ethers.getContract("EarthToken");
+      await earthToken.increaseAllowance(
+        governor.address,
+        ethers.constants.MaxInt256
+      );
+
       const safeTx = await (
         await governor.createChildDAO(_tokenData, _safeData, _subdomain)
       ).wait();
@@ -167,11 +179,16 @@ describe("Governor", () => {
     const tokenName = "Test",
       tokenSymbol = "TEST";
     let childToken: ERC20Singleton, clearingHouse: IClearingHouse;
-
+    let earthToken: EarthToken;
     before(async () => {
       [, governor, , ensRegistrar, tokenId] = await setupNetwork(
         domain,
         deployer
+      );
+      earthToken = await ethers.getContract("EarthToken");
+      await earthToken.increaseAllowance(
+        governor.address,
+        ethers.constants.MaxInt256
       );
 
       await ensRegistrar.approve(governor.address, tokenId);
@@ -188,7 +205,7 @@ describe("Governor", () => {
         undefined,
         undefined,
         undefined,
-        true
+        false
       );
 
       const daoTx = await (
@@ -224,7 +241,7 @@ describe("Governor", () => {
     it("should register the ERC20 token in the clearing house contract", async () => {
       expect(
         (await clearingHouse.causeInformation(childToken.address)).autoStaking
-      ).to.eq(true);
+      ).to.eq(false);
     });
     it("should initialize the ERC20 token proxy", async () => {
       await expect(
@@ -240,11 +257,18 @@ describe("Governor", () => {
   describe("ENS Subdomain", () => {
     let childNode: string, safe: string;
     let ensRegistry: IENSRegistry, ensResolver: PublicResolver;
+    let earthToken: EarthToken;
     before(async () => {
       [, governor, , ensRegistrar, tokenId] = await setupNetwork(
         domain,
         deployer
       );
+      earthToken = await ethers.getContract("EarthToken");
+      await earthToken.increaseAllowance(
+        governor.address,
+        ethers.constants.MaxInt256
+      );
+
       ensRegistry = await ethers.getContractAt(
         "IENSRegistry",
         ContractAddresses["31337"].ENSRegistry
@@ -466,13 +490,45 @@ describe("Governor", () => {
       );
       donationsRouter = await ethers.getContract("DonationsRouter");
     });
-    it("should create a cause successfully", async () => {
+    it("should create a dao and mint to safe successfully", async () => {
+      const earthToken = await ethers.getContract("EarthToken");
+      const clearingHouse = await ethers.getContract("ClearingHouse");
+
+      expect(await donationsRouter.causeId()).to.eq(0);
+      expect(await earthToken.balanceOf(clearingHouse.address)).to.eq(
+        ethers.utils.parseEther("0")
+      );
+
       await ensRegistrar.approve(governor.address, tokenId);
       await governor.addENSDomain(ethers.BigNumber.from(tokenId));
 
-      const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig([
-        alice.address,
-      ]);
+      const amountToMint = 100;
+      const rewardPercentage = 10 ** 16;
+
+      const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig(
+        [alice.address],
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        rewardPercentage,
+        amountToMint,
+        undefined,
+        undefined,
+        undefined
+      );
+      await earthToken.increaseAllowance(
+        governor.address,
+        ethers.utils.parseEther(String(amountToMint))
+      );
       const safeTx = await (
         await governor.createChildDAO(_tokenData, _safeData, _subdomain)
       ).wait();
@@ -482,18 +538,30 @@ describe("Governor", () => {
       })?.[0].args;
       const { safe, token } = event;
 
-      const causeId = await donationsRouter.causeId();
+      const childDaoToken = await ethers.getContractAt("ERC20", token);
+
+      const causeId = await donationsRouter.tokenCauseIds(token);
       expect(causeId).to.eq(1);
 
+      // Check that the cause is created correctly in donation router
       const cause = await donationsRouter.causeRecords(causeId);
-      const rewardPercentage: BigNumber = BigNumber.from((10 ** 16).toString());
-
       expect(cause.owner).to.eq(safe);
-      expect(cause.rewardPercentage).to.eq(rewardPercentage);
-      expect(cause.daoToken).to.eq(token);
+      expect(cause.rewardPercentage.toString()).to.eq(
+        rewardPercentage.toString()
+      );
+      expect(cause.daoToken.toString()).to.eq(token.toString());
       expect(await ethers.provider.getCode(cause.defaultWallet)).to.not.eq(
         "0x"
       );
+
+      // Check that balances are correct for earthtokens and daotoken
+      const amountExpected = ethers.utils.parseEther(String(amountToMint));
+      expect(await earthToken.balanceOf(clearingHouse.address)).to.eq(
+        amountExpected
+      );
+
+      expect(await childDaoToken.balanceOf(safe)).to.eq(amountExpected);
+      expect(await childDaoToken.balanceOf(deployer.address)).to.eq(0);
     });
   });
 });

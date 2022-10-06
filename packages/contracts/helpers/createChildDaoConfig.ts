@@ -1,4 +1,4 @@
-import { ethers } from "ethers";
+import { BigNumber, ethers } from "ethers";
 import { parseEther, toUtf8Bytes } from "ethers/lib/utils";
 
 import createGnosisSetupTx from "./createGnosisSetupTx";
@@ -17,7 +17,12 @@ const createChildDaoConfig = async (
   maxSwap = 1000,
   release = 0,
   autoStaking = false,
-  kycRequired = false
+  kycRequired = false,
+  rewardPercentage = 10 ** 16, // 1%
+  mintingAmount = 1,
+  KYCId = "testKYC",
+  expiry = 0,
+  signature = "testSignature"
 ) => ({
   _tokenData: {
     tokenName: toUtf8Bytes(tokenName),
@@ -27,6 +32,11 @@ const createChildDaoConfig = async (
     release,
     autoStaking,
     kycRequired,
+    rewardPercentage: BigNumber.from(String(rewardPercentage)),
+    mintingAmount: parseEther(String(mintingAmount)),
+    KYCId: toUtf8Bytes(KYCId),
+    expiry: BigNumber.from(String(expiry)),
+    signature: toUtf8Bytes(signature),
   },
   _safeData: {
     initializer:
