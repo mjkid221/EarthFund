@@ -72,8 +72,22 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     config.childDaoConfig.maxSwap,
     config.childDaoConfig.release,
     config.childDaoConfig.autoStaking,
-    config.childDaoConfig.kycRequired
+    config.childDaoConfig.kycRequired,
+    config.childDaoConfig.rewardPercentage,
+    config.childDaoConfig.mintingAmount,
+    config.childDaoConfig.KYCId,
+    config.childDaoConfig.expiry,
+    config.childDaoConfig.signature
   );
+
+  // Approve earth token transfer for initial mint
+  const earthToken = await ethers.getContract("EarthToken");
+  await (
+    await earthToken.increaseAllowance(
+      governor.address,
+      ethers.utils.parseEther(String(config.childDaoConfig.mintingAmount))
+    )
+  ).wait(6);
 
   // call create child dao on the governor contract using the created config
   const createChildDaoTx = await (
