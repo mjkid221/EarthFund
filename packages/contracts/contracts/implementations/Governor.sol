@@ -326,16 +326,42 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     Token calldata _tokenData,
     Safe calldata _safeData,
     bytes calldata _subdomain
-  ) external {
-    address token = Clones.predictDeterministicAddress(
+  )
+    external
+    returns (
+      address token,
+      address safe,
+      address realityModule
+    )
+  {
+    token = Clones.predictDeterministicAddress(
       erc20Singleton,
       keccak256(abi.encodePacked(_tokenData.tokenName, _tokenData.tokenSymbol))
     );
-    (address safe, address realityModule) = _createGnosisSafe(
+    (safe, realityModule) = _createGnosisSafe(
       _safeData.safe,
       _safeData.zodiac,
       uint256(keccak256(abi.encodePacked(_subdomain, address(this))))
     );
-    revert(string(abi.encode(token, safe, realityModule)));
+  }
+
+  function setENSRecord(
+    bytes calldata _name,
+    bytes calldata _key,
+    bytes calldata _value
+  ) external {
+    bytes32 labelHash = keccak256(_name);
+
+    bytes32 ensBaseNode = ensRegistrar.baseNode();
+    bytes32 parentNode = _calculateENSNode(
+      ensBaseNode,
+      bytes32(ensDomainNFTId)
+    );
+    bytes32 childNode = _calculateENSNode(parentNode, labelHash);
+    ensResolver.setText(childNode, string(_key), string(_value));
+
+    emit ENSTextRecordSet(_name, _key, _value);
+
+    require(msg.sender == ensResolver.addr(childNode), "Invalid owner");
   }
 }

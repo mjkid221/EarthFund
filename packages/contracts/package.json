@@ -8,6 +8,7 @@
     "test": "hardhat test"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.6",
     "@nomiclabs/hardhat-ethers": "npm:hardhat-deploy-ethers",
     "@nomiclabs/hardhat-etherscan": "^3.0.3",
     "@nomiclabs/hardhat-waffle": "^2.0.3",
@@ -24,7 +25,7 @@
     "eslint-config-prettier": "^8.5.0",
     "ethereum-waffle": "^4.0.0-alpha.0",
     "ethers": "^5.6.1",
-    "hardhat": "^2.9.1",
+    "hardhat": "^2.11.2",
     "hardhat-deploy": "^0.11.0",
     "hardhat-gas-reporter": "^1.0.8",
     "hardhat-tracer": "^1.1.0-rc.3",
@@ -47,8 +48,8 @@
     "@openzeppelin/contracts-upgradeable": "^4.5.2",
     "@pinata/sdk": "^1.1.26",
     "@prb/math": "^2.5.0",
+    "@reality.eth/contracts": "^3.0.15",
     "@snapshot-labs/snapshot.js": "^0.4.36",
-    "axios": "^1.0.0",
-    "@reality.eth/contracts": "^3.0.15"
+    "axios": "^1.0.0"
   }
 }
