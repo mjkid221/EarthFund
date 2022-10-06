@@ -44,7 +44,9 @@
     "@gnosis.pm/safe-deployments": "^1.11.0",
     "@openzeppelin/contracts": "^4.5.0",
     "@openzeppelin/contracts-upgradeable": "^4.5.2",
+    "@pinata/sdk": "^1.1.26",
     "@prb/math": "^2.5.0",
-    "axios": "^0.27.2"
+    "@snapshot-labs/snapshot.js": "^0.4.36",
+    "axios": "^1.0.0"
   }
 }
