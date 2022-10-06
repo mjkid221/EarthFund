@@ -7919,7 +7919,7 @@ hardhat-tracer@^1.1.0-rc.3:
   dependencies:
     ethers "^5.6.1"
 
-hardhat@^2.11.2:
+hardhat@^2.10.2:
   version "2.11.2"
   resolved "https://registry.yarnpkg.com/hardhat/-/hardhat-2.11.2.tgz#c81388630255823bb1717ec07c4ee651b1fbe97f"
   integrity sha512-BdsXC1CFJQDJKmAgCwpmGhFuVU6dcqlgMgT0Kg/xmFAFVugkpYu6NRmh4AaJ3Fah0/BR9DOR4XgQGIbg4eon/Q==
