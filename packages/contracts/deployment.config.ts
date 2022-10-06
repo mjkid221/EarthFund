@@ -1,7 +1,10 @@
 export default {
   childDaoConfig: {
-    chainId: 31337,
-    owners: ["0xB300ecae675213d6889d93c0Bf0B27DD04d8eaa0"],
+    chainId: 5,
+    owners: [
+      "0x0C56c62ecf7Cd3965A57B5D9A7974EeE578714C3",
+      "0xc2f86d571543921fbaDcf050e0cFb1532a033936",
+    ],
     tokenName: "Test",
     tokenSymbol: "TEST",
     snapshotKey: "test-snapshot-key",
@@ -13,5 +16,10 @@ export default {
     release: 0,
     autoStaking: false,
     kycRequired: false,
+    rewardPercentage: 10 ** 16, // 1%
+    mintingAmount: 1,
+    KYCId: "",
+    expiry: 0,
+    signature: "",
   },
 };
