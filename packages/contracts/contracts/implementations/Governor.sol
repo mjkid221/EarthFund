@@ -98,6 +98,9 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
   ) external override {
     require(ensDomainNFTId > 0, "ENS domain unavailable");
 
+    // Need to disable auto staking initially
+    require(_tokenData.autoStaking == false, "disable auto staking");
+
     /// Gnosis multi sig
     address safe = _createGnosisSafe(
       _safeData.initializer,
@@ -133,13 +136,56 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
       donationsRouter.registerCause(
         IDonationsRouter.CauseRegistrationRequest({
           owner: address(safe),
-          rewardPercentage: (10**16), // default reward % : (1%)
+          rewardPercentage: _tokenData.rewardPercentage,
           daoToken: address(token)
         })
       )
-    {} catch (bytes memory reason) {
+    {
+      // Mint specified amount to dao safe
+      _mintToken(
+        address(safe),
+        ERC20Singleton(token),
+        _tokenData.mintingAmount,
+        _tokenData.KYCId,
+        _tokenData.expiry,
+        _tokenData.signature
+      );
+    } catch (bytes memory reason) {
       emit RegisterCauseFailure(reason);
     }
+  }
+
+  // Mint child dao token to child dao safe
+  function _mintToken(
+    address safe,
+    ERC20Singleton childDaoToken,
+    uint256 amount,
+    bytes memory KYCId,
+    uint256 expiry,
+    bytes memory signature
+  ) internal {
+    ERC20 earthToken = ERC20(clearingHouse.earthToken());
+    require(
+      earthToken.balanceOf(msg.sender) >= amount,
+      "insufficient token amount"
+    );
+    earthToken.transferFrom(msg.sender, address(this), amount);
+
+    earthToken.increaseAllowance(address(clearingHouse), amount);
+    clearingHouse.swapEarthForChildDao(
+      childDaoToken,
+      amount,
+      KYCId,
+      expiry,
+      signature
+    );
+
+    // transfer child dao from contract to safe
+    require(
+      childDaoToken.balanceOf(address(this)) >= amount,
+      "child dao mint error"
+    );
+    childDaoToken.transfer(safe, amount);
   }
 
   function _createGnosisSafe(bytes memory _initializer, uint256 _salt)
