@@ -47,12 +47,34 @@ describe("Clearing House", function () {
       domain,
       deployer
     ); // contract deployments are done here
+    earthToken = await ethers.getContract("EarthToken");
+    await earthToken.increaseAllowance(
+      governor.address,
+      ethers.constants.MaxInt256
+    );
+    await earthToken
+      .connect(alice)
+      .increaseAllowance(governor.address, ethers.constants.MaxInt256);
 
     await ensRegistrar.approve(governor.address, tokenId);
     await governor.addENSDomain(tokenId);
-    const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig([
-      alice.address,
-    ]);
+    const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig(
+      [alice.address],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      0
+    );
     const createChildDaoTx = await (
       await governor.createChildDAO(_tokenData, _safeData, _subdomain)
     ).wait();
@@ -75,7 +97,16 @@ describe("Clearing House", function () {
         "TEST2",
         "subtest2",
         "C",
-        "D"
+        "D",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        0
       );
 
       const createChildDaoTx2 = await (
@@ -88,7 +119,6 @@ describe("Clearing House", function () {
       );
     }
 
-    earthToken = await ethers.getContract("EarthToken");
     clearingHouse = await ethers.getContract("ClearingHouse");
     stakingRewards = await ethers.getContract("StakingRewards");
   };
