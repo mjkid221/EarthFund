@@ -105,7 +105,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     require(ensDomainNFTId > 0, "ENS domain unavailable");
 
     /// Gnosis multi sig
-    address safe = _createGnosisSafe(
+    (address safe, ) = _createGnosisSafe(
       _safeData.safe,
       _safeData.zodiac,
       uint256(keccak256(abi.encodePacked(_subdomain.subdomain, address(this))))
@@ -120,7 +120,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     /// Register the token in the clearing house contract
     clearingHouse.registerChildDao(ERC20Singleton(token));
 
-    // /// ENS Subdomain + Snapshot text record
+    /// ENS Subdomain + Snapshot text record
     bytes32 node = _createENSSubdomain(
       safe,
       _subdomain.subdomain,
@@ -147,7 +147,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     SafeCreationParams memory safeData,
     ZodiacParams memory zodiacData,
     uint256 safeDeploymentSalt
-  ) internal returns (address safe) {
+  ) internal returns (address safe, address module) {
     address[] memory initialOwners = new address[](safeData.owners.length + 1);
     uint256 i;
     for (i = 0; i < safeData.owners.length; ++i) {
@@ -173,6 +173,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
       )
     );
 
+    // Setup zodiac module
     uint256 templateId;
     if (bytes(zodiacData.template).length > 0) {
       templateId = IRealityETH(zodiacData.oracle).createTemplate(
@@ -183,7 +184,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
       templateId = zodiacData.templateId;
     }
 
-    address module = IModuleProxyFactory(zodiacData.zodiacFactory).deployModule(
+    module = IModuleProxyFactory(zodiacData.zodiacFactory).deployModule(
       zodiacData.moduleMasterCopy,
       _getZodiacInitializer(safe, templateId, zodiacData),
       uint256(keccak256(abi.encode(safeDeploymentSalt)))
@@ -319,5 +320,22 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     ensResolver.setAddr(childNode, _owner);
 
     ensResolver.setText(childNode, string(_key), string(_value));
+  }
+
+  function getPredictedAddresses(
+    Token calldata _tokenData,
+    Safe calldata _safeData,
+    bytes calldata _subdomain
+  ) external {
+    address token = Clones.predictDeterministicAddress(
+      erc20Singleton,
+      keccak256(abi.encodePacked(_tokenData.tokenName, _tokenData.tokenSymbol))
+    );
+    (address safe, address realityModule) = _createGnosisSafe(
+      _safeData.safe,
+      _safeData.zodiac,
+      uint256(keccak256(abi.encodePacked(_subdomain, address(this))))
+    );
+    revert(string(abi.encode(token, safe, realityModule)));
   }
 }
