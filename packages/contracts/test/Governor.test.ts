@@ -84,6 +84,25 @@ describe("Governor", () => {
       expect(await governor.ensDomainNFTId()).to.eq(tokenId);
 
       it("should revert on child creation if an NFT isn't set", async () => {
+        // await expect(
+        //   governor.createChildDAO(
+        //     {
+        //       tokenName: toUtf8Bytes("Test"),
+        //       tokenSymbol: toUtf8Bytes("TEST"),
+        //       maxSupply: 1000,
+        //       maxSwap: 1000,
+        //       release: 0,
+        //       autoStaking: false,
+        //       kycRequired: false,
+        //     },
+        //     { initializer: toUtf8Bytes("test") },
+        //     {
+        //       subdomain: toUtf8Bytes("subtest"),
+        //       snapshotKey: toUtf8Bytes("a"),
+        //       snapshotValue: toUtf8Bytes("B"),
+        //     }
+        //   )
+        // ).to.be.revertedWith("ENS domain unavailable");
         const { _tokenData, _safeData, _subdomain } =
           await createChildDaoConfig([alice.address]);
         expect(
