@@ -1,4 +1,4 @@
-import { BigNumber } from "ethers";
+import { BigNumber, ethers } from "ethers";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
 
@@ -16,7 +16,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     "DonationsRouter",
     { from: deployer, log: true },
     "setPlatformFee",
-    BigNumber.from((parseInt(feePercentage) * 10 ** 16).toString())
+    ethers.utils.formatUnits(feePercentage, 16)
   );
 };
 
