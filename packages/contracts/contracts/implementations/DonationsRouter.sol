@@ -24,6 +24,9 @@ contract DonationsRouter is IDonationsRouter, Ownable, Queue {
   /// Cause ID => Cause record
   mapping(uint256 => CauseRecord) public override causeRecords;
 
+  /// Token => CauseID
+  mapping(address => uint256) public override tokenCauseIds;
+
   /// Thin wallet salt => thin wallet address
   mapping(bytes32 => address) public override deployedWallets;
   // keccak(owner, token) => is registered
@@ -80,6 +83,7 @@ contract DonationsRouter is IDonationsRouter, Ownable, Queue {
 
     emit RegisterCause(_cause.owner, _cause.daoToken, id);
 
+    tokenCauseIds[_cause.daoToken] = id;
     address[] memory owners = new address[](1);
     owners[0] = _cause.owner;
     _deployWallet(
@@ -148,12 +152,13 @@ contract DonationsRouter is IDonationsRouter, Ownable, Queue {
 
     require(msg.sender == cause.owner, "unauthorized");
     require(_proposalId != "", "invalid proposal id");
-    uint128 queueToWithdraw = getFront(causeId);
-    QueueItem memory item = getQueueItem(causeId, queueToWithdraw);
+    uint128 queueToWithdraw = getFront(_walletId.causeId);
+    QueueItem memory item = getQueueItem(_walletId.causeId, queueToWithdraw);
     if (
-      item.isUnclaimed && item.id == keccak256(abi.encode(causeId, _proposalId))
+      item.isUnclaimed &&
+      item.id == keccak256(abi.encode(_walletId.causeId, _proposalId))
     ) {
-      dequeue(causeId);
+      dequeue(_walletId.causeId);
     } else {
       revert("not head of queue");
     }

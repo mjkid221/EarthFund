@@ -25,6 +25,16 @@ interface IGovernor {
   struct Token {
     bytes tokenName;
     bytes tokenSymbol;
+    uint256 maxSupply;
+    uint256 maxSwap;
+    uint256 release;
+    bool autoStaking;
+    bool kycRequired;
+    uint256 mintingAmount;
+    uint256 rewardPercentage;
+    bytes KYCId;
+    uint256 expiry;
+    bytes signature;
   }
 
   struct Safe {

@@ -1,5 +1,5 @@
-import { ethers } from "ethers";
-import { toUtf8Bytes } from "ethers/lib/utils";
+import { BigNumber, ethers } from "ethers";
+import { parseEther, toUtf8Bytes } from "ethers/lib/utils";
 
 import ContractAddresses from "../constants/contractAddresses";
 import { IGovernor } from "../typechain-types";
@@ -24,12 +24,32 @@ const createChildDaoConfig = (
     "lang": "en",
     "type": "bool",
     "category": "DAO Proposal"
-}`,
-  }
+    }`,
+  },
+  maxSupply = 10000,
+  maxSwap = 1000,
+  release = 0,
+  autoStaking = false,
+  kycRequired = false,
+  rewardPercentage = 10 ** 16, // 1%
+  mintingAmount = 1,
+  KYCId = "testKYC",
+  expiry = 0,
+  signature = "testSignature"
 ) => ({
   _tokenData: {
     tokenName: toUtf8Bytes(tokenName),
     tokenSymbol: toUtf8Bytes(tokenSymbol),
+    maxSupply: parseEther(String(maxSupply)),
+    maxSwap: parseEther(String(maxSwap)),
+    release,
+    autoStaking,
+    kycRequired,
+    rewardPercentage: BigNumber.from(String(rewardPercentage)),
+    mintingAmount: parseEther(String(mintingAmount)),
+    KYCId: toUtf8Bytes(KYCId),
+    expiry: BigNumber.from(String(expiry)),
+    signature: toUtf8Bytes(signature),
   },
   _safeData: {
     safe: {

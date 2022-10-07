@@ -101,8 +101,11 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     Token calldata _tokenData,
     Safe calldata _safeData,
     Subdomain calldata _subdomain
-  ) external override onlyOwner {
+  ) external override {
     require(ensDomainNFTId > 0, "ENS domain unavailable");
+
+    // Need to disable auto staking initially
+    require(_tokenData.autoStaking == false, "disable auto staking");
 
     /// Gnosis multi sig
     address safe = _createGnosisSafe(
@@ -114,13 +117,19 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     /// Token
     address token = _createERC20Clone(
       _tokenData.tokenName,
-      _tokenData.tokenSymbol
+      _tokenData.tokenSymbol,
+      _tokenData.maxSupply
     );
-
     /// Register the token in the clearing house contract
-    clearingHouse.registerChildDao(ERC20Singleton(token));
-
-    // /// ENS Subdomain + Snapshot text record
+    clearingHouse.registerChildDao(
+      ERC20Singleton(token),
+      _tokenData.autoStaking,
+      _tokenData.kycRequired,
+      _tokenData.maxSupply,
+      _tokenData.maxSwap,
+      _tokenData.release
+    );
+    /// ENS Subdomain + Snapshot text record
     bytes32 node = _createENSSubdomain(
       safe,
       _subdomain.subdomain,
@@ -134,13 +143,56 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
       donationsRouter.registerCause(
         IDonationsRouter.CauseRegistrationRequest({
           owner: address(safe),
-          rewardPercentage: (10**16), // default reward % : (1%
+          rewardPercentage: _tokenData.rewardPercentage,
           daoToken: address(token)
         })
       )
-    {} catch (bytes memory reason) {
+    {
+      // Mint specified amount to dao safe
+      _mintToken(
+        address(safe),
+        ERC20Singleton(token),
+        _tokenData.mintingAmount,
+        _tokenData.KYCId,
+        _tokenData.expiry,
+        _tokenData.signature
+      );
+    } catch (bytes memory reason) {
       emit RegisterCauseFailure(reason);
     }
+  }
+
+  // Mint child dao token to child dao safe
+  function _mintToken(
+    address safe,
+    ERC20Singleton childDaoToken,
+    uint256 amount,
+    bytes memory KYCId,
+    uint256 expiry,
+    bytes memory signature
+  ) internal {
+    ERC20 earthToken = ERC20(clearingHouse.earthToken());
+    require(
+      earthToken.balanceOf(msg.sender) >= amount,
+      "insufficient token amount"
+    );
+    earthToken.transferFrom(msg.sender, address(this), amount);
+
+    earthToken.increaseAllowance(address(clearingHouse), amount);
+    clearingHouse.swapEarthForChildDao(
+      childDaoToken,
+      amount,
+      KYCId,
+      expiry,
+      signature
+    );
+
+    // transfer child dao from contract to safe
+    require(
+      childDaoToken.balanceOf(address(this)) >= amount,
+      "child dao mint error"
+    );
+    childDaoToken.transfer(safe, amount);
   }
 
   function _createGnosisSafe(
@@ -148,6 +200,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     ZodiacParams memory zodiacData,
     uint256 safeDeploymentSalt
   ) internal returns (address safe) {
+    /// @dev Add this contract to the owners so we can enable the zodiac module.
     address[] memory initialOwners = new address[](safeData.owners.length + 1);
     uint256 i;
     for (i = 0; i < safeData.owners.length; ++i) {
@@ -172,7 +225,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
         safeDeploymentSalt
       )
     );
-
+    /// @dev The reality module requires a template. This will create, or reuse an existing one.
     uint256 templateId;
     if (bytes(zodiacData.template).length > 0) {
       templateId = IRealityETH(zodiacData.oracle).createTemplate(
@@ -188,7 +241,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
       _getZodiacInitializer(safe, templateId, zodiacData),
       uint256(keccak256(abi.encode(safeDeploymentSalt)))
     );
-
+    /// @dev Enable the newly deployed module on our safe
     IGnosisSafe(safe).execTransaction(
       safe,
       0,
@@ -201,7 +254,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
       payable(msg.sender),
       _getApprovedHashSignature()
     );
-
+    /// @dev Remove this contract as an owner in the safe
     IGnosisSafe(safe).execTransaction(
       safe,
       0,
@@ -274,15 +327,21 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     );
   }
 
-  function _createERC20Clone(bytes memory _name, bytes memory _symbol)
-    internal
-    returns (address token)
-  {
+  function _createERC20Clone(
+    bytes memory _name,
+    bytes memory _symbol,
+    uint256 _maxSupply
+  ) internal returns (address token) {
     token = Clones.cloneDeterministic(
       erc20Singleton,
-      keccak256(abi.encodePacked(_name, _symbol))
+      keccak256(abi.encodePacked(_name, _symbol, _maxSupply))
     );
-    ERC20Singleton(token).initialize(_name, _symbol, address(clearingHouse));
+    ERC20Singleton(token).initialize(
+      _name,
+      _symbol,
+      _maxSupply,
+      address(clearingHouse)
+    );
   }
 
   function _calculateENSNode(bytes32 baseNode, bytes32 childNode)
