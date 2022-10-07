@@ -692,7 +692,7 @@ describe("Governor", () => {
     });
   });
 
-  describe.only("Predict deployment addresses", () => {
+  describe("Predict deployment addresses", () => {
     let earthToken: EarthToken;
     it("should return the correct addresses", async () => {
       [token, governor, ensController, ensRegistrar, tokenId] =
