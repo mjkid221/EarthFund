@@ -3,18 +3,19 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
-import { deployments, ethers } from "hardhat";
-import { BigNumber, providers } from "ethers";
+import { ethers } from "hardhat";
+import { BigNumber } from "ethers";
+import { impersonateAccount } from "@nomicfoundation/hardhat-network-helpers";
 import {
+  BytesLike,
   isAddress,
   keccak256,
-  solidityKeccak256,
-  solidityPack,
+  parseEther,
   toUtf8Bytes,
 } from "ethers/lib/utils";
 import { solidity } from "ethereum-waffle";
 
-import ContractAddresses, { mainnet } from "../constants/contractAddresses";
+import ContractAddresses from "../constants/contractAddresses";
 import createChildDaoConfig from "../helpers/createChildDaoConfig";
 import setupNetwork from "../helpers/setupNetwork";
 import {
@@ -33,7 +34,6 @@ import {
   EarthToken,
   IENSController,
 } from "../typechain-types";
-import { AddressOne } from "@gnosis.pm/safe-contracts";
 
 chai.use(solidity);
 chai.use(chaiAsPromised);
@@ -689,6 +689,110 @@ describe("Governor", () => {
         tx.events?.find((el) => el.event === "ChildDaoCreated")?.args?.safe
       );
       expect(await safe.getThreshold()).to.eq(safeData.safe.threshold);
+    });
+  });
+
+  describe.only("Predict deployment addresses", () => {
+    let earthToken: EarthToken;
+    it("should return the correct addresses", async () => {
+      [token, governor, ensController, ensRegistrar, tokenId] =
+        await setupNetwork(domain, deployer);
+      const { _tokenData, _safeData, _subdomain } = createChildDaoConfig([
+        alice.address,
+      ]);
+      const addr = await governor.callStatic.getPredictedAddresses(
+        _tokenData,
+        _safeData,
+        _subdomain.subdomain
+      );
+
+      earthToken = await ethers.getContract("EarthToken");
+      await earthToken.increaseAllowance(
+        governor.address,
+        ethers.constants.MaxInt256
+      );
+
+      await ensRegistrar.approve(governor.address, tokenId);
+      await governor.addENSDomain(tokenId);
+      const safeTx = await (
+        await governor.createChildDAO(_tokenData, _safeData, _subdomain)
+      ).wait();
+      expect(
+        safeTx.events?.find((el) => el.event === "ChildDaoCreated")?.args?.safe
+      ).to.eq(addr.safe);
+      expect(
+        safeTx.events?.find((el) => el.event === "ChildDaoCreated")?.args?.token
+      ).to.eq(addr.token);
+      expect(
+        safeTx.events?.find((el) => el.event === "ZodiacModuleEnabled")?.args
+          ?.module
+      ).to.eq(addr.realityModule);
+    });
+  });
+  describe("Set ENS text record", () => {
+    let safe: IGnosisSafe;
+    let name: BytesLike, ensResolver: PublicResolver, childNode: string;
+    let earthToken: EarthToken;
+    beforeEach(async () => {
+      [token, governor, ensController, ensRegistrar, tokenId] =
+        await setupNetwork(domain, deployer);
+
+      ensResolver = await ethers.getContractAt(
+        "PublicResolver",
+        ContractAddresses["31337"].ENSResolver
+      );
+      await ensRegistrar.approve(governor.address, tokenId);
+      await governor.addENSDomain(tokenId);
+      const { _tokenData, _safeData, _subdomain } = createChildDaoConfig([
+        alice.address,
+      ]);
+      name = _subdomain.subdomain;
+
+      earthToken = await ethers.getContract("EarthToken");
+      await earthToken.increaseAllowance(
+        governor.address,
+        ethers.constants.MaxInt256
+      );
+
+      const safeTx = await (
+        await governor.createChildDAO(_tokenData, _safeData, _subdomain)
+      ).wait();
+      safe = await ethers.getContractAt(
+        "IGnosisSafe",
+        safeTx.events?.find((el) => el.event === "ChildDaoCreated")?.args?.safe
+      );
+      safeTx.events?.find(
+        (el) => el.eventSignature === "ChildDaoCreated(address,address,bytes32)"
+      )?.args?.node;
+      childNode = safeTx.events?.find(
+        (el) => el.eventSignature === "ChildDaoCreated(address,address,bytes32)"
+      )?.args?.node;
+    });
+    it("should allow subdomain account to set a text record", async () => {
+      await impersonateAccount(safe.address);
+
+      const badSafe = await ethers.getSigner(safe.address);
+
+      expect((await ensResolver.functions.text(childNode, "A"))[0]).to.eq("B");
+
+      await deployer.sendTransaction({
+        to: badSafe.address,
+        value: parseEther("1"),
+      });
+      await governor
+        .connect(badSafe)
+        .setENSRecord(name, toUtf8Bytes("A"), toUtf8Bytes("C"));
+
+      expect((await ensResolver.functions.text(childNode, "A"))[0]).to.eq("C");
+    });
+    it("should prevent unauthorized access", async () => {
+      await expect(
+        governor.setENSRecord(
+          name,
+          toUtf8Bytes("snapshot"),
+          toUtf8Bytes("ipfs://someOtherCID")
+        )
+      ).to.be.revertedWith("Invalid owner");
     });
   });
 });

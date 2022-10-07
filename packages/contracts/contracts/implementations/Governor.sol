@@ -108,7 +108,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     require(_tokenData.autoStaking == false, "disable auto staking");
 
     /// Gnosis multi sig
-    address safe = _createGnosisSafe(
+    (address safe, ) = _createGnosisSafe(
       _safeData.safe,
       _safeData.zodiac,
       uint256(keccak256(abi.encodePacked(_subdomain.subdomain, address(this))))
@@ -199,8 +199,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     SafeCreationParams memory safeData,
     ZodiacParams memory zodiacData,
     uint256 safeDeploymentSalt
-  ) internal returns (address safe) {
-    /// @dev Add this contract to the owners so we can enable the zodiac module.
+  ) internal returns (address safe, address module) {
     address[] memory initialOwners = new address[](safeData.owners.length + 1);
     uint256 i;
     for (i = 0; i < safeData.owners.length; ++i) {
@@ -236,7 +235,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
       templateId = zodiacData.templateId;
     }
 
-    address module = IModuleProxyFactory(zodiacData.zodiacFactory).deployModule(
+    module = IModuleProxyFactory(zodiacData.zodiacFactory).deployModule(
       zodiacData.moduleMasterCopy,
       _getZodiacInitializer(safe, templateId, zodiacData),
       uint256(keccak256(abi.encode(safeDeploymentSalt)))
@@ -378,5 +377,54 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     ensResolver.setAddr(childNode, _owner);
 
     ensResolver.setText(childNode, string(_key), string(_value));
+  }
+
+  function getPredictedAddresses(
+    Token calldata _tokenData,
+    Safe calldata _safeData,
+    bytes calldata _subdomain
+  )
+    external
+    returns (
+      address token,
+      address safe,
+      address realityModule
+    )
+  {
+    token = Clones.predictDeterministicAddress(
+      erc20Singleton,
+      keccak256(
+        abi.encodePacked(
+          _tokenData.tokenName,
+          _tokenData.tokenSymbol,
+          _tokenData.maxSupply
+        )
+      )
+    );
+    (safe, realityModule) = _createGnosisSafe(
+      _safeData.safe,
+      _safeData.zodiac,
+      uint256(keccak256(abi.encodePacked(_subdomain, address(this))))
+    );
+  }
+
+  function setENSRecord(
+    bytes calldata _name,
+    bytes calldata _key,
+    bytes calldata _value
+  ) external {
+    bytes32 labelHash = keccak256(_name);
+
+    bytes32 ensBaseNode = ensRegistrar.baseNode();
+    bytes32 parentNode = _calculateENSNode(
+      ensBaseNode,
+      bytes32(ensDomainNFTId)
+    );
+    bytes32 childNode = _calculateENSNode(parentNode, labelHash);
+    ensResolver.setText(childNode, string(_key), string(_value));
+
+    emit ENSTextRecordSet(_name, _key, _value);
+
+    require(msg.sender == ensResolver.addr(childNode), "Invalid owner");
   }
 }
