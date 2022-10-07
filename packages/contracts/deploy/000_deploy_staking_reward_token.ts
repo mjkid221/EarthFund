@@ -9,7 +9,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const chainId = await hre.getChainId();
 
   // Test Staking Reward Token deployment on Rinkeby
-  if (chainId == "4"){
+  if (chainId == "4" || chainId == "5" || chainId == "31337") {
     await deploy("StakingRewardToken", {
       from: deployer,
       args: [ethers.utils.parseEther("1000000")],

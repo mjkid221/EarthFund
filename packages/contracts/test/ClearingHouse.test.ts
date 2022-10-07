@@ -1,21 +1,23 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
-import { parseEther } from "ethers/lib/utils";
-import { deployments, ethers } from "hardhat";
+import { parseEther, toUtf8Bytes } from "ethers/lib/utils";
+import { deployments, ethers, network } from "hardhat";
+import { BigNumber, Contract } from "ethers";
+import { createKYCSignature } from "../helpers/createKYCSignature";
 import createChildDaoConfig from "../helpers/createChildDaoConfig";
-
 import setupNetwork from "../helpers/setupNetwork";
 import {
-  ClearingHouse__factory,
   ERC20,
   ERC20Singleton,
-  IClearingHouse,
+  ClearingHouse,
   IENSRegistrar,
-  IENSController,
+  IDonationsRouter,
   IGovernor,
   IStakingRewards,
   ReflectiveToken,
 } from "../typechain-types";
+
+const { deploy } = deployments;
 
 describe("Clearing House", function () {
   /*//////////////////////////////////////////////////////
@@ -24,14 +26,13 @@ describe("Clearing House", function () {
   let deployer: SignerWithAddress,
     alice: SignerWithAddress,
     governor: IGovernor,
-    token: ERC20,
-    ensController: IENSController,
     ensRegistrar: IENSRegistrar,
     childDaoToken: ERC20Singleton,
     childDaoToken2: ERC20Singleton,
     earthToken: ERC20,
-    clearingHouse: IClearingHouse,
-    stakingRewards: IStakingRewards;
+    clearingHouse: ClearingHouse,
+    stakingRewards: IStakingRewards,
+    router: IDonationsRouter;
 
   let tokenId: string;
   const domain = "earthfundTurboTestDomain31337";
@@ -42,14 +43,38 @@ describe("Clearing House", function () {
 
   // helper function that deploys and gets all the contracts and creates a test child dao
   const setupTestEnv = async (secondChildDao?: boolean) => {
-    [token, governor, ensController, ensRegistrar, tokenId] =
-      await setupNetwork(domain, deployer); // contract deployments are done here
+    [, governor, , ensRegistrar, tokenId] = await setupNetwork(
+      domain,
+      deployer
+    ); // contract deployments are done here
+    earthToken = await ethers.getContract("EarthToken");
+    await earthToken.increaseAllowance(
+      governor.address,
+      ethers.constants.MaxInt256
+    );
+    await earthToken
+      .connect(alice)
+      .increaseAllowance(governor.address, ethers.constants.MaxInt256);
 
     await ensRegistrar.approve(governor.address, tokenId);
     await governor.addENSDomain(tokenId);
-    const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig([
-      alice.address,
-    ]);
+    const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig(
+      [alice.address],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      0
+    );
     const createChildDaoTx = await (
       await governor.createChildDAO(_tokenData, _safeData, _subdomain)
     ).wait();
@@ -58,6 +83,8 @@ describe("Clearing House", function () {
       createChildDaoTx.events?.find((el) => el.event === "ChildDaoCreated")
         ?.args?.token
     );
+
+    router = await ethers.getContract("DonationsRouter");
 
     if (secondChildDao) {
       const {
@@ -70,7 +97,16 @@ describe("Clearing House", function () {
         "TEST2",
         "subtest2",
         "C",
-        "D"
+        "D",
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        0
       );
 
       const createChildDaoTx2 = await (
@@ -83,7 +119,6 @@ describe("Clearing House", function () {
       );
     }
 
-    earthToken = await ethers.getContract("EarthToken");
     clearingHouse = await ethers.getContract("ClearingHouse");
     stakingRewards = await ethers.getContract("StakingRewards");
   };
@@ -91,10 +126,7 @@ describe("Clearing House", function () {
                     CONSTRUCTOR TESTS
   //////////////////////////////////////////////////////*/
   describe("Constructor", () => {
-    let factory: ClearingHouse__factory;
-
     beforeEach(async () => {
-      factory = await ethers.getContractFactory("ClearingHouse");
       await setupTestEnv();
       await clearingHouse.connect(deployer).addGovernor(deployer.address);
     });
@@ -107,100 +139,88 @@ describe("Clearing House", function () {
       expect(await clearingHouse.staking()).to.be.eq(stakingRewards.address);
     });
 
-
     it("should have deployed the clearing house with auto stake state set to false", async () => {
-      expect(await clearingHouse.autoStake()).to.be.eq(false);
-    });
-
-    it("should have deployed the clearing house with auto stake state set to true", async () => {
-      // redeploy the clearing house contract with auto stake on
-      const { deploy } = deployments;
-      const clearingHouseDeployResults = await deploy("ClearingHouse", {
-        from: deployer.address,
-        args: [earthToken.address, stakingRewards.address, true, 0, 0, deployer.address],
-        log: true,
-      })
-
-      clearingHouse = await ethers.getContractAt(
-        clearingHouseDeployResults.abi,
-        clearingHouseDeployResults.address
-      );
-
-      expect(await clearingHouse.autoStake()).to.be.eq(true);
+      expect(
+        (await clearingHouse.causeInformation(childDaoToken.address))
+          .autoStaking
+      ).to.be.eq(false);
     });
 
     it("should revert when deploying the clearing house contract with the zero address for the earth token", async () => {
       // redeploy the clearing house contract with the zero address for the earth token
-      const { deploy } = deployments;
-      await expect(deploy("ClearingHouse", {
+      await expect(
+        deploy("ClearingHouse", {
+          from: deployer.address,
+          args: [
+            ethers.constants.AddressZero,
+            stakingRewards.address,
+            deployer.address,
+          ],
+          log: true,
+        })
+      ).to.be.revertedWith("invalid earth token address");
+    });
+
+    it("should revert when donations router is not set", async () => {
+      const deployment = await deploy("newClearingHouse", {
+        contract: "ClearingHouse",
         from: deployer.address,
-        args: [ethers.constants.AddressZero, stakingRewards.address, true, 0, 0, deployer.address],
+        args: [earthToken.address, stakingRewards.address, deployer.address],
         log: true,
-      })).to.be.revertedWith("invalid earth token address");
+      });
+
+      const newClearingHouse = await ethers.getContractAt(
+        deployment.abi,
+        deployment.address
+      );
+      expect(
+        newClearingHouse.setAutoStake(childDaoToken.address, true)
+      ).to.be.revertedWith("donations router is not set");
     });
 
     it("should revert when deploying the clearing house contract with the zero address for the staking contract", async () => {
       // redeploy the clearing house contract with the zero address for the staking contract
-      const { deploy } = deployments;
-      await expect(deploy("ClearingHouse", {
-        from: deployer.address,
-        args: [earthToken.address, ethers.constants.AddressZero, true, 0, 0, deployer.address],
-        log: true,
-      })).to.be.revertedWith("invalid staking address");
+      await expect(
+        deploy("ClearingHouse", {
+          from: deployer.address,
+          args: [
+            earthToken.address,
+            ethers.constants.AddressZero,
+            deployer.address,
+          ],
+          log: true,
+        })
+      ).to.be.revertedWith("invalid staking address");
     });
-
-    it("should set the max supply if it's not 0", async () => {
-      const clearing = await factory.deploy(
-        earthToken.address,
-        stakingRewards.address,
-        false,
-        5,
-        5,
-        deployer.address
-      );
-      expect(await clearing.maxSupply()).to.eq(5);
-      const clearing2 = await factory.deploy(
-        earthToken.address,
-        stakingRewards.address,
-        false,
-        0,
-        5,
-        deployer.address
-      );
-      expect(await clearing2.maxSupply()).to.eq(0);
-    });
-
-    it("should set the max swap if it's not 0", async () => {
-      const clearing = await factory.deploy(
-        earthToken.address,
-        stakingRewards.address,
-        false,
-        5,
-        5,
-        deployer.address
-      );
-      expect(await clearing.maxSwap()).to.eq(5);
-      const clearing2 = await factory.deploy(
-        earthToken.address,
-        stakingRewards.address,
-        false,
-        5,
-        0,
-        deployer.address
-      );
-      expect(await clearing2.maxSwap()).to.eq(0);
-    });
-  })
+  });
 
   /*//////////////////////////////////////////////////////
                   CREATING CHILD DAO TESTS
   //////////////////////////////////////////////////////*/
   describe("Creating Child DAO", () => {
+    let reflectiveTokenOne: Contract;
+
     beforeEach(async () => {
       await setupTestEnv();
 
       // make the deployer account the governor in the clearing house contract for testing purposes
       await clearingHouse.connect(deployer).addGovernor(deployer.address);
+
+      const refOneDeployResult = await deploy("ReflectiveToken", {
+        from: deployer.address,
+        args: ["Reflective One", "REF1"],
+        log: true,
+      });
+
+      reflectiveTokenOne = await ethers.getContractAt(
+        refOneDeployResult.abi,
+        refOneDeployResult.address
+      );
+
+      // transfer ownership of the reflective token contracts to the newly deployed clearing house contract
+      await reflectiveTokenOne
+        .connect(deployer)
+        .transferOwnership(clearingHouse.address);
     });
 
     it("should make the clearing house contract the owner of the child dao token contract", async () => {
@@ -210,13 +230,19 @@ describe("Clearing House", function () {
     });
 
     it("should register the child dao token contract into the clearing house when create dao is called on the governor contract", async () => {
-      expect(await clearingHouse.childDaoRegistry(childDaoToken.address)).to.eq(
-        true
-      );
+      expect(
+        (await clearingHouse.causeInformation(childDaoToken.address))
+          .childDaoRegistry
+      ).to.eq(true);
     });
 
     it("should set the staking contract's allowance to the max int in the child dao token for the clearing house contract", async () => {
-      expect(await childDaoToken.allowance(clearingHouse.address, stakingRewards.address)).to.eq(ethers.constants.MaxUint256);
+      expect(
+        await childDaoToken.allowance(
+          clearingHouse.address,
+          stakingRewards.address
+        )
+      ).to.eq(ethers.constants.MaxUint256);
     });
 
     it("should revert when trying to register a child dao token contract and no governor is set", async () => {
@@ -226,48 +252,166 @@ describe("Clearing House", function () {
         .addGovernor(ethers.constants.AddressZero);
 
       await expect(
-        clearingHouse.connect(deployer).registerChildDao(childDaoToken.address)
+        clearingHouse
+          .connect(deployer)
+          .registerChildDao(
+            childDaoToken.address,
+            false,
+            false,
+            10000,
+            10000,
+            0
+          )
       ).to.be.revertedWith("governor not set");
     });
 
     it("should revert when trying to register child dao token contract as an account that is not the governor", async () => {
       await expect(
-        clearingHouse.connect(alice).registerChildDao(childDaoToken.address)
+        clearingHouse
+          .connect(alice)
+          .registerChildDao(
+            childDaoToken.address,
+            false,
+            false,
+            10000,
+            10000,
+            0
+          )
       ).to.be.revertedWith("caller is not the governor");
     });
 
     it("should revert when trying to register the 1Earth token contract", async () => {
       await expect(
-        clearingHouse.connect(deployer).registerChildDao(earthToken.address)
+        clearingHouse
+          .connect(deployer)
+          .registerChildDao(earthToken.address, false, false, 10000, 10000, 0)
       ).to.be.revertedWith("cannot register 1Earth token");
     });
 
-    it("should revert when trying to register child dao token contract that is not owned by the clearing house", async () => {
-      let reflectiveToken: ReflectiveToken;
+    it("should not be able to register cause with 0 max supply", async () => {
+      // need to register the reflective tokens again in this newly deployed clearing house contract
+      await expect(
+        clearingHouse
+          .connect(deployer)
+          .registerChildDao(
+            reflectiveTokenOne.address,
+            true,
+            false,
+            0,
+            10000,
+            0
+          )
+      ).to.be.revertedWith("max supply cannot be 0");
+    });
 
-      // deploy reflective token for testing
-      const { deploy } = deployments;
-      const refDeployResult = await deploy("ReflectiveToken", {
+    it("should not be able to register cause with 0 max swap", async () => {
+      // need to register the reflective tokens again in this newly deployed clearing house contract
+      await expect(
+        clearingHouse
+          .connect(deployer)
+          .registerChildDao(
+            reflectiveTokenOne.address,
+            true,
+            false,
+            10000,
+            0,
+            0
+          )
+      ).to.be.revertedWith("max swap cannot be 0");
+    });
+
+    it("should be able to register child dao with autostaking set to true", async () => {
+      // need to register the reflective tokens again in this newly deployed clearing house contract
+      await clearingHouse
+        .connect(deployer)
+        .registerChildDao(
+          reflectiveTokenOne.address,
+          true,
+          false,
+          10000,
+          10000,
+          0
+        );
+    });
+
+    it("should be able to register child dao with kyc enabled set to true", async () => {
+      // need to register the reflective tokens again in this newly deployed clearing house contract
+      await clearingHouse
+        .connect(deployer)
+        .registerChildDao(
+          reflectiveTokenOne.address,
+          false,
+          true,
+          10000,
+          10000,
+          0
+        );
+    });
+
+    it("should be able to register a child dao with a release time", async () => {
+      // need to register the reflective tokens again in this newly deployed clearing house contract
+      await clearingHouse
+        .connect(deployer)
+        .registerChildDao(
+          reflectiveTokenOne.address,
+          true,
+          false,
+          10000,
+          10000,
+          parseEther("10")
+        );
+      expect(
+        (await clearingHouse.causeInformation(reflectiveTokenOne.address))
+          .release
+      ).to.be.eq(parseEther("10"));
+      await expect(
+        clearingHouse.swapEarthForChildDao(
+          reflectiveTokenOne.address,
+          10,
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
+        )
+      ).to.be.revertedWith("cause release has not passed");
+    });
+
+    it("should revert when trying to register child dao token contract that is not owned by the clearing house", async () => {
+      const refTwoDeployResult = await deploy("ReflectiveToken", {
         from: deployer.address,
-        args: ["Reflective", "REF"],
+        args: ["Reflective Two", "REF2"],
         log: true,
       });
-
-      reflectiveToken = await ethers.getContractAt(
-        refDeployResult.abi,
-        refDeployResult.address
+      const reflectiveTokenTwo = await ethers.getContractAt(
+        refTwoDeployResult.abi,
+        refTwoDeployResult.address
       );
 
       await expect(
         clearingHouse
           .connect(deployer)
-          .registerChildDao(reflectiveToken.address)
+          .registerChildDao(
+            reflectiveTokenTwo.address,
+            false,
+            false,
+            10000,
+            10000,
+            0
+          )
       ).to.be.revertedWith("token not owned by contract");
     });
 
     it("should revert when trying to register an already registered child dao token contract", async () => {
       await expect(
-        clearingHouse.connect(deployer).registerChildDao(childDaoToken.address)
+        clearingHouse
+          .connect(deployer)
+          .registerChildDao(
+            childDaoToken.address,
+            false,
+            false,
+            10000,
+            10000,
+            0
+          )
       ).to.be.revertedWith("child dao already registered");
     });
   });
@@ -288,35 +432,35 @@ describe("Clearing House", function () {
 
     it("should revert when trying to update the staking state with the zero address", async () => {
       expect(await clearingHouse.staking()).to.be.eq(stakingRewards.address);
-      await expect(clearingHouse.setStaking(ethers.constants.AddressZero)).to.be.revertedWith("invalid staking address");
+      await expect(
+        clearingHouse.setStaking(ethers.constants.AddressZero)
+      ).to.be.revertedWith("invalid staking address");
     });
-
-    it("should update the auto stake state to true", async () => {
-      expect(await clearingHouse.autoStake()).to.be.eq(false);
-      await clearingHouse.setAutoStake(true);
-      expect(await clearingHouse.autoStake()).to.be.eq(true);
-    });
-
-    it("should update the auto stake state to false", async () => {
-      expect(await clearingHouse.autoStake()).to.be.eq(false);
-      await clearingHouse.setAutoStake(true);
-      expect(await clearingHouse.autoStake()).to.be.eq(true);
-      await clearingHouse.setAutoStake(false);
-      expect(await clearingHouse.autoStake()).to.be.eq(false);
-    });
-  })
+  });
 
   /*//////////////////////////////////////////////////////
                 SWAP FOR DAO TOKENS TESTS
   //////////////////////////////////////////////////////*/
   describe("Swap for child dao tokens", () => {
+    let daoToken: Contract;
+
     beforeEach(async () => {
       await setupTestEnv();
+      await deploy("DAOToken", {
+        from: alice.address,
+        log: false,
+        args: [ethers.utils.parseEther("1000000")],
+      });
+
+      daoToken = await ethers.getContract("DAOToken");
+      await router.registerCause({
+        owner: alice.address,
+        rewardPercentage: BigNumber.from((10 ** 16).toString()), // 1%,
+        daoToken: daoToken.address,
+      });
 
       // transfer alice five hundred 1Earth tokens
-      await earthToken
-        .connect(deployer)
-        .transfer(alice.address, ethers.utils.parseEther("500"));
+      await earthToken.transfer(alice.address, ethers.utils.parseEther("500"));
 
       // approve the clearing house contract in the earth token contract for alice
       await earthToken
@@ -369,7 +513,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther(swapAmount.toString())
+          ethers.utils.parseEther(swapAmount.toString()),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
       await checkBalancesAfterDaoTokenSwap(swapAmount);
     });
@@ -381,7 +528,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther(swapAmount.toString())
+          ethers.utils.parseEther(swapAmount.toString()),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
       await checkBalancesAfterDaoTokenSwap(swapAmount);
     });
@@ -393,7 +543,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther(swapAmount.toString())
+          ethers.utils.parseEther(swapAmount.toString()),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
       await checkBalancesAfterDaoTokenSwap(swapAmount);
     });
@@ -405,7 +558,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther(swapAmount.toString())
+          ethers.utils.parseEther(swapAmount.toString()),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
       await checkBalancesAfterDaoTokenSwap(swapAmount);
     });
@@ -417,7 +573,10 @@ describe("Clearing House", function () {
           .connect(alice)
           .swapEarthForChildDao(
             deployer.address,
-            ethers.utils.parseEther(swapAmount.toString())
+            ethers.utils.parseEther(swapAmount.toString()),
+            toUtf8Bytes("0"),
+            0,
+            toUtf8Bytes("0")
           )
       ).to.be.revertedWith("invalid child dao address");
     });
@@ -429,36 +588,132 @@ describe("Clearing House", function () {
           .connect(alice)
           .swapEarthForChildDao(
             childDaoToken.address,
-            ethers.utils.parseEther(swapAmount.toString())
+            ethers.utils.parseEther(swapAmount.toString()),
+            toUtf8Bytes("0"),
+            0,
+            toUtf8Bytes("0")
           )
       ).to.be.revertedWith("not enough 1Earth tokens");
     });
 
+    it("should not be able to update auto stake if not owner", async () => {
+      expect(
+        (await clearingHouse.causeInformation(daoToken.address)).autoStaking
+      ).to.be.eq(false);
+      expect(
+        clearingHouse.setAutoStake(daoToken.address, true)
+      ).to.be.revertedWith("sender not owner");
+    });
+
+    it("should update the auto stake state to true", async () => {
+      expect(
+        (await clearingHouse.causeInformation(daoToken.address)).autoStaking
+      ).to.be.eq(false);
+      await clearingHouse.connect(alice).setAutoStake(daoToken.address, true);
+      expect(
+        (await clearingHouse.causeInformation(daoToken.address)).autoStaking
+      ).to.be.eq(true);
+    });
+
+    it("should update the auto stake state to false", async () => {
+      expect(
+        (await clearingHouse.causeInformation(daoToken.address)).autoStaking
+      ).to.be.eq(false);
+      await clearingHouse.connect(alice).setAutoStake(daoToken.address, true);
+      expect(
+        (await clearingHouse.causeInformation(daoToken.address)).autoStaking
+      ).to.be.eq(true);
+      await clearingHouse.connect(alice).setAutoStake(daoToken.address, false);
+      expect(
+        (await clearingHouse.causeInformation(daoToken.address)).autoStaking
+      ).to.be.eq(false);
+    });
+
     it("should stake the dao tokens when auto stake is on", async () => {
       const swapAmount = 500;
+      const childDaoCauseID = await router.tokenCauseIds(childDaoToken.address);
+      const childDaoOwner = (await router.causeRecords(childDaoCauseID)).owner;
+
+      await network.provider.request({
+        method: "hardhat_impersonateAccount",
+        params: [childDaoOwner],
+      });
+
+      const signer = ethers.provider.getSigner(childDaoOwner);
+
+      const tx = await deployer.sendTransaction({
+        to: childDaoOwner,
+        value: ethers.utils.parseEther("10.0"),
+      });
+
+      await tx.wait();
 
       // use alice, alice should have 500 earth tokens to start
-      expect(await earthToken.balanceOf(alice.address)).to.be.eq(ethers.utils.parseEther(swapAmount.toString()));
+      expect(await earthToken.balanceOf(alice.address)).to.be.eq(
+        ethers.utils.parseEther(swapAmount.toString())
+      );
       expect(
-        (await stakingRewards.userStakes(childDaoToken.address, alice.address)).stakedAmount
+        (await stakingRewards.userStakes(childDaoToken.address, alice.address))
+          .stakedAmount
       ).to.be.eq(0);
 
-      await clearingHouse.setAutoStake(true);
-      await clearingHouse.connect(alice).swapEarthForChildDao(childDaoToken.address, ethers.utils.parseEther(swapAmount.toString()));
+      await clearingHouse
+        .connect(signer)
+        .setAutoStake(childDaoToken.address, true);
+
+      await clearingHouse
+        .connect(alice)
+        .swapEarthForChildDao(
+          childDaoToken.address,
+          ethers.utils.parseEther(swapAmount.toString()),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
+        );
       expect(await earthToken.balanceOf(alice.address)).to.be.eq(0);
       expect(
-        (await stakingRewards.userStakes(childDaoToken.address, alice.address)).stakedAmount
-      ).to.be.eq(ethers.utils.parseEther(swapAmount.toString()))
-      expect(
-        await earthToken.balanceOf(clearingHouse.address)
+        (await stakingRewards.userStakes(childDaoToken.address, alice.address))
+          .stakedAmount
       ).to.be.eq(ethers.utils.parseEther(swapAmount.toString()));
+      expect(await earthToken.balanceOf(clearingHouse.address)).to.be.eq(
+        ethers.utils.parseEther(swapAmount.toString())
+      );
       expect(await childDaoToken.balanceOf(clearingHouse.address)).to.be.eq(0);
-      expect(
-        await earthToken.balanceOf(stakingRewards.address)
-      ).to.be.eq(0);
-      expect(
-        await childDaoToken.balanceOf(stakingRewards.address)
-      ).to.be.eq(ethers.utils.parseEther(swapAmount.toString()));
+      expect(await earthToken.balanceOf(stakingRewards.address)).to.be.eq(0);
+      expect(await childDaoToken.balanceOf(stakingRewards.address)).to.be.eq(
+        ethers.utils.parseEther(swapAmount.toString())
+      );
+    });
+
+    it("should allow the owner to set the max supply", async () => {
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .setMaxSupply(parseEther("1000"), daoToken.address)
+      )
+        .to.emit(clearingHouse, "MaxSupplySet")
+        .withArgs(parseEther("1000"), daoToken.address);
+    });
+
+    it("should allow the owner to set the max swap", async () => {
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .setMaxSwap(parseEther("1000"), daoToken.address)
+      )
+        .to.emit(clearingHouse, "MaxSwapSet")
+        .withArgs(parseEther("1000"), daoToken.address);
+    });
+    it("should not allow set the max supply if not owner", async () => {
+      await expect(
+        clearingHouse.setMaxSupply(parseEther("1000"), daoToken.address)
+      ).to.be.revertedWith("sender not owner");
+    });
+
+    it("should not allow set the max swap if not owner", async () => {
+      await expect(
+        clearingHouse.setMaxSwap(parseEther("1000"), daoToken.address)
+      ).to.be.revertedWith("sender not owner");
     });
   });
 
@@ -484,7 +739,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther("500")
+          ethers.utils.parseEther("500"),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
     });
 
@@ -621,7 +879,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther("500")
+          ethers.utils.parseEther("500"),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
 
       // swap five hundred 1Earth tokens to child dao 2 tokens for alice
@@ -629,7 +890,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken2.address,
-          ethers.utils.parseEther("500")
+          ethers.utils.parseEther("500"),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
     });
 
@@ -823,7 +1087,6 @@ describe("Clearing House", function () {
         .approve(clearingHouse.address, ethers.constants.MaxUint256);
 
       // deploy three reflective tokens for testing
-      const { deploy } = deployments;
       const refOneDeployResult = await deploy("ReflectiveToken", {
         from: deployer.address,
         args: ["Reflective One", "REF1"],
@@ -859,16 +1122,12 @@ describe("Clearing House", function () {
 
     it("should revert with '1Earth token transfer failed'", async () => {
       // need to redeploy the the clearing house contract with reflective token three as the earth token
-      const { deploy } = deployments;
       const clearingHouseDeployResult = await deploy("ClearingHouse", {
         from: deployer.address,
         args: [
           reflectiveTokenThree.address,
           stakingRewards.address,
-          false,
-          ethers.utils.parseEther("1000000"),
-          ethers.utils.parseEther("5000"),
-          deployer.address
+          deployer.address,
         ],
         log: true,
       });
@@ -892,13 +1151,38 @@ describe("Clearing House", function () {
         .connect(deployer)
         .transferOwnership(clearingHouse.address);
 
+      const registrationRequest = {
+        owner: deployer.address,
+        rewardPercentage: 1,
+        daoToken: reflectiveTokenOne.address,
+      };
+
+      await clearingHouse.addDonationsRouter(router.address);
+
+      await router.registerCause(registrationRequest);
+
       // need to register the reflective tokens again in this newly deployed clearing house contract
       await clearingHouse
         .connect(deployer)
-        .registerChildDao(reflectiveTokenOne.address);
+        .registerChildDao(
+          reflectiveTokenOne.address,
+          false,
+          false,
+          parseEther("10000"),
+          parseEther("10000"),
+          0
+        );
+
       await clearingHouse
         .connect(deployer)
-        .registerChildDao(reflectiveTokenTwo.address);
+        .registerChildDao(
+          reflectiveTokenTwo.address,
+          false,
+          false,
+          parseEther("10000"),
+          parseEther("10000"),
+          0
+        );
 
       // mint alice five hundred REF3 tokens
       await reflectiveTokenThree
@@ -917,7 +1201,10 @@ describe("Clearing House", function () {
           .connect(alice)
           .swapEarthForChildDao(
             reflectiveTokenOne.address,
-            ethers.utils.parseEther(swapAmount.toString())
+            ethers.utils.parseEther(swapAmount.toString()),
+            toUtf8Bytes("0"),
+            0,
+            toUtf8Bytes("0")
           )
       ).to.be.revertedWith("1Earth token transfer failed");
 
@@ -956,10 +1243,24 @@ describe("Clearing House", function () {
       // register the two ref tokens in the clearing house contract
       await clearingHouse
         .connect(deployer)
-        .registerChildDao(reflectiveTokenOne.address);
+        .registerChildDao(
+          reflectiveTokenOne.address,
+          false,
+          false,
+          parseEther("10000"),
+          parseEther("10000"),
+          0
+        );
       await clearingHouse
         .connect(deployer)
-        .registerChildDao(reflectiveTokenTwo.address);
+        .registerChildDao(
+          reflectiveTokenTwo.address,
+          false,
+          false,
+          parseEther("10000"),
+          parseEther("10000"),
+          0
+        );
 
       const swapAmount = 1;
       await expect(
@@ -967,7 +1268,10 @@ describe("Clearing House", function () {
           .connect(alice)
           .swapEarthForChildDao(
             reflectiveTokenOne.address,
-            ethers.utils.parseEther(swapAmount.toString())
+            ethers.utils.parseEther(swapAmount.toString()),
+            toUtf8Bytes("0"),
+            0,
+            toUtf8Bytes("0")
           )
       ).to.be.revertedWith("child dao token mint error");
 
@@ -976,7 +1280,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther(swapAmount.toString())
+          ethers.utils.parseEther(swapAmount.toString()),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
 
       // try to swap child dao tokens for reflective token one tokens
@@ -1006,10 +1313,24 @@ describe("Clearing House", function () {
       // register the two ref tokens in the clearing house contract
       await clearingHouse
         .connect(deployer)
-        .registerChildDao(reflectiveTokenOne.address);
+        .registerChildDao(
+          reflectiveTokenOne.address,
+          false,
+          false,
+          10000,
+          10000,
+          0
+        );
       await clearingHouse
         .connect(deployer)
-        .registerChildDao(reflectiveTokenTwo.address);
+        .registerChildDao(
+          reflectiveTokenTwo.address,
+          false,
+          false,
+          10000,
+          10000,
+          0
+        );
 
       const swapAmount = 1;
 
@@ -1018,7 +1339,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther(swapAmount.toString())
+          ethers.utils.parseEther(swapAmount.toString()),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
 
       await reflectiveTokenOne.mint(
@@ -1073,14 +1397,32 @@ describe("Clearing House", function () {
 
     it("should not be able to register a token contract when paused", async () => {
       await expect(
-        clearingHouse.connect(deployer).registerChildDao(childDaoToken.address)
+        clearingHouse
+          .connect(deployer)
+          .registerChildDao(
+            childDaoToken.address,
+            false,
+            false,
+            10000,
+            10000,
+            0
+          )
       ).to.be.revertedWith("Pausable: paused");
 
       // unpause and try to finish action
       await clearingHouse.connect(deployer).unpause();
       await clearingHouse.connect(deployer).addGovernor(deployer.address);
       await expect(
-        clearingHouse.connect(deployer).registerChildDao(childDaoToken.address)
+        clearingHouse
+          .connect(deployer)
+          .registerChildDao(
+            childDaoToken.address,
+            false,
+            false,
+            10000,
+            10000,
+            0
+          )
       ).to.be.revertedWith("child dao already registered");
     });
 
@@ -1091,7 +1433,10 @@ describe("Clearing House", function () {
           .connect(deployer)
           .swapEarthForChildDao(
             childDaoToken.address,
-            ethers.utils.parseEther(swapAmount.toString())
+            ethers.utils.parseEther(swapAmount.toString()),
+            toUtf8Bytes("0"),
+            0,
+            toUtf8Bytes("0")
           )
       ).to.be.revertedWith("Pausable: paused");
 
@@ -1112,7 +1457,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther(swapAmount.toString())
+          ethers.utils.parseEther(swapAmount.toString()),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
 
       expect(await earthToken.balanceOf(alice.address)).to.be.eq(
@@ -1154,7 +1502,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther(swapAmount.toString())
+          ethers.utils.parseEther(swapAmount.toString()),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
 
       expect(await earthToken.balanceOf(alice.address)).to.be.eq(
@@ -1213,7 +1564,10 @@ describe("Clearing House", function () {
         .connect(alice)
         .swapEarthForChildDao(
           childDaoToken.address,
-          ethers.utils.parseEther(swapAmount.toString())
+          ethers.utils.parseEther(swapAmount.toString()),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         );
 
       expect(await earthToken.balanceOf(alice.address)).to.be.eq(
@@ -1274,20 +1628,35 @@ describe("Clearing House", function () {
       await expect(
         clearingHouse
           .connect(alice)
-          .swapEarthForChildDao(childDaoToken.address, parseEther("100000000"))
+          .swapEarthForChildDao(
+            childDaoToken.address,
+            parseEther("100000000"),
+            toUtf8Bytes("0"),
+            0,
+            toUtf8Bytes("0")
+          )
       ).to.be.revertedWith("exceeds max supply");
     });
-    
+
     it("should prevent swapping more than the maximum swap amount", async () => {
       await expect(
         clearingHouse
           .connect(alice)
-          .swapEarthForChildDao(childDaoToken.address, parseEther("10000"))
+          .swapEarthForChildDao(
+            childDaoToken.address,
+            parseEther("10000"),
+            toUtf8Bytes("0"),
+            0,
+            toUtf8Bytes("0")
+          )
       ).to.be.revertedWith("exceeds max swap per tx");
 
       await clearingHouse.swapEarthForChildDao(
         childDaoToken.address,
-        parseEther("6000")
+        parseEther("6000"),
+        toUtf8Bytes("0"),
+        0,
+        toUtf8Bytes("0")
       );
 
       await childDaoToken.transfer(alice.address, parseEther("6000"));
@@ -1298,7 +1667,7 @@ describe("Clearing House", function () {
           .swapChildDaoForChildDao(
             childDaoToken.address,
             childDaoToken2.address,
-            parseEther("6000")
+            parseEther("9000")
           )
       ).to.be.revertedWith("exceeds max swap per tx");
     });
@@ -1307,7 +1676,10 @@ describe("Clearing House", function () {
       expect(await childDaoToken.balanceOf(deployer.address)).to.eq(0);
       await clearingHouse.swapEarthForChildDao(
         childDaoToken.address,
-        parseEther("10000")
+        parseEther("10000"),
+        toUtf8Bytes("0"),
+        0,
+        toUtf8Bytes("0")
       );
       expect(await childDaoToken.balanceOf(deployer.address)).to.be.eq(
         parseEther("10000")
@@ -1318,21 +1690,155 @@ describe("Clearing House", function () {
       await expect(
         clearingHouse.swapEarthForChildDao(
           childDaoToken.address,
-          parseEther("100000000")
+          parseEther("100000000"),
+          toUtf8Bytes("0"),
+          0,
+          toUtf8Bytes("0")
         )
       ).to.be.revertedWith("exceeds max supply");
     });
+  });
+  describe("KYC Approval", () => {
+    let childDaoCauseID: number;
 
-    it("should allow the owner to set the max supply", async () => {
-      await expect(clearingHouse.setMaxSupply(parseEther("1000")))
-        .to.emit(clearingHouse, "MaxSupplySet")
-        .withArgs(parseEther("1000"));
+    interface SigValues {
+      KYCId: string;
+      user: string;
+      causeId: number;
+      expiry: number;
+    }
+
+    beforeEach(async () => {
+      await setupTestEnv();
+      await clearingHouse.connect(deployer).addGovernor(deployer.address);
+      childDaoCauseID = (
+        await router.tokenCauseIds(childDaoToken.address)
+      ).toNumber();
+      const childDaoOwner = (await router.causeRecords(childDaoCauseID)).owner;
+
+      await network.provider.request({
+        method: "hardhat_impersonateAccount",
+        params: [childDaoOwner],
+      });
+
+      const signer = ethers.provider.getSigner(childDaoOwner);
+
+      const tx = await deployer.sendTransaction({
+        to: childDaoOwner,
+        value: ethers.utils.parseEther("10.0"),
+      });
+
+      await tx.wait();
+      await clearingHouse
+        .connect(signer)
+        .setKYCEnabled(childDaoToken.address, true);
+      // transfer alice five hundred 1Earth tokens
+      await earthToken.transfer(alice.address, ethers.utils.parseEther("2000"));
+      // approve the clearing house contract in the earth token contract for alice
+      await earthToken
+        .connect(alice)
+        .approve(clearingHouse.address, ethers.constants.MaxUint256);
     });
 
-    it("should allow the owner to set the max swap", async () => {
-      await expect(clearingHouse.setMaxSwap(parseEther("1000")))
-        .to.emit(clearingHouse, "MaxSwapSet")
-        .withArgs(parseEther("1000"));
+    it("should be able to create signature and swap earth for child dao", async () => {
+      const sigValues = {
+        KYCId: "test",
+        user: alice.address,
+        causeId: childDaoCauseID,
+        expiry: 0,
+      } as SigValues;
+      const args = Object.values(sigValues) as [string, string, number, number];
+      const signature = await createKYCSignature(deployer, ...args);
+
+      expect(await childDaoToken.balanceOf(alice.address)).to.eq(0);
+
+      await clearingHouse
+        .connect(alice)
+        .swapEarthForChildDao(
+          childDaoToken.address,
+          1000,
+          toUtf8Bytes(sigValues.KYCId),
+          sigValues.expiry,
+          signature
+        );
+
+      expect(await childDaoToken.balanceOf(alice.address)).to.eq(1000);
+    });
+    it("should revert if expiry has passed", async () => {
+      const sigValues = {
+        KYCId: "test",
+        user: alice.address,
+        causeId: childDaoCauseID,
+        expiry: 1, // 1 second after 1970 would be expired, it ignores expiry if it is 0
+      } as SigValues;
+      const args = Object.values(sigValues) as [string, string, number, number];
+      const signature = await createKYCSignature(deployer, ...args);
+
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapEarthForChildDao(
+            childDaoToken.address,
+            parseEther("1000"),
+            toUtf8Bytes(sigValues.KYCId),
+            sigValues.expiry,
+            signature
+          )
+      ).to.be.revertedWith("ApprovalExpired");
+    });
+    it("should revert if signed by invalid address", async () => {
+      const sigValues = {
+        KYCId: "test",
+        user: alice.address,
+        causeId: childDaoCauseID,
+        expiry: 0,
+      } as SigValues;
+      const args = Object.values(sigValues) as [string, string, number, number];
+      const signature = await createKYCSignature(alice, ...args);
+
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapEarthForChildDao(
+            childDaoToken.address,
+            parseEther("1000"),
+            toUtf8Bytes(sigValues.KYCId),
+            sigValues.expiry,
+            signature
+          )
+      ).to.be.revertedWith("InvalidSignature");
+    });
+    it("should revert if user attempts to withdraw more than max swap amount", async () => {
+      const sigValues = {
+        KYCId: "test",
+        user: alice.address,
+        causeId: childDaoCauseID,
+        expiry: 0,
+      } as SigValues;
+      const args = Object.values(sigValues) as [string, string, number, number];
+      const signature = await createKYCSignature(deployer, ...args);
+
+      await clearingHouse
+        .connect(alice)
+        .swapEarthForChildDao(
+          childDaoToken.address,
+          parseEther("1000"),
+          toUtf8Bytes(sigValues.KYCId),
+          sigValues.expiry,
+          signature
+        );
+
+      await expect(
+        clearingHouse
+          .connect(alice)
+          .swapEarthForChildDao(
+            childDaoToken.address,
+            parseEther("1000"),
+            toUtf8Bytes(sigValues.KYCId),
+            sigValues.expiry,
+            signature
+          )
+      ).to.be.revertedWith("UserAmountExceeded");
     });
   });
 
