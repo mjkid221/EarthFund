@@ -73,6 +73,7 @@ describe("Clearing House", function () {
       undefined,
       undefined,
       undefined,
+      undefined,
       0
     );
     const createChildDaoTx = await (
@@ -91,13 +92,14 @@ describe("Clearing House", function () {
         _tokenData: _tokenData2,
         _safeData: _safeData2,
         _subdomain: _subdomain2,
-      } = await createChildDaoConfig(
+      } = createChildDaoConfig(
         [alice.address],
         "Test2",
         "TEST2",
         "subtest2",
         "C",
         "D",
+        undefined,
         undefined,
         undefined,
         undefined,
@@ -137,13 +139,6 @@ describe("Clearing House", function () {
 
     it("should have deployed the clearing house with the staking reward contract as the default staking state", async () => {
       expect(await clearingHouse.staking()).to.be.eq(stakingRewards.address);
-    });
-
-    it("should have deployed the clearing house with auto stake state set to false", async () => {
-      expect(
-        (await clearingHouse.causeInformation(childDaoToken.address))
-          .autoStaking
-      ).to.be.eq(false);
     });
 
     it("should revert when deploying the clearing house contract with the zero address for the earth token", async () => {

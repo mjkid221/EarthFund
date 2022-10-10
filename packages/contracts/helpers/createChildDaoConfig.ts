@@ -1,10 +1,10 @@
 import { BigNumber, ethers } from "ethers";
 import { parseEther, toUtf8Bytes } from "ethers/lib/utils";
 
-import createGnosisSetupTx from "./createGnosisSetupTx";
 import ContractAddresses from "../constants/contractAddresses";
+import { IGovernor } from "../typechain-types";
 
-const createChildDaoConfig = async (
+const createChildDaoConfig = (
   owners: string[],
   tokenName = "Test",
   tokenSymbol = "TEST",
@@ -13,6 +13,19 @@ const createChildDaoConfig = async (
   snapshotValue = "B",
   chainId = "31337",
   safeThreshold = 1,
+  zodiacParams = {
+    timeout: 604800,
+    cooldown: 0,
+    expiration: 0,
+    bond: ethers.utils.parseEther("0.01"),
+    templateId: 0,
+    template: `{
+    "title": "Did the proposal with the id %s pass the execution of the transactions with hash 0x%s?",
+    "lang": "en",
+    "type": "bool",
+    "category": "DAO Proposal"
+    }`,
+  },
   maxSupply = 10000,
   maxSwap = 1000,
   release = 0,
@@ -39,17 +52,28 @@ const createChildDaoConfig = async (
     signature: toUtf8Bytes(signature),
   },
   _safeData: {
-    initializer:
-      (await createGnosisSetupTx(
-        owners,
-        safeThreshold,
-        ethers.constants.AddressZero,
-        [],
-        ContractAddresses[chainId].GnosisFallbackHandler,
-        ethers.constants.AddressZero,
-        0,
-        ethers.constants.AddressZero
-      )) || [],
+    safe: {
+      owners,
+      threshold: safeThreshold,
+      to: ethers.constants.AddressZero,
+      data: [],
+      fallbackHandler: ContractAddresses[chainId].GnosisFallbackHandler,
+      paymentToken: ethers.constants.AddressZero,
+      payment: 0,
+      paymentReceiver: ethers.constants.AddressZero,
+    },
+    zodiac: {
+      zodiacFactory: ContractAddresses[chainId].ZodiacFactory,
+      moduleMasterCopy: ContractAddresses[chainId].ZodiacRealityERC20,
+      oracle: ContractAddresses[chainId].RealityOracle,
+      timeout: zodiacParams.timeout,
+      cooldown: zodiacParams.cooldown,
+      expiration: zodiacParams.expiration,
+      bond: zodiacParams.bond,
+      templateId: zodiacParams.templateId,
+      template: zodiacParams.template,
+      arbitrator: ContractAddresses[chainId].RealityArbitrator,
+    },
   },
   _subdomain: {
     subdomain: toUtf8Bytes(subdomain),

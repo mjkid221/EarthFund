@@ -1,3 +1,4 @@
+import { ethers } from "ethers";
 export default {
   childDaoConfig: {
     chainId: 5,
@@ -11,6 +12,19 @@ export default {
     snapshotValue: "test-snapshot-value",
     subdomain: "test-subdomain",
     safeThreshold: 1, // NOTE: must be less than or equal to the number of owners, will throw error in script if owners array length is less
+    zodiacParams: {
+      timeout: 604800,
+      cooldown: 0,
+      expiration: 0,
+      bond: ethers.utils.parseEther("0.01"),
+      templateId: 0,
+      template: `{
+      "title": "Did the proposal with the id %s pass the execution of the transactions with hash 0x%s?",
+      "lang": "en",
+      "type": "bool",
+      "category": "DAO Proposal"
+      }`,
+    },
     maxSupply: 1000,
     maxSwap: 7500,
     release: 0,

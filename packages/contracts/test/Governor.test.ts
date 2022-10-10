@@ -5,7 +5,14 @@ import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
 import { ethers } from "hardhat";
 import { BigNumber } from "ethers";
-import { isAddress, keccak256, toUtf8Bytes } from "ethers/lib/utils";
+import { impersonateAccount } from "@nomicfoundation/hardhat-network-helpers";
+import {
+  BytesLike,
+  isAddress,
+  keccak256,
+  parseEther,
+  toUtf8Bytes,
+} from "ethers/lib/utils";
 import { solidity } from "ethereum-waffle";
 
 import ContractAddresses from "../constants/contractAddresses";
@@ -21,7 +28,11 @@ import {
   Governor__factory,
   IClearingHouse,
   IDonationsRouter,
+  ERC20,
+  IRealityETH,
+  IZodiacModule,
   EarthToken,
+  IENSController,
 } from "../typechain-types";
 
 chai.use(solidity);
@@ -30,8 +41,10 @@ const { expect } = chai;
 
 describe("Governor", () => {
   let deployer: SignerWithAddress, alice: SignerWithAddress;
-  let governor: IGovernor, donationsRouter: IDonationsRouter;
-  let ensRegistrar: IENSRegistrar;
+  let token: ERC20Singleton,
+    governor: IGovernor,
+    donationsRouter: IDonationsRouter;
+  let ensRegistrar: IENSRegistrar, ensController: IENSController;
   let tokenId: string;
 
   const domain = "earthfundTurboTestDomain31337";
@@ -129,7 +142,7 @@ describe("Governor", () => {
 
       await ensRegistrar.approve(governor.address, tokenId);
       await governor.addENSDomain(tokenId);
-      const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig([
+      const { _tokenData, _safeData, _subdomain } = createChildDaoConfig([
         alice.address,
       ]);
       earthToken = await ethers.getContract("EarthToken");
@@ -178,6 +191,7 @@ describe("Governor", () => {
         [alice.address],
         tokenName,
         tokenSymbol,
+        undefined,
         undefined,
         undefined,
         undefined,
@@ -464,6 +478,7 @@ describe("Governor", () => {
     });
   });
   describe("Create Cause", () => {
+    let token: ERC20;
     beforeEach(async () => {
       [, governor, , ensRegistrar, tokenId] = await setupNetwork(
         domain,
@@ -488,6 +503,7 @@ describe("Governor", () => {
 
       const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig(
         [alice.address],
+        undefined,
         undefined,
         undefined,
         undefined,
@@ -526,6 +542,7 @@ describe("Governor", () => {
 
       // Check that the cause is created correctly in donation router
       const cause = await donationsRouter.causeRecords(causeId);
+
       expect(cause.owner).to.eq(safe);
       expect(cause.rewardPercentage.toString()).to.eq(
         rewardPercentage.toString()
@@ -543,6 +560,239 @@ describe("Governor", () => {
 
       expect(await childDaoToken.balanceOf(safe)).to.eq(amountExpected);
       expect(await childDaoToken.balanceOf(deployer.address)).to.eq(0);
+    });
+  });
+  describe("Zodiac module", () => {
+    let tokenData: IGovernor.TokenStruct,
+      safeData: IGovernor.SafeStruct,
+      subdomain: IGovernor.SubdomainStruct;
+    let earthToken: EarthToken;
+    beforeEach(async () => {
+      [token, governor, ensController, ensRegistrar, tokenId] =
+        await setupNetwork(domain, deployer);
+
+      earthToken = await ethers.getContract("EarthToken");
+      await earthToken.increaseAllowance(
+        governor.address,
+        ethers.constants.MaxInt256
+      );
+
+      await ensRegistrar.approve(governor.address, tokenId);
+      await governor.addENSDomain(tokenId);
+      const { _tokenData, _safeData, _subdomain } = createChildDaoConfig([
+        alice.address,
+      ]);
+      tokenData = _tokenData;
+      safeData = _safeData;
+      subdomain = _subdomain;
+    });
+    it("should emit an event with the zodiac module details", async () => {
+      const moduleAddress = "0xb61673afCb924D6a2C294896e28DaCc12B6dFc82";
+      expect(await ethers.provider.getCode(moduleAddress)).to.eq("0x");
+
+      const reality: IRealityETH = await ethers.getContractAt(
+        "IRealityETH",
+        ContractAddresses["1"].RealityOracle
+      );
+      expect(await reality.template_hashes(71)).to.eq(
+        "0x0000000000000000000000000000000000000000000000000000000000000000"
+      );
+      await expect(governor.createChildDAO(tokenData, safeData, subdomain))
+        .to.emit(governor, "ZodiacModuleEnabled")
+        .withArgs(
+          ethers.utils.getAddress("0x51Db5638094666e8C01D37411A4672cC1341D3A7"),
+          moduleAddress,
+          71
+        );
+    });
+    it("should deploy a gnosis zodiac module", async () => {
+      const moduleAddress = "0xb61673afCb924D6a2C294896e28DaCc12B6dFc82";
+      expect(await ethers.provider.getCode(moduleAddress)).to.eq("0x");
+
+      const reality: IRealityETH = await ethers.getContractAt(
+        "IRealityETH",
+        ContractAddresses["1"].RealityOracle
+      );
+      expect(await reality.template_hashes(71)).to.eq(
+        "0x0000000000000000000000000000000000000000000000000000000000000000"
+      );
+      await governor.createChildDAO(tokenData, safeData, subdomain);
+
+      expect(await ethers.provider.getCode(moduleAddress)).to.not.eq("0x");
+    });
+    it("should enable the module on the safe", async () => {
+      const safeTx = await (
+        await governor.createChildDAO(tokenData, safeData, subdomain)
+      ).wait();
+      const module: IGnosisSafe = await ethers.getContractAt(
+        "IGnosisSafe",
+        safeTx.events?.find((el) => el.event === "ChildDaoCreated")?.args?.safe
+      );
+      expect(
+        await module.isModuleEnabled(
+          safeTx.events?.find((el) => el.event === "ZodiacModuleEnabled")?.args
+            ?.module
+        )
+      ).to.eq(true);
+    });
+    it("should remove the governor from the safe", async () => {
+      const tx = await (
+        await governor.createChildDAO(tokenData, safeData, subdomain)
+      ).wait();
+      const safe: IGnosisSafe = await ethers.getContractAt(
+        "IGnosisSafe",
+        tx.events?.find((el) => el.event === "ChildDaoCreated")?.args?.safe
+      );
+      expect(await safe.isOwner(governor.address)).to.eq(false);
+    });
+    it("should create a reality.eth template if required", async () => {
+      const reality: IRealityETH = await ethers.getContractAt(
+        "IRealityETH",
+        ContractAddresses["1"].RealityOracle
+      );
+      expect(await reality.template_hashes(71)).to.eq(
+        "0x0000000000000000000000000000000000000000000000000000000000000000"
+      );
+      await governor.createChildDAO(tokenData, safeData, subdomain);
+      expect(await reality.template_hashes(71)).to.eq(
+        keccak256(toUtf8Bytes(safeData.zodiac.template))
+      );
+    });
+    it("should reuse an existing reality.eth template if provided", async () => {
+      const reality: IRealityETH = await ethers.getContractAt(
+        "IRealityETH",
+        ContractAddresses["1"].RealityOracle
+      );
+      expect(await reality.template_hashes(70)).to.not.eq(
+        "0x0000000000000000000000000000000000000000000000000000000000000000"
+      );
+      safeData.zodiac.template = "";
+      safeData.zodiac.templateId = 70;
+      const safeTx = await (
+        await governor.createChildDAO(tokenData, safeData, subdomain)
+      ).wait();
+      const module: IZodiacModule = await ethers.getContractAt(
+        "IZodiacModule",
+        safeTx.events?.find((el) => el.event === "ZodiacModuleEnabled")?.args
+          ?.module
+      );
+
+      expect(await module.template()).to.eq(70);
+    });
+
+    it("should set the safe threshold correctly", async () => {
+      const tx = await (
+        await governor.createChildDAO(tokenData, safeData, subdomain)
+      ).wait();
+      const safe: IGnosisSafe = await ethers.getContractAt(
+        "IGnosisSafe",
+        tx.events?.find((el) => el.event === "ChildDaoCreated")?.args?.safe
+      );
+      expect(await safe.getThreshold()).to.eq(safeData.safe.threshold);
+    });
+  });
+
+  describe("Predict deployment addresses", () => {
+    let earthToken: EarthToken;
+    it("should return the correct addresses", async () => {
+      [token, governor, ensController, ensRegistrar, tokenId] =
+        await setupNetwork(domain, deployer);
+      const { _tokenData, _safeData, _subdomain } = createChildDaoConfig([
+        alice.address,
+      ]);
+      const addr = await governor.callStatic.getPredictedAddresses(
+        _tokenData,
+        _safeData,
+        _subdomain.subdomain
+      );
+
+      earthToken = await ethers.getContract("EarthToken");
+      await earthToken.increaseAllowance(
+        governor.address,
+        ethers.constants.MaxInt256
+      );
+
+      await ensRegistrar.approve(governor.address, tokenId);
+      await governor.addENSDomain(tokenId);
+      const safeTx = await (
+        await governor.createChildDAO(_tokenData, _safeData, _subdomain)
+      ).wait();
+      expect(
+        safeTx.events?.find((el) => el.event === "ChildDaoCreated")?.args?.safe
+      ).to.eq(addr.safe);
+      expect(
+        safeTx.events?.find((el) => el.event === "ChildDaoCreated")?.args?.token
+      ).to.eq(addr.token);
+      expect(
+        safeTx.events?.find((el) => el.event === "ZodiacModuleEnabled")?.args
+          ?.module
+      ).to.eq(addr.realityModule);
+    });
+  });
+  describe("Set ENS text record", () => {
+    let safe: IGnosisSafe;
+    let name: BytesLike, ensResolver: PublicResolver, childNode: string;
+    let earthToken: EarthToken;
+    beforeEach(async () => {
+      [token, governor, ensController, ensRegistrar, tokenId] =
+        await setupNetwork(domain, deployer);
+
+      ensResolver = await ethers.getContractAt(
+        "PublicResolver",
+        ContractAddresses["31337"].ENSResolver
+      );
+      await ensRegistrar.approve(governor.address, tokenId);
+      await governor.addENSDomain(tokenId);
+      const { _tokenData, _safeData, _subdomain } = createChildDaoConfig([
+        alice.address,
+      ]);
+      name = _subdomain.subdomain;
+
+      earthToken = await ethers.getContract("EarthToken");
+      await earthToken.increaseAllowance(
+        governor.address,
+        ethers.constants.MaxInt256
+      );
+
+      const safeTx = await (
+        await governor.createChildDAO(_tokenData, _safeData, _subdomain)
+      ).wait();
+      safe = await ethers.getContractAt(
+        "IGnosisSafe",
+        safeTx.events?.find((el) => el.event === "ChildDaoCreated")?.args?.safe
+      );
+      safeTx.events?.find(
+        (el) => el.eventSignature === "ChildDaoCreated(address,address,bytes32)"
+      )?.args?.node;
+      childNode = safeTx.events?.find(
+        (el) => el.eventSignature === "ChildDaoCreated(address,address,bytes32)"
+      )?.args?.node;
+    });
+    it("should allow subdomain account to set a text record", async () => {
+      await impersonateAccount(safe.address);
+
+      const badSafe = await ethers.getSigner(safe.address);
+
+      expect((await ensResolver.functions.text(childNode, "A"))[0]).to.eq("B");
+
+      await deployer.sendTransaction({
+        to: badSafe.address,
+        value: parseEther("1"),
+      });
+      await governor
+        .connect(badSafe)
+        .setENSRecord(name, toUtf8Bytes("A"), toUtf8Bytes("C"));
+
+      expect((await ensResolver.functions.text(childNode, "A"))[0]).to.eq("C");
+    });
+    it("should prevent unauthorized access", async () => {
+      await expect(
+        governor.setENSRecord(
+          name,
+          toUtf8Bytes("snapshot"),
+          toUtf8Bytes("ipfs://someOtherCID")
+        )
+      ).to.be.revertedWith("Invalid owner");
     });
   });
 });

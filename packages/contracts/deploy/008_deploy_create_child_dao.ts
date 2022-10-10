@@ -68,6 +68,7 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     config.childDaoConfig.snapshotValue,
     config.childDaoConfig.chainId.toString(),
     config.childDaoConfig.safeThreshold,
+    config.childDaoConfig.zodiacParams,
     config.childDaoConfig.maxSupply,
     config.childDaoConfig.maxSwap,
     config.childDaoConfig.release,
