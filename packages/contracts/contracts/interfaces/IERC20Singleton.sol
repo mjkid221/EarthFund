@@ -8,7 +8,9 @@ interface IERC20Singleton {
     bytes calldata _name,
     bytes calldata _symbol,
     uint256 _maxSupply,
-    address _owner
+    address _owner,
+    address _preMintDestination,
+    uint256 _preMint
   ) external;
 
   function mint(address account, uint256 amount) external;

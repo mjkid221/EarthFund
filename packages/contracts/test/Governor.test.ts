@@ -3,7 +3,7 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
-import { ethers } from "hardhat";
+import { ethers, network } from "hardhat";
 import { BigNumber } from "ethers";
 import { impersonateAccount } from "@nomicfoundation/hardhat-network-helpers";
 import {
@@ -244,7 +244,9 @@ describe("Governor", () => {
           toUtf8Bytes("New token"),
           toUtf8Bytes("NEW"),
           toUtf8Bytes("1000"),
-          deployer.address
+          deployer.address,
+          deployer.address,
+          parseEther("1")
         )
       ).to.be.rejectedWith("Initializable: contract is already initialized");
     });
@@ -554,6 +556,7 @@ describe("Governor", () => {
 
       // Check that balances are correct for earthtokens and daotoken
       const amountExpected = ethers.utils.parseEther(String(amountToMint));
+      // THIS ONE
       expect(await earthToken.balanceOf(clearingHouse.address)).to.eq(
         amountExpected
       );
@@ -561,7 +564,117 @@ describe("Governor", () => {
       expect(await childDaoToken.balanceOf(safe)).to.eq(amountExpected);
       expect(await childDaoToken.balanceOf(deployer.address)).to.eq(0);
     });
+
+    it("Should successfully deploy a token and pre-mint MORE than the per user limit to DAO safe", async () => {
+      const earthToken = await ethers.getContract("EarthToken");
+      const clearingHouse = await ethers.getContract("ClearingHouse");
+
+      await ensRegistrar.approve(governor.address, tokenId);
+      await governor.addENSDomain(ethers.BigNumber.from(tokenId));
+
+      const amountToMint = 1001;
+      const rewardPercentage = 10 ** 16;
+
+      const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig(
+        [alice.address],
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        rewardPercentage,
+        amountToMint,
+        undefined,
+        undefined,
+        undefined
+      );
+      await earthToken.increaseAllowance(
+        governor.address,
+        ethers.utils.parseEther(String(amountToMint))
+      );
+      const safeTx = await (
+        await governor.createChildDAO(_tokenData, _safeData, _subdomain)
+      ).wait();
+
+      const event: any = safeTx.events?.filter((x) => {
+        return x.event == "ChildDaoCreated";
+      })?.[0].args;
+      const { safe, token } = event;
+
+      const childDaoToken = await ethers.getContractAt("ERC20", token);
+
+      const causeId = await donationsRouter.tokenCauseIds(token);
+      expect(causeId).to.eq(1);
+
+      // Check that the cause is created correctly in donation router
+      const cause = await donationsRouter.causeRecords(causeId);
+
+      expect(cause.owner).to.eq(safe);
+      expect(cause.rewardPercentage.toString()).to.eq(
+        rewardPercentage.toString()
+      );
+
+      // Check that balances are correct for earthtokens and daotoken
+      const amountExpected = ethers.utils.parseEther(String(amountToMint));
+
+      expect(await earthToken.balanceOf(clearingHouse.address)).to.eq(
+        amountExpected
+      );
+
+      expect(await childDaoToken.balanceOf(safe)).to.eq(amountExpected);
+      expect(await childDaoToken.balanceOf(deployer.address)).to.eq(0);
+    });
+
+    it("Should  revert with MaxSupplyReached() if preMint exceeds maxSupply", async () => {
+      const earthToken = await ethers.getContract("EarthToken");
+      const clearingHouse = await ethers.getContract("ClearingHouse");
+
+      await ensRegistrar.approve(governor.address, tokenId);
+      await governor.addENSDomain(ethers.BigNumber.from(tokenId));
+
+      const amountToMint = 10001;
+      const rewardPercentage = 10 ** 16;
+
+      const { _tokenData, _safeData, _subdomain } = await createChildDaoConfig(
+        [alice.address],
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        rewardPercentage,
+        amountToMint,
+        undefined,
+        undefined,
+        undefined
+      );
+      await earthToken.increaseAllowance(
+        governor.address,
+        ethers.utils.parseEther(String(amountToMint))
+      );
+      await expect(
+        governor.createChildDAO(_tokenData, _safeData, _subdomain)
+      ).revertedWith("MaxSupplyReached");
+    });
   });
+  //Due to RealityETH not having a public getter for the next template ID value it has been hardcoded to 91 which is the next template ID based on forking at block 15917693.
+  //Similar applies for the module address
   describe("Zodiac module", () => {
     let tokenData: IGovernor.TokenStruct,
       safeData: IGovernor.SafeStruct,
@@ -587,33 +700,33 @@ describe("Governor", () => {
       subdomain = _subdomain;
     });
     it("should emit an event with the zodiac module details", async () => {
-      const moduleAddress = "0xb61673afCb924D6a2C294896e28DaCc12B6dFc82";
+      const moduleAddress = "0xd21955a54cc996bace2040a62f4868a12685312e";
       expect(await ethers.provider.getCode(moduleAddress)).to.eq("0x");
 
       const reality: IRealityETH = await ethers.getContractAt(
         "IRealityETH",
         ContractAddresses["1"].RealityOracle
       );
-      expect(await reality.template_hashes(71)).to.eq(
+      expect(await reality.template_hashes(91)).to.eq(
         "0x0000000000000000000000000000000000000000000000000000000000000000"
       );
       await expect(governor.createChildDAO(tokenData, safeData, subdomain))
         .to.emit(governor, "ZodiacModuleEnabled")
         .withArgs(
-          ethers.utils.getAddress("0x51Db5638094666e8C01D37411A4672cC1341D3A7"),
-          moduleAddress,
-          71
+          "0xe2eF663b50Ad3fAf2781A7be280AAD379faB6641",
+          ethers.utils.getAddress(moduleAddress),
+          91
         );
     });
     it("should deploy a gnosis zodiac module", async () => {
-      const moduleAddress = "0xb61673afCb924D6a2C294896e28DaCc12B6dFc82";
+      const moduleAddress = "0xd21955a54cc996bace2040a62f4868a12685312e";
       expect(await ethers.provider.getCode(moduleAddress)).to.eq("0x");
 
       const reality: IRealityETH = await ethers.getContractAt(
         "IRealityETH",
         ContractAddresses["1"].RealityOracle
       );
-      expect(await reality.template_hashes(71)).to.eq(
+      expect(await reality.template_hashes(91)).to.eq(
         "0x0000000000000000000000000000000000000000000000000000000000000000"
       );
       await governor.createChildDAO(tokenData, safeData, subdomain);
@@ -650,11 +763,11 @@ describe("Governor", () => {
         "IRealityETH",
         ContractAddresses["1"].RealityOracle
       );
-      expect(await reality.template_hashes(71)).to.eq(
+      expect(await reality.template_hashes(91)).to.eq(
         "0x0000000000000000000000000000000000000000000000000000000000000000"
       );
       await governor.createChildDAO(tokenData, safeData, subdomain);
-      expect(await reality.template_hashes(71)).to.eq(
+      expect(await reality.template_hashes(91)).to.eq(
         keccak256(toUtf8Bytes(safeData.zodiac.template))
       );
     });
@@ -663,11 +776,11 @@ describe("Governor", () => {
         "IRealityETH",
         ContractAddresses["1"].RealityOracle
       );
-      expect(await reality.template_hashes(70)).to.not.eq(
+      expect(await reality.template_hashes(90)).to.not.eq(
         "0x0000000000000000000000000000000000000000000000000000000000000000"
       );
       safeData.zodiac.template = "";
-      safeData.zodiac.templateId = 70;
+      safeData.zodiac.templateId = 90;
       const safeTx = await (
         await governor.createChildDAO(tokenData, safeData, subdomain)
       ).wait();
@@ -677,7 +790,7 @@ describe("Governor", () => {
           ?.module
       );
 
-      expect(await module.template()).to.eq(70);
+      expect(await module.template()).to.eq(90);
     });
 
     it("should set the safe threshold correctly", async () => {
