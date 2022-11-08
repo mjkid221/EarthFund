@@ -118,8 +118,18 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
     address token = _createERC20Clone(
       _tokenData.tokenName,
       _tokenData.tokenSymbol,
-      _tokenData.maxSupply
+      _tokenData.maxSupply,
+      safe,
+      _tokenData.mintingAmount
     );
+    if (_tokenData.mintingAmount > 0) {
+      ERC20 earthToken = ERC20(clearingHouse.earthToken());
+      earthToken.transferFrom(
+        msg.sender,
+        address(clearingHouse),
+        _tokenData.mintingAmount
+      );
+    }
     /// Register the token in the clearing house contract
     clearingHouse.registerChildDao(
       ERC20Singleton(token),
@@ -147,17 +157,7 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
           daoToken: address(token)
         })
       )
-    {
-      // Mint specified amount to dao safe
-      _mintToken(
-        address(safe),
-        ERC20Singleton(token),
-        _tokenData.mintingAmount,
-        _tokenData.KYCId,
-        _tokenData.expiry,
-        _tokenData.signature
-      );
-    } catch (bytes memory reason) {
+    {} catch (bytes memory reason) {
       emit RegisterCauseFailure(reason);
     }
   }
@@ -329,7 +329,9 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
   function _createERC20Clone(
     bytes memory _name,
     bytes memory _symbol,
-    uint256 _maxSupply
+    uint256 _maxSupply,
+    address _preMintDestination,
+    uint256 _preMint
   ) internal returns (address token) {
     token = Clones.cloneDeterministic(
       erc20Singleton,
@@ -339,7 +341,9 @@ contract Governor is IGovernor, Ownable, ERC721Holder {
       _name,
       _symbol,
       _maxSupply,
-      address(clearingHouse)
+      address(clearingHouse),
+      _preMintDestination,
+      _preMint
     );
   }
 

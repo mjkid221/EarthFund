@@ -28,8 +28,16 @@ contract ERC20Singleton is
     bytes calldata _name,
     bytes calldata _symbol,
     uint256 _maxSupply,
-    address _owner
+    address _owner,
+    address _preMintDestination,
+    uint256 _preMint
   ) external initializer {
+    if (_preMint > _maxSupply) {
+      revert MaxSupplyReached();
+    }
+    if (_preMint > 0) {
+      _mint(_preMintDestination, _preMint);
+    }
     __ERC20_init(string(_name), string(_symbol));
     __Ownable_init();
     maxSupply = _maxSupply;

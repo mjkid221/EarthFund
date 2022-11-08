@@ -2,7 +2,7 @@ import { ethers, deployments, network } from "hardhat";
 import chai from "chai";
 import chaiAsPromised from "chai-as-promised";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { ERC20Singleton  } from "../typechain-types";
+import { ERC20Singleton } from "../typechain-types";
 import { parseEther } from "@ethersproject/units";
 import { toUtf8Bytes } from "ethers/lib/utils";
 import { BigNumber } from "ethers";
@@ -28,7 +28,9 @@ describe("ERC20Singleton", () => {
         toUtf8Bytes(name),
         toUtf8Bytes(symbol),
         parseEther("1000"),
-        alice.address
+        alice.address,
+        alice.address,
+        parseEther("1")
       )
     ).to.be.rejectedWith("Initializable: contract is already initialized");
   });
