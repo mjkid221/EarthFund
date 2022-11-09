@@ -18,6 +18,9 @@ interface IContractAddresses {
   ENSController: string;
   RealityOracle: string;
   RealityArbitrator: string;
+  ERC20Singleton?: string;
+  ClearingHouse?: string;
+  DonationsRouter?: string;
 }
 
 export const mainnet: IContractAddresses = {
@@ -36,6 +39,9 @@ export const mainnet: IContractAddresses = {
   ENSResolver: "0x4976fb03C32e5B8cfe2b6cCB31c09Ba78EBaBa41",
   ENSRegistrar: "0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85",
   ENSController: "0x283Af0B28c62C092C9727F1Ee09c02CA627EB7F5",
+  ERC20Singleton: "0x89065E3CCD31C88e2aC0669Af164C267f0622da0",
+  ClearingHouse: "0x415e3A6F96623ceE32aA7F6ADaA3787df3c33361",
+  DonationsRouter: "0x17aA5D761f931493F9E6a2a2Fd488Fc81704B67a",
 };
 
 export const goerli: IContractAddresses = {

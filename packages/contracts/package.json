@@ -18,6 +18,7 @@
     "@types/chai-as-promised": "^7.1.5",
     "@types/mocha": "^9.1.0",
     "@types/node": "^17.0.21",
+    "@types/prompts": "^2.4.1",
     "chai": "^4.3.6",
     "chai-as-promised": "^7.1.1",
     "dotenv": "^16.0.0",
@@ -50,6 +51,7 @@
     "@prb/math": "^2.5.0",
     "@reality.eth/contracts": "^3.0.15",
     "@snapshot-labs/snapshot.js": "^0.4.36",
-    "axios": "^1.0.0"
+    "axios": "^1.0.0",
+    "prompts": "^2.4.2"
   }
 }
