@@ -23,7 +23,7 @@ jobs:
         uses: thollander/actions-comment-pull-request@v1
         with:
           message: |
-            Ayyy boss, looks like this PR modifies the contracts package. Open the Checks tab or click the following link, download the artifacts and assess the analysis results. Don't be a chook, do it carefully. https://github.com/Labrys-Group/test-slither/pull/${{ steps.findPr.outputs.pr }}/checks
+            Ayyy boss, looks like this PR modifies the contracts package. Open the Checks tab or click the following link, download the artifacts and assess the analysis results. Don't be a chook, do it carefully. https://github.com/Labrys-Group/EarthFund/pull/${{ steps.findPr.outputs.pr }}/checks
           pr_number: ${{ steps.findPr.outputs.pr }}
 
       - name: 🐍 Slither Analysis
