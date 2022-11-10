@@ -1,0 +1,43 @@
+name: Slither Analysis
+on: 
+  pull_request:
+    paths:
+      - packages/contracts/contracts/**
+jobs:
+  analyze-contracts:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🏗 Checkout Repo
+        uses: actions/checkout@v2
+        
+      - name: 🔍 Find PR Number
+        uses: jwalton/gh-find-current-pr@v1
+        id: findPr
+        with:
+          state: open
+        env:
+          PR: ${{ steps.findPr.outputs.pr }}
+        
+      - name: 💬 Comment on PR
+        uses: thollander/actions-comment-pull-request@v1
+        with:
+          message: |
+            Ayyy boss, looks like this PR modifies the contracts package. Open the Checks tab or click the following link, download the artifacts and assess the analysis results. Don't be a chook, do it carefully. https://github.com/Labrys-Group/test-slither/pull/${{ steps.findPr.outputs.pr }}/checks
+          pr_number: ${{ steps.findPr.outputs.pr }}
+
+      - name: 🐍 Slither Analysis
+        uses: crytic/slither-action@v0.2.0
+        id: slither
+        with:
+          node-version: 16
+          sarif: packages/contracts/results.sarif
+          target: packages/contracts
+          slither-config: packages/contracts/slither.config.json
+          fail-on: none
+          
+      - name: 📁 Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: sarif-output
+          path: packages/contracts/results.sarif
