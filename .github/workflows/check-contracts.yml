@@ -38,6 +38,8 @@ jobs:
           target: packages/contracts
           slither-config: packages/contracts/slither.config.json
           fail-on: none
+        env:
+          USERID: 1000
           
       - name: 📁 Upload Artifact
         uses: actions/upload-artifact@v3
