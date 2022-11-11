@@ -11,8 +11,8 @@ jobs:
       - name: 🏗 Checkout Repo
         uses: actions/checkout@v2
         
-      - name: ⚠️ Fix container ownership
-        run: chown root:root
+#       - name: ⚠️ Fix container ownership
+#         run: chown root:root
         
       - name: 🔍 Find PR Number
         uses: jwalton/gh-find-current-pr@v1
