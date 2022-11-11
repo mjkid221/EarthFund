@@ -6,13 +6,13 @@ on:
 jobs:
   analyze-contracts:
     runs-on: ubuntu-latest
+    container:
+      image: node:16.18
+      options: --user 1001  # ← THIS IS THE IMPORTANT LINE!
 
     steps:
       - name: 🏗 Checkout Repo
         uses: actions/checkout@v2
-        
-#       - name: ⚠️ Fix container ownership
-#         run: chown root:root
         
       - name: 🔍 Find PR Number
         uses: jwalton/gh-find-current-pr@v1
@@ -38,8 +38,6 @@ jobs:
           target: packages/contracts
           slither-config: packages/contracts/slither.config.json
           fail-on: none
-        env:
-          USERID: 1000
           
       - name: 📁 Upload Artifact
         uses: actions/upload-artifact@v3
