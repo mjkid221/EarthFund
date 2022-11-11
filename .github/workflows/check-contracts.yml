@@ -11,6 +11,9 @@ jobs:
       - name: 🏗 Checkout Repo
         uses: actions/checkout@v2
         
+      - name: ⚠️ Fix container ownership
+        run: chown root:root
+        
       - name: 🔍 Find PR Number
         uses: jwalton/gh-find-current-pr@v1
         id: findPr
@@ -25,12 +28,6 @@ jobs:
           message: |
             Ayyy boss, looks like this PR modifies the contracts package. Open the Checks tab or click the following link, download the artifacts and assess the analysis results. Don't be a chook, do it carefully. https://github.com/Labrys-Group/EarthFund/pull/${{ steps.findPr.outputs.pr }}/checks
           pr_number: ${{ steps.findPr.outputs.pr }}
-          
-#       - name: 🩹 CHOWN Cache
-#         run: chown -R 1001:1001 /github/home/.cache && echo "Cache owned"
-
-      - name: Fix it
-        run: mkdir /github/home/.cache/hardhat-nodejs
 
       - name: 🐍 Slither Analysis
         uses: crytic/slither-action@v0.2.0
